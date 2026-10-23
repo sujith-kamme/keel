@@ -1,15 +1,20 @@
+# Free-tier Blueprint. Postgres lives on Neon (its free tier doesn't expire),
+# so DATABASE_URL is entered by hand. Free services sleep after 15 minutes idle.
 services:
   - type: web
     name: keel-api
     runtime: node
-    plan: starter
-    buildCommand: npm ci
-    preDeployCommand: npm run db:migrate
+    plan: free
+    # Free plans have no pre-deploy step, so migrations run at build time.
+    buildCommand: npm ci && npm run db:migrate
     startCommand: npm run start -w @keel/api
     healthCheckPath: /health
     envVars:
+      # No background-worker service on the free tier: the API runs the worker.
+      - key: RUN_WORKER
+        value: "true"
       - key: DATABASE_URL
-        fromDatabase: { name: keel-db, property: connectionString }
+        sync: false
       - key: REDIS_URL
         fromService: { type: keyvalue, name: keel-kv, property: connectionString }
       - key: PAYPAL_CLIENT_ID
@@ -20,39 +25,19 @@ services:
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
-
-  - type: worker
-    name: keel-worker
-    runtime: node
-    plan: starter
-    buildCommand: npm ci
-    startCommand: npm run start -w @keel/worker
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase: { name: keel-db, property: connectionString }
-      - key: REDIS_URL
-        fromService: { type: keyvalue, name: keel-kv, property: connectionString }
-      - key: PAYPAL_CLIENT_ID
-        sync: false
-      - key: PAYPAL_CLIENT_SECRET
-        sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
       - key: ZAPIER_HOOK_URL
         sync: false
 
   - type: web
     name: keel-web
     runtime: node
-    plan: starter
+    plan: free
     buildCommand: npm ci && npm run build -w @keel/web
     startCommand: npm run start -w @keel/web
 
   - type: keyvalue
     name: keel-kv
-    plan: starter
+    plan: free
+    # BullMQ requires that Redis never evicts keys.
+    maxmemoryPolicy: noeviction
     ipAllowList: []
-
-databases:
-  - name: keel-db
-    plan: basic-256mb
