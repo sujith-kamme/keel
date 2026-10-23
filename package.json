@@ -1,0 +1,26 @@
+{
+  "name": "keel",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.12" },
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:generate": "npm run generate -w @keel/db",
+    "db:migrate": "npm run migrate -w @keel/db",
+    "dev:api": "npm run dev -w @keel/api",
+    "dev:worker": "npm run dev -w @keel/worker",
+    "dev:web": "npm run dev -w @keel/web",
+    "paypal:ping": "tsx --env-file=.env scripts/paypal-ping.ts",
+    "worker:ping": "tsx --env-file=.env scripts/worker-ping.ts",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12"
+  }
+}
