@@ -6,3 +6,5 @@ export type { DecisionInput, DecisionResult } from "./decide";
 export { canonicalJson } from "./canonical";
 export { chainEntry, hashEntry, verifyChain } from "./ledger";
 export type { ChainCheck, LedgerContent, LedgerRecord } from "./ledger";
+export { replay } from "./replay";
+export type { DecisionPayload } from "./replay";
