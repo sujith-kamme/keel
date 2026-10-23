@@ -3,3 +3,6 @@ export { Policy, Rule, RULE_STAGE } from "./policy";
 export type { Facts } from "./facts";
 export { decide } from "./decide";
 export type { DecisionInput, DecisionResult } from "./decide";
+export { canonicalJson } from "./canonical";
+export { chainEntry, hashEntry, verifyChain } from "./ledger";
+export type { ChainCheck, LedgerContent, LedgerRecord } from "./ledger";
