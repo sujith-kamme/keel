@@ -9,7 +9,8 @@ export const CommitmentType = z.enum([
 export type CommitmentType = z.infer<typeof CommitmentType>;
 
 export const Money = z.object({
-  value: z.string().regex(/^\d+(\.\d{1,2})?$/),
+  // Same bound as @keel/engine money parsing: at most 13 whole digits.
+  value: z.string().regex(/^\d{1,13}(\.\d{1,2})?$/),
   currency: z.string().length(3),
 });
 

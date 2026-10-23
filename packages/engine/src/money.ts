@@ -1,4 +1,6 @@
-const MONEY = /^\d+(\.\d{1,2})?$/;
+// At most 13 whole digits keeps every value exactly representable as integer
+// cents (< 2^53), so huge amounts can't round into each other.
+export const MONEY = /^\d{1,13}(\.\d{1,2})?$/;
 
 // Money is carried as decimal strings (PayPal's format) and compared as integer
 // cents so no floating-point rounding can change a decision.

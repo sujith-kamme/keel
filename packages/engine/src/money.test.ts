@@ -8,11 +8,12 @@ describe("toCents", () => {
     ["45.50", 4550],
     ["0.07", 7],
     ["1200.99", 120099],
+    ["9999999999999.99", 999999999999999],
   ])("converts %s to %d cents", (value, cents) => {
     expect(toCents(value)).toBe(cents);
   });
 
-  it.each(["45.001", "-1", "abc", "", "1e3", " 45"])("rejects %j", (value) => {
+  it.each(["45.001", "-1", "abc", "", "1e3", " 45", "90071992547409.93"])("rejects %j", (value) => {
     expect(() => toCents(value)).toThrow("Invalid money value");
   });
 });

@@ -1,7 +1,8 @@
 import { CommitmentType } from "@keel/core";
 import { z } from "zod";
+import { MONEY } from "./money";
 
-const MoneyValue = z.string().regex(/^\d+(\.\d{1,2})?$/);
+const MoneyValue = z.string().regex(MONEY);
 
 export const Rule = z.discriminatedUnion("rule", [
   z.object({ rule: z.literal("max_amount_le_captured_minus_refunded") }),
