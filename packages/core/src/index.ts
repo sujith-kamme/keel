@@ -6,6 +6,7 @@ export const CommitmentType = z.enum([
   "REFUND", "DISCOUNT", "PRICE", "POLICY_CLAIM",
   "CANCELLATION", "RETENTION_OFFER", "DATA_DISCLOSURE", "DELIVERY_PROMISE",
 ]);
+export type CommitmentType = z.infer<typeof CommitmentType>;
 
 export const Money = z.object({
   value: z.string().regex(/^\d+(\.\d{1,2})?$/),
