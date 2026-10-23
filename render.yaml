@@ -1,0 +1,58 @@
+services:
+  - type: web
+    name: keel-api
+    runtime: node
+    plan: starter
+    buildCommand: npm ci
+    preDeployCommand: npm run db:migrate
+    startCommand: npm run start -w @keel/api
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: keel-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: keel-kv, property: connectionString }
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+  - type: worker
+    name: keel-worker
+    runtime: node
+    plan: starter
+    buildCommand: npm ci
+    startCommand: npm run start -w @keel/worker
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: keel-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: keel-kv, property: connectionString }
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ZAPIER_HOOK_URL
+        sync: false
+
+  - type: web
+    name: keel-web
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build -w @keel/web
+    startCommand: npm run start -w @keel/web
+
+  - type: keyvalue
+    name: keel-kv
+    plan: starter
+    ipAllowList: []
+
+databases:
+  - name: keel-db
+    plan: basic-256mb
