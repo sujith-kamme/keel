@@ -1,0 +1,42 @@
+import { z } from "zod";
+
+// Shapes from docs/FSD.md §5.2 and §5.6. Engine logic arrives in Phase 1.
+
+export const CommitmentType = z.enum([
+  "REFUND", "DISCOUNT", "PRICE", "POLICY_CLAIM",
+  "CANCELLATION", "RETENTION_OFFER", "DATA_DISCLOSURE", "DELIVERY_PROMISE",
+]);
+
+export const Money = z.object({
+  value: z.string().regex(/^\d+(\.\d{1,2})?$/),
+  currency: z.string().length(3),
+});
+
+export const Commitment = z.object({
+  id: z.string(),
+  type: CommitmentType,
+  source: z.enum(["TOOL_CALL", "FREE_TEXT"]),
+  order_id: z.string().optional(),
+  amount: Money.optional(),
+  percent: z.number().optional(),
+  policy_id: z.string().optional(),
+  conditions: z.array(z.string()).optional(),
+  quoted_text: z.string().optional(),
+  confidence: z.number().min(0).max(1).optional(),
+});
+export type Commitment = z.infer<typeof Commitment>;
+
+export const Verdict = z.enum(["ALLOW", "REWRITE", "BLOCK", "HOLD"]);
+export type Verdict = z.infer<typeof Verdict>;
+
+export const ReasonCode = z.enum([
+  "OK", "CAPABILITY_OUT_OF_SCOPE", "POLICY_NOT_FOUND", "POLICY_UNAPPROVED_CLAIM",
+  "FREE_TEXT_COMMITMENT", "AMOUNT_EXCEEDS_CAPTURED", "OUTSIDE_WINDOW", "PAYER_NOT_VERIFIED",
+  "BUDGET_EXCEEDED", "ABOVE_AUTO_APPROVE", "DISCOUNT_EXCEEDS_LIMIT", "PRICE_BELOW_MIN",
+  "INJECTION_DETECTED", "RISK_THRESHOLD", "EXTRACTOR_UNAVAILABLE", "VERIFIER_UNAVAILABLE",
+  "POLICY_INVALID",
+]);
+export type ReasonCode = z.infer<typeof ReasonCode>;
+
+export const Mode = z.enum(["LIVE", "CONTEXT", "SHADOW", "QUARANTINE"]);
+export type Mode = z.infer<typeof Mode>;
