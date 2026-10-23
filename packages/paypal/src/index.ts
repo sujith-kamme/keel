@@ -26,6 +26,14 @@ export function configFromEnv(env = process.env): PayPalConfig {
   };
 }
 
+// PayPal resource IDs are alphanumeric with dashes/underscores. Anything else is
+// rejected so caller-supplied IDs (ultimately from an AI agent) can't rewrite the
+// request path and reach other PayPal endpoints with Keel's credentials.
+function resourceId(id: string): string {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) throw new Error(`Invalid PayPal resource id: ${JSON.stringify(id)}`);
+  return id;
+}
+
 export class PayPalClient {
   private token: { value: string; expiresAt: number } | null = null;
 
@@ -73,7 +81,7 @@ export class PayPalClient {
     );
   }
 
-  getOrder(orderId: string) {
-    return this.request<{ id: string; status: string }>("GET", `/v2/checkout/orders/${orderId}`);
+  async getOrder(orderId: string) {
+    return this.request<{ id: string; status: string }>("GET", `/v2/checkout/orders/${resourceId(orderId)}`);
   }
 }

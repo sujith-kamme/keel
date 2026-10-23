@@ -50,4 +50,14 @@ describe("PayPalClient", () => {
     expect((error as PayPalError).status).toBe(404);
     expect((error as PayPalError).debugId).toBe("dbg123");
   });
+
+  it.each(["../../v1/customer/disputes", "..", "O-1?x=1", "O 1", ""])(
+    "rejects unsafe resource id %j before any request is made",
+    async (id) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      await expect(new PayPalClient(config).getOrder(id)).rejects.toThrow("Invalid PayPal resource id");
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 });
