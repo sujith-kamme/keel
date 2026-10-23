@@ -8,6 +8,14 @@
     "migrate": "drizzle-kit migrate",
     "typecheck": "tsc -p ."
   },
-  "dependencies": { "drizzle-orm": "0.45.4", "pg": "8.23.1" },
-  "devDependencies": { "@types/pg": "8.23.1", "drizzle-kit": "0.31.11" }
+  "dependencies": {
+    "@keel/core": "*",
+    "@keel/engine": "*",
+    "drizzle-orm": "0.45.4",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1",
+    "drizzle-kit": "0.31.11"
+  }
 }

@@ -8,6 +8,13 @@
       "when": 1792788750863,
       "tag": "0000_boring_overlord",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792791315471,
+      "tag": "0001_ledger_append_only",
+      "breakpoints": true
     }
   ]
 }

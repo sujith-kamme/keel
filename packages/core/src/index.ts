@@ -6,9 +6,11 @@ export const CommitmentType = z.enum([
   "REFUND", "DISCOUNT", "PRICE", "POLICY_CLAIM",
   "CANCELLATION", "RETENTION_OFFER", "DATA_DISCLOSURE", "DELIVERY_PROMISE",
 ]);
+export type CommitmentType = z.infer<typeof CommitmentType>;
 
 export const Money = z.object({
-  value: z.string().regex(/^\d+(\.\d{1,2})?$/),
+  // Same bound as @keel/engine money parsing: at most 13 whole digits.
+  value: z.string().regex(/^\d{1,13}(\.\d{1,2})?$/),
   currency: z.string().length(3),
 });
 
@@ -31,7 +33,7 @@ export type Verdict = z.infer<typeof Verdict>;
 
 export const ReasonCode = z.enum([
   "OK", "CAPABILITY_OUT_OF_SCOPE", "POLICY_NOT_FOUND", "POLICY_UNAPPROVED_CLAIM",
-  "FREE_TEXT_COMMITMENT", "AMOUNT_EXCEEDS_CAPTURED", "OUTSIDE_WINDOW", "PAYER_NOT_VERIFIED",
+  "FREE_TEXT_COMMITMENT", "AMOUNT_EXCEEDS_CAPTURED", "CURRENCY_MISMATCH", "OUTSIDE_WINDOW", "PAYER_NOT_VERIFIED",
   "BUDGET_EXCEEDED", "ABOVE_AUTO_APPROVE", "DISCOUNT_EXCEEDS_LIMIT", "PRICE_BELOW_MIN",
   "INJECTION_DETECTED", "RISK_THRESHOLD", "EXTRACTOR_UNAVAILABLE", "VERIFIER_UNAVAILABLE",
   "POLICY_INVALID",

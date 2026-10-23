@@ -2,13 +2,19 @@
   "name": "keel",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22.12" },
-  "workspaces": ["apps/*", "packages/*"],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:generate": "npm run generate -w @keel/db",
     "db:migrate": "npm run migrate -w @keel/db",
+    "db:seed": "tsx --env-file=.env packages/db/seed/policies.ts",
     "dev:api": "npm run dev -w @keel/api",
     "dev:worker": "npm run dev -w @keel/worker",
     "dev:web": "npm run dev -w @keel/web",
