@@ -48,15 +48,20 @@ function sameMoney(a: string, b: unknown): boolean {
   }
 }
 
-// The agent repeating Keel's own wording is not a free-text promise: the draft must
-// contain that message verbatim and the commitment span must lie inside it.
+// The agent repeating Keel's own wording is not a free-text promise: the commitment
+// span must lie inside a Keel message the draft quotes verbatim, and must not appear
+// anywhere else in the draft (otherwise one real confirmation could cover a copy of it
+// attached to a different order).
 function quotesKeel(c: Commitment, input: ReplyInput): boolean {
-  const draft = normalise(input.draft);
   const span = normalise(c.quoted_text);
-  return input.turn_decisions.some((d) => {
-    const message = d.message ? normalise(d.message) : "";
-    return message !== "" && span !== "" && draft.includes(message) && message.includes(span);
-  });
+  if (span === "") return false;
+  const quoted = input.turn_decisions
+    .map((d) => (d.message ? normalise(d.message) : ""))
+    .filter((m) => m !== "" && normalise(input.draft).includes(m));
+  if (!quoted.some((m) => m.includes(span))) return false;
+  // One removal per Keel message: a second copy of the same words is the agent's own text.
+  const rest = quoted.reduce((draft, m) => draft.replace(m, " "), normalise(input.draft));
+  return !normalise(rest).includes(span);
 }
 
 function isBacked(c: Commitment, input: ReplyInput): boolean {
@@ -84,6 +89,10 @@ function isBacked(c: Commitment, input: ReplyInput): boolean {
 
 export function decideReply(input: ReplyInput): ReplyResult {
   if (!input.extraction) return { verdict: "BLOCK", reason_codes: ["EXTRACTOR_UNAVAILABLE"], final_reply: SAFE_FALLBACK };
+  // A reply that tries to instruct an AI is never sent. Customer-side signals feed risk scoring (Phase 4).
+  if (input.extraction.injection_signals.some((s) => s.source === "reply")) {
+    return { verdict: "BLOCK", reason_codes: ["INJECTION_DETECTED"], final_reply: SAFE_FALLBACK };
+  }
 
   let rewrite: ReplyResult | undefined;
   for (const c of input.extraction.reply_commitments) {
