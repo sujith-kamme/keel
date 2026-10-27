@@ -147,7 +147,16 @@ describe("POST /v1/guard", () => {
     });
     const out = (await (await post(app, valid)).json()) as Record<string, unknown>;
     expect(out.verdict).toBe("BLOCK");
-    expect(calls.policy).toEqual([]);
+    expect(calls.policy).not.toContain("made-up");
+  });
+
+  it("loads every known policy when the reply has a policy claim, and none otherwise", async () => {
+    const withClaim = setup({ extract: async () => extraction([{ type: "POLICY_CLAIM", quoted_text: "x" }]) });
+    await post(withClaim.app, valid);
+    expect([...withClaim.calls.policy].sort()).toEqual([...KNOWN_POLICY_IDS].sort());
+    const without = setup({ extract: async () => extraction([]) });
+    await post(without.app, valid);
+    expect(without.calls.policy).toEqual([]);
   });
 
   it("records extractor metadata and passes the last customer message", async () => {
