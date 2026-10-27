@@ -44,7 +44,7 @@ const valid = { role: "customer", text: "hi", decision_ids: [] };
 describe("turns API", () => {
   it("rejects a missing or wrong merchant key on every route", async () => {
     const { app } = setup();
-    for (const headers of [{}, { authorization: `Bearer ${"x".repeat(32)}` }]) {
+    for (const headers of [{}, { authorization: `Bearer ${"x".repeat(32)}` }] as Record<string, string>[]) {
       const calls = [
         app.request("/v1/sessions", { headers }),
         app.request("/v1/sessions/ses_live", { headers }),
