@@ -45,7 +45,7 @@ Keep replies short and plain.
 
 <session>
 Customer: ${escape(context.customer_email)}
-Verified: ${context.verified ? "yes" : "no"}${context.verified ? "" : "\nThe customer is not verified: tell them to enter the verification code shown on screen before any refund."}
+Verified: ${context.verified ? "yes" : "no"}${context.verified ? "\nThe customer may have verified partway through the conversation; earlier requests to verify were correct at the time." : "\nThe customer is not verified: tell them to enter the verification code shown on screen before any refund."}
 Orders:
 ${orders}
 </session>`;
