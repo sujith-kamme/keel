@@ -129,6 +129,15 @@ describe("decideReply", () => {
     expect(r.final_reply).toBe(draft);
   });
 
+  it("backs a policy claim without an id when it lies inside an approved text the draft quotes", () => {
+    const draft = `Here it is: "${BEREAVEMENT}" Anything else?`;
+    const claim: C = { type: "POLICY_CLAIM", quoted_text: BEREAVEMENT };
+    expect(decideReply(input({ draft, extraction: ext(claim), policies })).verdict).toBe("ALLOW");
+    // Approved text not quoted in full → still unbacked.
+    const partial = "We don't offer special bereavement refunds.";
+    expect(decideReply(input({ draft: partial, extraction: ext({ type: "POLICY_CLAIM", quoted_text: partial }), policies })).verdict).toBe("BLOCK");
+  });
+
   it("blocks a policy claim with an unknown, null or missing policy id", () => {
     for (const [id, p] of [["nope", policies], [undefined, policies], ["policy-x", { "policy-x": null }], ["constructor", policies], ["__proto__", policies]] as const) {
       const r = decideReply(input({ extraction: ext(policyClaim(id)), policies: p }));

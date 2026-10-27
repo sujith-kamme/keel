@@ -70,8 +70,13 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
     }
     const latency_ms = Math.round(performance.now() - started);
 
+    // Any policy claim loads every known policy: the extractor may leave policy_id out,
+    // and decideReply then backs the claim by whichever approved text the draft quotes.
+    // Ids outside KNOWN_POLICY_IDS are recorded as null so the claim still blocks.
+    const commitments = extraction?.reply_commitments ?? [];
+    const ids = commitments.some((m) => m.type === "POLICY_CLAIM") ? KNOWN_POLICY_IDS : [];
     const policies: ReplyInput["policies"] = {};
-    for (const id of new Set(extraction?.reply_commitments.map((m) => m.policy_id).filter((p) => p !== undefined))) {
+    for (const id of new Set([...ids, ...commitments.flatMap((m) => (m.policy_id === undefined ? [] : [m.policy_id]))])) {
       policies[id] = await lookup(opts, id);
     }
 

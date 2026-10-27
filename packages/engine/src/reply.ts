@@ -86,8 +86,14 @@ function isBacked(c: Commitment, input: ReplyInput): boolean {
     case "DISCOUNT":
       return allowed("offer_discount").some((d) => sameArgs(c, d));
     case "POLICY_CLAIM": {
-      const text = policyFor(input, c.policy_id)?.approved_text;
-      return typeof text === "string" && normalise(input.draft).includes(normalise(text));
+      const draft = normalise(input.draft);
+      const quotes = (text: unknown) => typeof text === "string" && draft.includes(normalise(text));
+      if (quotes(policyFor(input, c.policy_id)?.approved_text)) return true;
+      // The extractor may leave policy_id out: any approved text quoted in full that contains the claim backs it.
+      const span = normalise(c.quoted_text);
+      return span !== "" && Object.entries(input.policies).some(
+        ([id, p]) => Object.hasOwn(input.policies, id) && quotes(p?.approved_text) && normalise(p!.approved_text).includes(span),
+      );
     }
     case "PRICE":
     case "CANCELLATION":
