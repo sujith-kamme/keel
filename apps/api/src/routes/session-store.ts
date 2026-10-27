@@ -2,7 +2,7 @@ import { type Db, and, asc, desc, eq, inArray, ledgerEntries, lt, sessionTurns, 
 import { MAX_OTP_ATTEMPTS, type TurnDecision } from "@keel/engine";
 import type { SessionStore } from "./sessions";
 import type { StoreOrderSummary } from "./store";
-import type { SessionSummary, TurnStore } from "./turns";
+import type { DecisionSummary, SessionSummary, TurnStore } from "./turns";
 
 export function createOrdersFor(db: Db): (email: string) => Promise<StoreOrderSummary[]> {
   return async (email) => {
@@ -59,6 +59,26 @@ const summary = (r: typeof sessions.$inferSelect): SessionSummary => ({
   expires_at: r.expiresAt.toISOString(),
 });
 
+interface GuardPayload {
+  input?: { draft?: unknown; extraction?: { reply_commitments?: { type?: unknown; quoted_text?: unknown }[] } | null };
+  result?: { final_reply?: unknown };
+  extractor?: { latency_ms?: unknown };
+}
+
+const str = (v: unknown) => (typeof v === "string" ? v : "");
+
+function guardDetails(payload: unknown): NonNullable<DecisionSummary["guard"]> {
+  const p = (payload ?? {}) as GuardPayload;
+  const commitments = Array.isArray(p.input?.extraction?.reply_commitments) ? p.input.extraction.reply_commitments : [];
+  const latency = p.extractor?.latency_ms;
+  return {
+    draft: str(p.input?.draft),
+    final_reply: str(p.result?.final_reply),
+    commitments: commitments.map((c) => ({ type: str(c?.type), quoted_text: str(c?.quoted_text) })),
+    latency_ms: typeof latency === "number" ? latency : null,
+  };
+}
+
 export function createTurnStore(db: Db): TurnStore {
   return {
     listSessions: async (limit) => {
@@ -78,6 +98,7 @@ export function createTurnStore(db: Db): TurnStore {
         .select({
           decisionId: ledgerEntries.decisionId,
           tool: sql<string>`${ledgerEntries.payload}->>'tool'`,
+          payload: ledgerEntries.payload,
           orderId: ledgerEntries.orderId,
           verdict: ledgerEntries.verdict,
           reasonCodes: ledgerEntries.reasonCodes,
@@ -93,6 +114,7 @@ export function createTurnStore(db: Db): TurnStore {
         verdict: r.verdict,
         reason_codes: r.reasonCodes,
         created_at: r.createdAt.toISOString(),
+        ...(r.tool === "guard" ? { guard: guardDetails(r.payload) } : {}),
       }));
     },
     appendTurn: async (turn) => {

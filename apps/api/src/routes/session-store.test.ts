@@ -37,6 +37,16 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     });
     await appendLedger(db, ledger("get_order"));
     await appendLedger(db, ledger("offer_refund"));
+    await appendLedger(db, {
+      ...ledger("guard"),
+      payload: {
+        tool: "guard",
+        input: { draft: "I refunded you", extraction: { reply_commitments: [{ type: "refund", quoted_text: "I refunded you", extra: 1 }] } },
+        result: { verdict: "BLOCK", reason_codes: ["X"], final_reply: "Sorry" },
+        extractor: { model: "m", prompt_version: "v", latency_ms: 42 },
+      },
+    });
+    await appendLedger(db, { ...ledger("guard"), payload: { tool: "guard", input: { draft: "hi", extraction: null }, result: { final_reply: "hi" } } });
 
     const session = await store.session(id);
     expect(Object.keys(session!).sort()).toEqual(SUMMARY_KEYS);
@@ -49,7 +59,17 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
       ["customer", []],
       ["agent", ["dec_a"]],
     ]);
-    expect((await store.decisions(id)).map((d) => d.tool)).toEqual(["get_order", "offer_refund"]);
+    const decisions = await store.decisions(id);
+    expect(decisions.map((d) => d.tool)).toEqual(["get_order", "offer_refund", "guard", "guard"]);
+    expect("guard" in decisions[0]!).toBe(false);
+    expect("guard" in decisions[1]!).toBe(false);
+    expect(decisions[2]!.guard).toEqual({
+      draft: "I refunded you",
+      final_reply: "Sorry",
+      commitments: [{ type: "refund", quoted_text: "I refunded you" }],
+      latency_ms: 42,
+    });
+    expect(decisions[3]!.guard).toEqual({ draft: "hi", final_reply: "hi", commitments: [], latency_ms: null });
     expect(await store.customerTurnCount(id)).toBe(1);
   });
 
