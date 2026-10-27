@@ -1,0 +1,8 @@
+{
+  "name": "@keel/verifiers",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": { "typecheck": "tsc -p ." },
+  "dependencies": { "@keel/core": "*", "@keel/engine": "*", "@keel/paypal": "*" }
+}

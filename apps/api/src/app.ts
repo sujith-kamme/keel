@@ -1,9 +1,23 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import { secureHeaders } from "hono/secure-headers";
+import { type McpOptions, mountMcp } from "./mcp/server";
+import { type SessionOptions, mountSessions } from "./routes/sessions";
+import { type StoreOptions, mountStore } from "./routes/store";
 
 export type HealthCheck = () => Promise<void>;
 
-export function createApp(deps: { checks: Record<string, HealthCheck> }) {
+export function createApp(deps: {
+  checks: Record<string, HealthCheck>;
+  mcp?: McpOptions;
+  sessions?: SessionOptions;
+  store?: StoreOptions;
+}) {
   const app = new Hono();
+
+  app.use(secureHeaders());
+  // Every request Keel accepts is small JSON; refuse anything bigger before parsing.
+  app.use("/v1/*", bodyLimit({ maxSize: 64 * 1024, onError: (c) => c.json({ error: "payload_too_large" }, 413) }));
 
   app.get("/health", async (c) => {
     const results = await Promise.all(
@@ -19,6 +33,10 @@ export function createApp(deps: { checks: Record<string, HealthCheck> }) {
     const healthy = results.every(([, state]) => state === "ok");
     return c.json({ status: healthy ? "ok" : "degraded", checks: Object.fromEntries(results) }, healthy ? 200 : 503);
   });
+
+  if (deps.sessions) mountSessions(app, deps.sessions);
+  if (deps.store) mountStore(app, deps.store);
+  if (deps.mcp) mountMcp(app, deps.mcp);
 
   return app;
 }

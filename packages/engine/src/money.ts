@@ -9,3 +9,8 @@ export function toCents(value: string): number {
   const [whole = "0", frac = ""] = value.split(".");
   return Number(whole) * 100 + Number(frac.padEnd(2, "0"));
 }
+
+export function fromCents(cents: number): string {
+  if (!Number.isSafeInteger(cents) || cents < 0) throw new Error(`Invalid cents: ${cents}`);
+  return `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
+}
