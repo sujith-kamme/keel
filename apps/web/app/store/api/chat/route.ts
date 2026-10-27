@@ -4,6 +4,7 @@ import { HANDOFF, runTurn } from "@/lib/agent";
 import { env } from "@/lib/env";
 import { appendTurn, KeelError, sessionDetail } from "@/lib/keel";
 import { connectAgentTools } from "@/lib/mcp";
+import { attachDecisions } from "@/lib/sessions-view";
 import { ChatBody } from "@/lib/store-input";
 import { readChatCookie } from "../cookie";
 
@@ -14,7 +15,8 @@ export async function POST(request: Request) {
   if (!chat) return NextResponse.json({ error: "no_session" }, { status: 401 });
   const { text } = body.data;
   try {
-    const history = (await sessionDetail(chat.session_id)).turns.map(({ role, text }) => ({ role, text }));
+    const detail = await sessionDetail(chat.session_id);
+    const history = attachDecisions(detail.turns, detail.decisions).turns.map(({ role, text, decisions }) => ({ role, text, decisions }));
     try {
       await appendTurn(chat.session_id, { role: "customer", text, decision_ids: [] });
     } catch (err) {
