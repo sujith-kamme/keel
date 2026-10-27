@@ -1,4 +1,4 @@
-export { toCents } from "./money";
+export { MONEY, fromCents, toCents } from "./money";
 export { Capability, TOOLS, checkScope, issueToken, verifyToken } from "./capability";
 export type { Tool } from "./capability";
 export { MAX_OTP_ATTEMPTS, checkOtp, newOtp } from "./otp";
