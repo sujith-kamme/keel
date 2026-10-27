@@ -34,7 +34,10 @@ export const policyRewrite = (t: string) => `Our policy is: ${t} If you'd like, 
 
 type Commitment = Extraction["reply_commitments"][number];
 
-const normalise = (s: string) => s.replace(/\s+/g, " ").trim();
+// NFKC + no zero-width characters, so invisible or compatibility characters can't
+// make two visually identical texts compare differently.
+const normalise = (s: string) =>
+  s.normalize("NFKC").replace(/[​-‍⁠﻿­]/g, "").replace(/\s+/g, " ").trim();
 
 // policy_id comes from the extractor (LLM output), so only own keys count: "constructor" must not resolve.
 const policyFor = (input: ReplyInput, id: string | undefined) =>
@@ -54,26 +57,34 @@ function sameMoney(a: string, b: unknown): boolean {
 // attached to a different order).
 function quotesKeel(c: Commitment, input: ReplyInput): boolean {
   const span = normalise(c.quoted_text);
-  if (span === "") return false;
+  // The extractor's quote must really be in the draft; a tidied-up quote earns no credit.
+  if (span === "" || !normalise(input.draft).includes(span)) return false;
   const quoted = input.turn_decisions
     .map((d) => (d.message ? normalise(d.message) : ""))
     .filter((m) => m !== "" && normalise(input.draft).includes(m));
-  if (!quoted.some((m) => m.includes(span))) return false;
+  // The backing message must come from a decision about the same order, amount and percent.
+  const backing = input.turn_decisions.filter(
+    (d) => d.message && normalise(d.message).includes(span) && quoted.includes(normalise(d.message)) && sameArgs(c, d),
+  );
+  if (backing.length === 0) return false;
   // One removal per Keel message: a second copy of the same words is the agent's own text.
   const rest = quoted.reduce((draft, m) => draft.replace(m, " "), normalise(input.draft));
   return !normalise(rest).includes(span);
 }
+
+const sameArgs = (c: Commitment, d: TurnDecision) =>
+  (!c.amount || sameMoney(c.amount.value, d.args.amount)) &&
+  (!c.order_id || c.order_id === d.args.order_id) &&
+  (c.percent === undefined || c.percent === d.args.percent);
 
 function isBacked(c: Commitment, input: ReplyInput): boolean {
   if (quotesKeel(c, input)) return true;
   const allowed = (tool: string) => input.turn_decisions.filter((d) => d.tool === tool && d.verdict === "ALLOW");
   switch (c.type) {
     case "REFUND":
-      return allowed("offer_refund").some(
-        (d) => (!c.amount || sameMoney(c.amount.value, d.args.amount)) && (!c.order_id || c.order_id === d.args.order_id),
-      );
+      return allowed("offer_refund").some((d) => sameArgs(c, d));
     case "DISCOUNT":
-      return allowed("offer_discount").some((d) => c.percent === undefined || c.percent === d.args.percent);
+      return allowed("offer_discount").some((d) => sameArgs(c, d));
     case "POLICY_CLAIM": {
       const text = policyFor(input, c.policy_id)?.approved_text;
       return typeof text === "string" && normalise(input.draft).includes(normalise(text));
