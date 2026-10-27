@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { logout } from "@/app/login/actions";
 
 const items = [
   { href: "/", label: "Overview" },
@@ -20,6 +21,9 @@ export function Nav() {
           {item.label}
         </Link>
       ))}
+      <form action={logout} className="mt-4">
+        <button className="w-full rounded px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10">Sign out</button>
+      </form>
     </nav>
   );
 }

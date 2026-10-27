@@ -7,7 +7,7 @@ try {
 
 export default defineConfig({
   test: {
-    include: ["packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts"],
+    include: ["packages/*/src/**/*.test.ts", "apps/*/src/**/*.test.ts", "apps/web/lib/**/*.test.ts"],
     // DB tests may run against a remote Postgres (Neon), where serialized ledger appends are slow.
     testTimeout: 30_000,
   },

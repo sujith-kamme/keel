@@ -83,3 +83,20 @@ export const sessions = pgTable("sessions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
+
+// Conversation turns for Live sessions (docs/FSD.md §13). Verdicts are not stored
+// here: a turn lists the decision ids it caused and the ledger is the source of truth.
+export const sessionTurns = pgTable(
+  "session_turns",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    sessionId: text("session_id")
+      .notNull()
+      .references(() => sessions.id),
+    role: text("role").notNull(), // "customer" | "agent"
+    text: text("text").notNull(),
+    decisionIds: jsonb("decision_ids").$type<string[]>().notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("session_turns_session_idx").on(t.sessionId, t.id)],
+);
