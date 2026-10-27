@@ -152,3 +152,5 @@ vite.config.ts.timestamp-*
 #docs
 docs/*
 CLAUDE.md
+
+.DS_Store
