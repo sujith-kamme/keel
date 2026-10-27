@@ -1,4 +1,6 @@
 export { toCents } from "./money";
+export { Capability, TOOLS, checkScope, issueToken, verifyToken } from "./capability";
+export type { Tool } from "./capability";
 export { Policy, Rule, RULE_STAGE } from "./policy";
 export type { Facts } from "./facts";
 export { decide } from "./decide";
