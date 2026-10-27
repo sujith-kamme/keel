@@ -34,6 +34,7 @@ export async function POST(request: Request) {
       await agent.close().catch(() => {});
     }
   } catch (err) {
+    if (err instanceof KeelError && err.status === 404) return NextResponse.json({ error: "no_session" }, { status: 401 });
     console.error("store chat failed:", err instanceof Error ? err.message : "unknown");
     return NextResponse.json({ reply: HANDOFF });
   }

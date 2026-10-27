@@ -14,6 +14,12 @@ interface Message {
   text: string;
 }
 
+const VERIFY_ERRORS: Record<string, string> = {
+  wrong: "That code isn't right.",
+  expired: "That code has expired. Pick the customer again.",
+  locked: "Too many attempts. Pick the customer again.",
+};
+
 const post = (path: string, body: unknown) =>
   fetch(`/store/api/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
@@ -23,6 +29,7 @@ export function Chat() {
   const [otp, setOtp] = useState<string>();
   const [code, setCode] = useState("");
   const [verified, setVerified] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string>();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
@@ -50,11 +57,18 @@ export function Chat() {
 
   async function verify() {
     setVerifyError(undefined);
-    const res = await post("verify", { code });
-    if (res.ok) return setVerified(true);
-    if (res.status === 401) return expire();
-    const data = (await res.json().catch(() => null)) as { error?: string } | null;
-    setVerifyError(res.status === 400 ? (data?.error ?? "invalid_code") : "Verification is unavailable right now.");
+    setVerifying(true);
+    try {
+      const res = await post("verify", { code });
+      if (res.ok) return setVerified(true);
+      if (res.status === 401) return expire();
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      setVerifyError(VERIFY_ERRORS[data?.error ?? ""] ?? "Couldn't verify the code.");
+    } catch {
+      setVerifyError("Couldn't verify the code.");
+    } finally {
+      setVerifying(false);
+    }
   }
 
   function expire() {
@@ -137,7 +151,11 @@ export function Chat() {
                 placeholder="6-digit code"
                 className="rounded border border-black/20 px-2 py-1 dark:border-white/20"
               />
-              <button onClick={verify} className="rounded border border-black/20 px-3 py-1 dark:border-white/20">
+              <button
+                onClick={verify}
+                disabled={verifying || !/^\d{6}$/.test(code)}
+                className="rounded border border-black/20 px-3 py-1 disabled:opacity-50 dark:border-white/20"
+              >
                 Verify
               </button>
             </div>
