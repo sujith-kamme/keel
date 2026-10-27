@@ -13,5 +13,6 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!store|login|_next/static|_next/image|favicon.ico).*)"],
+  // `(?:/|$)` so only /store and /login themselves are public, not e.g. /storefront.
+  matcher: ["/((?!(?:store|login)(?:/|$)|_next/static|_next/image|favicon.ico).*)"],
 };
