@@ -43,3 +43,43 @@ export const policies = pgTable(
   },
   (t) => [uniqueIndex("policy_version_idx").on(t.policyId, t.version)],
 );
+
+// Demo store orders. PayPal holds the money facts (captures, refunds); card
+// orders carry no payer email and PayPal has no delivery date, so those live here.
+export const storeOrders = pgTable("store_orders", {
+  orderId: text("order_id").primaryKey(),
+  captureId: text("capture_id").notNull(),
+  scenario: text("scenario").notNull().unique(),
+  payerEmail: text("payer_email").notNull(),
+  currency: text("currency").notNull(),
+  total: text("total").notNull(),
+  items: jsonb("items").$type<{ sku: string; title: string; price: string }[]>().notNull(),
+  deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// Demo store catalog, seeded from Channel3 product data.
+export const catalogItems = pgTable("catalog_items", {
+  sku: text("sku").primaryKey(),
+  channel3Id: text("channel3_id").notNull().unique(),
+  title: text("title").notNull(),
+  imageUrl: text("image_url"),
+  listPrice: text("list_price").notNull(),
+  minPrice: text("min_price").notNull(),
+  currency: text("currency").notNull(),
+});
+
+// Agent sessions (docs/FSD.md §7). The capability token is derived from this row.
+export const sessions = pgTable("sessions", {
+  id: text("id").primaryKey(),
+  agentId: text("agent_id").notNull(),
+  claimedEmail: text("claimed_email").notNull(),
+  orderIds: jsonb("order_ids").$type<string[]>().notNull(),
+  verifiedPayer: text("verified_payer"),
+  otpHash: text("otp_hash").notNull(),
+  otpExpiresAt: timestamp("otp_expires_at", { withTimezone: true }).notNull(),
+  otpAttempts: integer("otp_attempts").notNull().default(0),
+  state: text("state").notNull().default("ACTIVE"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
