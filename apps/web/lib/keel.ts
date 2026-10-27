@@ -15,7 +15,7 @@ export interface StoreOrder {
   scenario: string;
   total: { value: string; currency: string };
   items: { sku: string; title: string; price: string }[];
-  delivered_at: string;
+  delivered_at: string | null;
 }
 
 export interface StartedSession {
@@ -26,10 +26,37 @@ export interface StartedSession {
   demo_otp?: string;
 }
 
+// Mirrors apps/api/src/routes/turns.ts.
+export interface SessionSummary {
+  id: string;
+  agent_id: string;
+  claimed_email: string;
+  verified: boolean;
+  state: string;
+  created_at: string;
+  expires_at: string;
+}
+
+export interface Turn {
+  role: "customer" | "agent";
+  text: string;
+  decision_ids: string[];
+  created_at: string;
+}
+
+export interface DecisionSummary {
+  decision_id: string;
+  tool: string;
+  order_id: string | null;
+  verdict: string;
+  reason_codes: string[];
+  created_at: string;
+}
+
 export interface SessionDetail {
-  session: Record<string, unknown>;
-  turns: { role: "customer" | "agent"; text: string; decision_ids: string[]; [key: string]: unknown }[];
-  decisions: Record<string, unknown>[];
+  session: SessionSummary;
+  turns: Turn[];
+  decisions: DecisionSummary[];
 }
 
 async function keel<T>(path: string, init?: RequestInit): Promise<T> {
@@ -61,7 +88,7 @@ export const verifySession = (id: string, code: string) =>
 export const sessionDetail = (id: string) => keel<SessionDetail>(`/v1/sessions/${encodeURIComponent(id)}`);
 
 export const listSessions = async (limit: number) =>
-  (await keel<{ sessions: Record<string, unknown>[] }>(`/v1/sessions?limit=${encodeURIComponent(String(limit))}`)).sessions;
+  (await keel<{ sessions: SessionSummary[] }>(`/v1/sessions?limit=${encodeURIComponent(String(limit))}`)).sessions;
 
 export const appendTurn = (id: string, turn: { role: "customer" | "agent"; text: string; decision_ids: string[] }) =>
   keel<unknown>(`/v1/sessions/${encodeURIComponent(id)}/turns`, post(turn));
