@@ -11,3 +11,5 @@ export { chainEntry, hashEntry, verifyChain } from "./ledger";
 export type { ChainCheck, LedgerContent, LedgerRecord } from "./ledger";
 export { replay } from "./replay";
 export type { DecisionPayload } from "./replay";
+export { FREE_TEXT_FALLBACK, SAFE_FALLBACK, decideReply, policyRewrite, replayReply } from "./reply";
+export type { ReplyInput, ReplyResult, TurnDecision } from "./reply";
