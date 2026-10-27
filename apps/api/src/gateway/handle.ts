@@ -127,7 +127,16 @@ async function getOrder(deps: GatewayDeps, cap: Capability, orderId: string, now
     deps.store(orderId).catch(() => null),
   ]);
   if (!facts.order || !store) return { ...refuse("HOLD", "VERIFIER_UNAVAILABLE"), record: { verifier_errors } };
+  // Details only for the verified payer (FR-MCP-2); anyone else learns nothing
+  // beyond a masked email they can confirm by verifying.
   const owner = cap.verified_payer?.toLowerCase() === store.payerEmail.toLowerCase();
+  if (!owner) {
+    return {
+      ...ok("I need to verify that you're the account holder before I can share this order's details."),
+      capture_id: store.captureId,
+      data: { order_id: orderId, payer_email: maskEmail(store.payerEmail), verified: false },
+    };
+  }
   return {
     ...ok("Here are the order details."),
     capture_id: store.captureId,
@@ -137,7 +146,7 @@ async function getOrder(deps: GatewayDeps, cap: Capability, orderId: string, now
       total: { value: store.total, currency: store.currency },
       refunded: facts.order.refunded,
       delivered_at: facts.order.delivered_at ?? null,
-      payer_email: owner ? store.payerEmail : maskEmail(store.payerEmail),
+      payer_email: store.payerEmail,
     },
   };
 }

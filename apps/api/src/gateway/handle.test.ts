@@ -188,13 +188,15 @@ describe("handleTool: offer_refund", () => {
 });
 
 describe("handleTool: other tools", () => {
-  it("get_order returns details and masks the payer email for an unverified session", async () => {
+  it("get_order returns details to the verified payer and redacts them otherwise", async () => {
     const { deps, ledger } = fakes();
     const verified = await handleTool(deps, cap(), { tool: "get_order", args: { order_id: "IN-POLICY" } });
     expect(verified).toMatchObject({ decision: "ALLOW", data: { payer_email: "maya@demo.keel.test", refunded: "0.00" } });
-    const anonymous = await handleTool(deps, cap({ verified_payer: null }), { tool: "get_order", args: { order_id: "IN-POLICY" } });
-    expect(anonymous.data?.payer_email).toBe("m***@demo.keel.test");
-    expect(ledger).toHaveLength(2);
+    for (const verified_payer of [null, "sam@demo.keel.test"]) {
+      const other = await handleTool(deps, cap({ verified_payer }), { tool: "get_order", args: { order_id: "IN-POLICY" } });
+      expect(other.data).toEqual({ order_id: "IN-POLICY", payer_email: "m***@demo.keel.test", verified: false });
+    }
+    expect(ledger).toHaveLength(3);
   });
 
   it("get_order blocks an order outside the session", async () => {

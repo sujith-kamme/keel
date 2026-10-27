@@ -1,4 +1,5 @@
-import { type Db, and, eq, inArray, sessions, sql, storeOrders } from "@keel/db";
+import { type Db, and, eq, inArray, lt, sessions, sql, storeOrders } from "@keel/db";
+import { MAX_OTP_ATTEMPTS } from "@keel/engine";
 import type { SessionStore } from "./sessions";
 import type { StoreOrderSummary } from "./store";
 
@@ -33,11 +34,13 @@ export function createSessionStore(db: Db): SessionStore {
       const [row] = await db.select().from(sessions).where(eq(sessions.id, id));
       return row ?? null;
     },
-    recordFailedAttempt: async (id) => {
-      await db
+    reserveAttempt: async (id) => {
+      const rows = await db
         .update(sessions)
         .set({ otpAttempts: sql`${sessions.otpAttempts} + 1` })
-        .where(eq(sessions.id, id));
+        .where(and(eq(sessions.id, id), lt(sessions.otpAttempts, MAX_OTP_ATTEMPTS)))
+        .returning({ id: sessions.id });
+      return rows.length === 1;
     },
     markVerified: async (id, email) => {
       await db.update(sessions).set({ verifiedPayer: email }).where(eq(sessions.id, id));

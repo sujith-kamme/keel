@@ -25,7 +25,11 @@ export interface SessionStore {
   customerOrders: (orderIds: string[], email: string) => Promise<string[]>;
   create: (row: SessionRow) => Promise<void>;
   get: (id: string) => Promise<SessionRow | null>;
-  recordFailedAttempt: (id: string) => Promise<void>;
+  /**
+   * Atomically uses up one OTP attempt; false when none are left. Reserving
+   * before checking means parallel guesses can't exceed the attempt limit.
+   */
+  reserveAttempt: (id: string) => Promise<boolean>;
   markVerified: (id: string, email: string) => Promise<void>;
 }
 
@@ -109,12 +113,9 @@ export function mountSessions(app: Hono, opts: SessionOptions): void {
     const row = await opts.store.get(c.req.param("id"));
     if (!row || row.expiresAt <= now) return c.json({ error: "not_found" }, 404);
 
-    const check = checkOtp(
-      { hash: row.otpHash, expires_at: row.otpExpiresAt.toISOString(), attempts: row.otpAttempts },
-      req.code,
-      now,
-    );
-    if (check === "WRONG") await opts.store.recordFailedAttempt(row.id);
+    if (!(await opts.store.reserveAttempt(row.id))) return c.json({ error: "locked" }, 400);
+    // The attempt is already counted, so check against a fresh budget here.
+    const check = checkOtp({ hash: row.otpHash, expires_at: row.otpExpiresAt.toISOString(), attempts: 0 }, req.code, now);
     if (check !== "OK") return c.json({ error: check.toLowerCase() }, 400);
 
     await opts.store.markVerified(row.id, row.claimedEmail);

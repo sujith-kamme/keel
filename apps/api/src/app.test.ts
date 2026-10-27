@@ -23,3 +23,18 @@ describe("GET /health", () => {
     expect(await res.json()).toEqual({ status: "degraded", checks: { db: "ok", redis: "down" } });
   });
 });
+
+describe("hardening", () => {
+  const app = createApp({ checks: {} });
+
+  it("sets security headers", async () => {
+    const res = await app.request("/health");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("x-frame-options")).toBe("SAMEORIGIN");
+  });
+
+  it("rejects request bodies over 64 KB", async () => {
+    const res = await app.request("/v1/sessions", { method: "POST", body: "x".repeat(65 * 1024) });
+    expect(res.status).toBe(413);
+  });
+});

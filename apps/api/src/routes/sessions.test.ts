@@ -13,9 +13,11 @@ function setup(demoOtp = true) {
     customerOrders: async (ids, email) => (email === "maya@demo.keel.test" ? ids.filter((id) => id.startsWith("ORDER-")) : []),
     create: async (row) => void rows.set(row.id, row),
     get: async (id) => rows.get(id) ?? null,
-    recordFailedAttempt: async (id) => {
+    reserveAttempt: async (id) => {
       const row = rows.get(id)!;
+      if (row.otpAttempts >= 5) return false;
       rows.set(id, { ...row, otpAttempts: row.otpAttempts + 1 });
+      return true;
     },
     markVerified: async (id, email) => {
       rows.set(id, { ...rows.get(id)!, verifiedPayer: email });
@@ -84,6 +86,16 @@ describe("sessions API", () => {
     const res = await post(app, "/v1/sessions/ses_1/verify", { code: demo_otp });
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "locked" });
+  });
+
+  it("caps parallel guesses at 5 attempts", async () => {
+    const { app, rows } = setup();
+    const { demo_otp } = (await (await post(app, "/v1/sessions", start)).json()) as { demo_otp: string };
+    const wrong = demo_otp === "000000" ? "111111" : "000000";
+    const results = await Promise.all(Array.from({ length: 10 }, () => post(app, "/v1/sessions/ses_1/verify", { code: wrong })));
+    const bodies = await Promise.all(results.map((r) => r.json()));
+    expect(bodies.filter((b) => (b as { error: string }).error === "wrong")).toHaveLength(5);
+    expect(rows.get("ses_1")?.otpAttempts).toBe(5);
   });
 
   it("returns 404 for an unknown session", async () => {

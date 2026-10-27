@@ -74,5 +74,6 @@ describe("checkScope", () => {
   it("rejects a refund without a valid amount", () => {
     expect(checkScope(claims, { tool: "offer_refund", order_id: "ORDER-1" }, "0.00")).toBe(false);
     expect(checkScope(claims, { tool: "offer_refund", order_id: "ORDER-1", amount: "-1" }, "0.00")).toBe(false);
+    expect(checkScope(claims, { tool: "offer_refund", order_id: "ORDER-1", amount: "0.00" }, "0.00")).toBe(false);
   });
 });

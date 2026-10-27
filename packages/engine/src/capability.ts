@@ -64,7 +64,7 @@ export function checkScope(
   if (!(cap.allow as string[]).includes(call.tool)) return false;
   if (call.order_id !== undefined && !cap.orders.includes(call.order_id)) return false;
   if (call.tool === "offer_refund") {
-    if (call.amount === undefined || !MONEY.test(call.amount)) return false;
+    if (call.amount === undefined || !MONEY.test(call.amount) || toCents(call.amount) === 0) return false;
     return toCents(sessionRefunded) + toCents(call.amount) <= toCents(cap.max_refund_total);
   }
   return true;

@@ -1,4 +1,6 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import { secureHeaders } from "hono/secure-headers";
 import { type McpOptions, mountMcp } from "./mcp/server";
 import { type SessionOptions, mountSessions } from "./routes/sessions";
 import { type StoreOptions, mountStore } from "./routes/store";
@@ -12,6 +14,10 @@ export function createApp(deps: {
   store?: StoreOptions;
 }) {
   const app = new Hono();
+
+  app.use(secureHeaders());
+  // Every request Keel accepts is small JSON; refuse anything bigger before parsing.
+  app.use("/v1/*", bodyLimit({ maxSize: 64 * 1024, onError: (c) => c.json({ error: "payload_too_large" }, 413) }));
 
   app.get("/health", async (c) => {
     const results = await Promise.all(
