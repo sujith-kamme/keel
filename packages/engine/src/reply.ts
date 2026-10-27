@@ -34,6 +34,10 @@ type Commitment = Extraction["reply_commitments"][number];
 
 const normalise = (s: string) => s.replace(/\s+/g, " ").trim();
 
+// policy_id comes from the extractor (LLM output), so only own keys count: "constructor" must not resolve.
+const policyFor = (input: ReplyInput, id: string | undefined) =>
+  id !== undefined && Object.hasOwn(input.policies, id) ? input.policies[id] : null;
+
 function sameMoney(a: string, b: unknown): boolean {
   try {
     return typeof b === "string" && toCents(a) === toCents(b);
@@ -52,8 +56,8 @@ function isBacked(c: Commitment, input: ReplyInput): boolean {
     case "DISCOUNT":
       return allowed("offer_discount").some((d) => c.percent === undefined || c.percent === d.args.percent);
     case "POLICY_CLAIM": {
-      const text = c.policy_id ? input.policies[c.policy_id]?.approved_text : undefined;
-      return text !== undefined && normalise(input.draft).includes(normalise(text));
+      const text = policyFor(input, c.policy_id)?.approved_text;
+      return typeof text === "string" && normalise(input.draft).includes(normalise(text));
     }
     case "PRICE":
     case "CANCELLATION":
@@ -70,7 +74,7 @@ export function decideReply(input: ReplyInput): ReplyResult {
   let rewrite: ReplyResult | undefined;
   for (const c of input.extraction.reply_commitments) {
     if (isBacked(c, input)) continue;
-    const approved = c.type === "POLICY_CLAIM" && c.policy_id ? input.policies[c.policy_id] : null;
+    const approved = c.type === "POLICY_CLAIM" ? policyFor(input, c.policy_id) : null;
     if (!approved) return { verdict: "BLOCK", reason_codes: ["FREE_TEXT_COMMITMENT"], final_reply: FREE_TEXT_FALLBACK };
     rewrite ??= { verdict: "REWRITE", reason_codes: ["POLICY_UNAPPROVED_CLAIM"], final_reply: policyRewrite(approved.approved_text) };
   }

@@ -92,7 +92,7 @@ describe("decideReply", () => {
   });
 
   it("blocks a policy claim with an unknown, null or missing policy id", () => {
-    for (const [id, p] of [["nope", policies], [undefined, policies], ["policy-x", { "policy-x": null }]] as const) {
+    for (const [id, p] of [["nope", policies], [undefined, policies], ["policy-x", { "policy-x": null }], ["constructor", policies], ["__proto__", policies]] as const) {
       const r = decideReply(input({ extraction: ext(policyClaim(id)), policies: p }));
       expect(r).toEqual({ verdict: "BLOCK", reason_codes: ["FREE_TEXT_COMMITMENT"], final_reply: FREE_TEXT_FALLBACK });
     }
