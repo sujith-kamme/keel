@@ -63,6 +63,8 @@ describe("turns API", () => {
     expect(res.status).toBe(200);
     expect(((await res.json()) as { sessions: unknown[] }).sessions).toHaveLength(2);
     expect(((await (await app.request("/v1/sessions", { headers: auth })).json()) as { sessions: unknown[] }).sessions).toHaveLength(3);
+    const text = JSON.stringify(await (await app.request("/v1/sessions", { headers: auth })).json());
+    for (const key of ["otp_hash", "otp_attempts", "otpHash"]) expect(text).not.toContain(key);
   });
 
   it.each(["0", "101", "abc"])("rejects limit=%s", async (limit) => {
