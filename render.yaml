@@ -33,6 +33,10 @@ services:
         sync: false
       - key: DEMO_OTP
         value: "true"
+      - key: EXTRACTOR_MODEL
+        value: claude-haiku-5-5
+      - key: EXTRACTOR_TIMEOUT_MS
+        value: "2500"
 
   - type: web
     name: keel-web
@@ -56,6 +60,8 @@ services:
         sync: false
       - key: DEMO_AGENT_MODEL
         value: claude-haiku-5-5
+      - key: DEMO_AGENT_PROMPT
+        value: lenient
 
   - type: keyvalue
     name: keel-kv
