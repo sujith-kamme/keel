@@ -89,7 +89,7 @@ export async function handleTool(deps: GatewayDeps, cap: Capability, call: ToolC
     mode: "LIVE",
     verdict: outcome.verdict,
     reason_codes: [outcome.reason],
-    payload: { tool: call.tool, args: call.args, ...outcome.record },
+    payload: { tool: call.tool, args: call.args, message, ...outcome.record },
   });
   return { decision: outcome.verdict, reason_code: outcome.reason, decision_id: decisionId, message, data: outcome.data };
 }

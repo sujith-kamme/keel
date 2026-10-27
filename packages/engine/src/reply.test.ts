@@ -34,6 +34,17 @@ describe("decideReply", () => {
     });
   });
 
+  it("backs a commitment inside a Keel tool message the draft quotes verbatim", () => {
+    const message = "This order is outside our refund window, so I can't refund it.";
+    const claim: C = { type: "POLICY_CLAIM", quoted_text: "It's outside our refund window, so I can't refund it." };
+    const blocked = { tool: "offer_refund", verdict: "BLOCK" as const, args: {}, message };
+    const quoted = `Sorry. ${message} Anything else?`;
+    expect(decideReply(input({ draft: quoted, extraction: ext({ ...claim, quoted_text: message }), turn_decisions: [blocked] })).verdict).toBe("ALLOW");
+    // Paraphrase (message not in the draft) or a span outside the message stays unbacked.
+    expect(decideReply(input({ draft: `Sorry. ${claim.quoted_text}`, extraction: ext(claim), turn_decisions: [blocked] })).verdict).toBe("BLOCK");
+    expect(decideReply(input({ draft: `${quoted} I'll refund you anyway.`, extraction: ext({ type: "REFUND", quoted_text: "I'll refund you anyway." }), turn_decisions: [blocked] })).verdict).toBe("BLOCK");
+  });
+
   it("allows a reply with no commitments unchanged", () => {
     expect(decideReply(input({ draft: "Hi there" }))).toEqual({ verdict: "ALLOW", reason_codes: ["OK"], final_reply: "Hi there" });
   });

@@ -74,23 +74,23 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
   });
 
   it("turnDecisions returns only rows from the asked session", async () => {
-    const mk = async (sid: string, tool: string, verdict: "ALLOW" | "BLOCK", args: unknown) => {
+    const mk = async (sid: string, tool: string, verdict: "ALLOW" | "BLOCK", args: unknown, message?: string) => {
       const decision_id = `dec_${randomUUID().replaceAll("-", "")}`;
-      await appendLedger(db, { decision_id, session_id: sid, order_id: null, capture_id: null, dispute_id: null, mode: "LIVE", verdict, reason_codes: ["OK"], payload: { tool, args } });
+      await appendLedger(db, { decision_id, session_id: sid, order_id: null, capture_id: null, dispute_id: null, mode: "LIVE", verdict, reason_codes: ["OK"], payload: { tool, args, message } });
       return decision_id;
     };
     const a = `ses_test_${randomUUID().replaceAll("-", "")}`;
     const b = `ses_test_${randomUUID().replaceAll("-", "")}`;
     const ids = [
       await mk(a, "offer_refund", "ALLOW", { amount: "5.00" }),
-      await mk(a, "offer_discount", "BLOCK", undefined),
+      await mk(a, "offer_discount", "BLOCK", undefined, "I can't offer a discount that large."),
       await mk(b, "offer_refund", "ALLOW", {}),
     ];
     const rows = await createTurnDecisions(db)(a, ids);
     expect(rows).toHaveLength(2);
     expect(rows).toEqual(expect.arrayContaining([
       { tool: "offer_refund", verdict: "ALLOW", args: { amount: "5.00" } },
-      { tool: "offer_discount", verdict: "BLOCK", args: {} },
+      { tool: "offer_discount", verdict: "BLOCK", args: {}, message: "I can't offer a discount that large." },
     ]));
     expect(await createTurnDecisions(db)(a, [])).toEqual([]);
   });

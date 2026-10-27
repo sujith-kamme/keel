@@ -139,8 +139,10 @@ export function createTurnDecisions(db: Db): (sessionId: string, ids: string[]) 
       .from(ledgerEntries)
       .where(and(inArray(ledgerEntries.decisionId, ids), eq(ledgerEntries.sessionId, sessionId)));
     return rows.map((r) => {
-      const p = r.payload as { tool: string; args?: Record<string, unknown> };
-      return { tool: p.tool, verdict: r.verdict as TurnDecision["verdict"], args: p.args ?? {} };
+      const p = r.payload as { tool: string; args?: Record<string, unknown>; message?: unknown };
+      const decision: TurnDecision = { tool: p.tool, verdict: r.verdict as TurnDecision["verdict"], args: p.args ?? {} };
+      if (typeof p.message === "string") decision.message = p.message;
+      return decision;
     });
   };
 }

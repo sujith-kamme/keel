@@ -11,6 +11,8 @@ export interface TurnDecision {
   tool: string;
   verdict: Verdict;
   args: Record<string, unknown>;
+  /** The customer-safe message Keel returned for this call, when recorded. */
+  message?: string;
 }
 
 export interface ReplyInput {
@@ -46,7 +48,19 @@ function sameMoney(a: string, b: unknown): boolean {
   }
 }
 
+// The agent repeating Keel's own wording is not a free-text promise: the draft must
+// contain that message verbatim and the commitment span must lie inside it.
+function quotesKeel(c: Commitment, input: ReplyInput): boolean {
+  const draft = normalise(input.draft);
+  const span = normalise(c.quoted_text);
+  return input.turn_decisions.some((d) => {
+    const message = d.message ? normalise(d.message) : "";
+    return message !== "" && span !== "" && draft.includes(message) && message.includes(span);
+  });
+}
+
 function isBacked(c: Commitment, input: ReplyInput): boolean {
+  if (quotesKeel(c, input)) return true;
   const allowed = (tool: string) => input.turn_decisions.filter((d) => d.tool === tool && d.verdict === "ALLOW");
   switch (c.type) {
     case "REFUND":
