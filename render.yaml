@@ -36,7 +36,7 @@ services:
       - key: EXTRACTOR_MODEL
         value: claude-haiku-5-5
       - key: EXTRACTOR_TIMEOUT_MS
-        value: "2500"
+        value: "4000"
 
   - type: web
     name: keel-web

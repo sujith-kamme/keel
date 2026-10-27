@@ -20,7 +20,7 @@ const now = () => new Date();
 const newId = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "")}`;
 const anthropic = new Anthropic();
 const model = extractorModel(process.env.EXTRACTOR_MODEL);
-const timeoutMs = Number(process.env.EXTRACTOR_TIMEOUT_MS ?? 2500);
+const timeoutMs = Number(process.env.EXTRACTOR_TIMEOUT_MS ?? 4000);
 const turnStore = createTurnStore(db);
 
 const app = createApp({
