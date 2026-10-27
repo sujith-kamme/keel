@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { appendLedger, createDb, sessions } from "@keel/db";
 import type { LedgerContent } from "@keel/engine";
 import { describe, expect, it } from "vitest";
-import { createTurnStore } from "./session-store";
+import { createTurnDecisions, createTurnStore } from "./session-store";
 
 const SUMMARY_KEYS = ["agent_id", "claimed_email", "created_at", "expires_at", "id", "state", "verified"];
 
@@ -51,5 +51,27 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     ]);
     expect((await store.decisions(id)).map((d) => d.tool)).toEqual(["get_order", "offer_refund"]);
     expect(await store.customerTurnCount(id)).toBe(1);
+  });
+
+  it("turnDecisions returns only rows from the asked session", async () => {
+    const mk = async (sid: string, tool: string, verdict: "ALLOW" | "BLOCK", args: unknown) => {
+      const decision_id = `dec_${randomUUID().replaceAll("-", "")}`;
+      await appendLedger(db, { decision_id, session_id: sid, order_id: null, capture_id: null, dispute_id: null, mode: "LIVE", verdict, reason_codes: ["OK"], payload: { tool, args } });
+      return decision_id;
+    };
+    const a = `ses_test_${randomUUID().replaceAll("-", "")}`;
+    const b = `ses_test_${randomUUID().replaceAll("-", "")}`;
+    const ids = [
+      await mk(a, "offer_refund", "ALLOW", { amount: "5.00" }),
+      await mk(a, "offer_discount", "BLOCK", undefined),
+      await mk(b, "offer_refund", "ALLOW", {}),
+    ];
+    const rows = await createTurnDecisions(db)(a, ids);
+    expect(rows).toHaveLength(2);
+    expect(rows).toEqual(expect.arrayContaining([
+      { tool: "offer_refund", verdict: "ALLOW", args: { amount: "5.00" } },
+      { tool: "offer_discount", verdict: "BLOCK", args: {} },
+    ]));
+    expect(await createTurnDecisions(db)(a, [])).toEqual([]);
   });
 });

@@ -1,5 +1,5 @@
 import { type Db, and, asc, desc, eq, inArray, ledgerEntries, lt, sessionTurns, sessions, sql, storeOrders } from "@keel/db";
-import { MAX_OTP_ATTEMPTS } from "@keel/engine";
+import { MAX_OTP_ATTEMPTS, type TurnDecision } from "@keel/engine";
 import type { SessionStore } from "./sessions";
 import type { StoreOrderSummary } from "./store";
 import type { SessionSummary, TurnStore } from "./turns";
@@ -105,5 +105,20 @@ export function createTurnStore(db: Db): TurnStore {
         .where(and(eq(sessionTurns.sessionId, sessionId), eq(sessionTurns.role, "customer")));
       return row?.n ?? 0;
     },
+  };
+}
+
+/** Ledger rows for the given decision ids that belong to this session; ids from other sessions are dropped. */
+export function createTurnDecisions(db: Db): (sessionId: string, ids: string[]) => Promise<TurnDecision[]> {
+  return async (sessionId, ids) => {
+    if (ids.length === 0) return [];
+    const rows = await db
+      .select({ payload: ledgerEntries.payload, verdict: ledgerEntries.verdict })
+      .from(ledgerEntries)
+      .where(and(inArray(ledgerEntries.decisionId, ids), eq(ledgerEntries.sessionId, sessionId)));
+    return rows.map((r) => {
+      const p = r.payload as { tool: string; args?: Record<string, unknown> };
+      return { tool: p.tool, verdict: r.verdict as TurnDecision["verdict"], args: p.args ?? {} };
+    });
   };
 }
