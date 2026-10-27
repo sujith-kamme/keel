@@ -40,6 +40,22 @@ services:
     plan: free
     buildCommand: npm ci && npm run build -w @keel/web
     startCommand: npm run start -w @keel/web
+    # The demo agent runs here as the merchant backend. It never gets PayPal credentials.
+    envVars:
+      - key: KEEL_API_URL
+        value: https://keel-api-y0wq.onrender.com
+      - key: KEEL_MERCHANT_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: KEEL_WEB_SECRET
+        sync: false
+      - key: CONSOLE_USER
+        value: judge
+      - key: CONSOLE_PASSWORD
+        sync: false
+      - key: DEMO_AGENT_MODEL
+        value: claude-haiku-5-5
 
   - type: keyvalue
     name: keel-kv
