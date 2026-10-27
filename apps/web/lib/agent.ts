@@ -32,7 +32,7 @@ export const HANDOFF = "I've passed this to a member of our team, who will follo
 const MAX_STEPS = 6;
 
 /** Customer-controlled text must not be able to close or open a prompt delimiter. */
-const escape = (text: string) => text.replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+const escape = (text: string) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
 
 export function systemPrompt(context: TurnInput["context"]): string {
   const orders = context.orders.map((o) => `- ${escape(o.order_id)}: ${escape(o.total)}, ${o.items.map(escape).join(", ")}`).join("\n") || "- none";
