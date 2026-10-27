@@ -4,6 +4,7 @@ import { secureHeaders } from "hono/secure-headers";
 import { type McpOptions, mountMcp } from "./mcp/server";
 import { type SessionOptions, mountSessions } from "./routes/sessions";
 import { type StoreOptions, mountStore } from "./routes/store";
+import { type TurnOptions, mountTurns } from "./routes/turns";
 
 export type HealthCheck = () => Promise<void>;
 
@@ -12,6 +13,7 @@ export function createApp(deps: {
   mcp?: McpOptions;
   sessions?: SessionOptions;
   store?: StoreOptions;
+  turns?: TurnOptions;
 }) {
   const app = new Hono();
 
@@ -36,6 +38,7 @@ export function createApp(deps: {
 
   if (deps.sessions) mountSessions(app, deps.sessions);
   if (deps.store) mountStore(app, deps.store);
+  if (deps.turns) mountTurns(app, deps.turns);
   if (deps.mcp) mountMcp(app, deps.mcp);
 
   return app;
