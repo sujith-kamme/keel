@@ -1,7 +1,7 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { type Capability, TOOLS, checkOtp, issueToken, newOtp } from "@keel/engine";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
+import { merchantAuth } from "./merchant-auth";
 
 const SESSION_TTL_MS = 30 * 60_000;
 // Matches the refund-standard session budget; the engine enforces the policy
@@ -21,7 +21,8 @@ export interface SessionRow {
 }
 
 export interface SessionStore {
-  existingOrders: (orderIds: string[]) => Promise<string[]>;
+  /** The requested orders that exist and belong to this customer. */
+  customerOrders: (orderIds: string[], email: string) => Promise<string[]>;
   create: (row: SessionRow) => Promise<void>;
   get: (id: string) => Promise<SessionRow | null>;
   recordFailedAttempt: (id: string) => Promise<void>;
@@ -45,8 +46,6 @@ const StartSession = z.object({
 });
 const Verify = z.object({ code: z.string().regex(/^\d{6}$/) });
 
-const digest = (value: string) => createHash("sha256").update(value).digest();
-
 function token(row: SessionRow, verifiedPayer: string | null, signingKey: string): string {
   const claims: Capability = {
     session_id: row.id,
@@ -67,13 +66,7 @@ async function body<T>(c: Context, schema: z.ZodType<T>): Promise<T | null> {
 
 /** Sessions API for the merchant backend (docs/FSD.md §12.1). */
 export function mountSessions(app: Hono, opts: SessionOptions): void {
-  if (Buffer.byteLength(opts.merchantKey) < 32) throw new Error("KEEL_MERCHANT_KEY must be at least 32 bytes");
-  const expected = digest(opts.merchantKey);
-  // Digests have equal length, so timingSafeEqual never throws and leaks nothing about the key.
-  const authorized = (c: Context) => {
-    const given = /^Bearer (\S+)$/.exec(c.req.header("authorization") ?? "")?.[1];
-    return given !== undefined && timingSafeEqual(digest(given), expected);
-  };
+  const authorized = merchantAuth(opts.merchantKey);
 
   app.post("/v1/sessions", async (c) => {
     if (!authorized(c)) return c.json({ error: "unauthorized" }, 401);
@@ -81,12 +74,14 @@ export function mountSessions(app: Hono, opts: SessionOptions): void {
     if (!req) return c.json({ error: "invalid_request" }, 400);
     const now = opts.now();
     const otp = newOtp(now);
+    const email = req.customer_email.toLowerCase();
     const row: SessionRow = {
       id: opts.newId("ses"),
       agentId: req.agent_id,
-      claimedEmail: req.customer_email.toLowerCase(),
-      // Only orders Keel knows; the payer_verified rule still checks ownership per order.
-      orderIds: await opts.store.existingOrders(req.order_ids),
+      claimedEmail: email,
+      // Least privilege: only the claimed customer's orders. Until the OTP is
+      // verified, payer_verified still blocks every money tool.
+      orderIds: await opts.store.customerOrders(req.order_ids, email),
       verifiedPayer: null,
       otpHash: otp.hash,
       otpExpiresAt: new Date(otp.expires_at),

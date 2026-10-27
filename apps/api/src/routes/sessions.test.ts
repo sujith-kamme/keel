@@ -10,7 +10,7 @@ const now = new Date("2026-10-27T12:00:00Z");
 function setup(demoOtp = true) {
   const rows = new Map<string, SessionRow>();
   const store: SessionStore = {
-    existingOrders: async (ids) => ids.filter((id) => id.startsWith("ORDER-")),
+    customerOrders: async (ids, email) => (email === "maya@demo.keel.test" ? ids.filter((id) => id.startsWith("ORDER-")) : []),
     create: async (row) => void rows.set(row.id, row),
     get: async (id) => rows.get(id) ?? null,
     recordFailedAttempt: async (id) => {

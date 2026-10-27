@@ -6,7 +6,7 @@ import { Redis } from "ioredis";
 import { createApp } from "./app";
 import { createGatewayDeps } from "./gateway/deps";
 import { handleTool } from "./gateway/handle";
-import { createSessionStore } from "./routes/session-store";
+import { createOrdersFor, createSessionStore } from "./routes/session-store";
 
 const { KEEL_SIGNING_KEY, KEEL_MERCHANT_KEY } = process.env;
 if (!KEEL_SIGNING_KEY || !KEEL_MERCHANT_KEY) throw new Error("KEEL_SIGNING_KEY and KEEL_MERCHANT_KEY must be set");
@@ -33,6 +33,7 @@ const app = createApp({
     now,
     newId: (prefix) => `${prefix}_${randomUUID().replaceAll("-", "")}`,
   },
+  store: { merchantKey: KEEL_MERCHANT_KEY, ordersFor: createOrdersFor(db) },
   mcp: { signingKey: KEEL_SIGNING_KEY, now, handle: (cap, call) => handleTool(gateway, cap, call) },
 });
 

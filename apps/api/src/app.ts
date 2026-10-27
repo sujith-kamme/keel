@@ -1,10 +1,16 @@
 import { Hono } from "hono";
 import { type McpOptions, mountMcp } from "./mcp/server";
 import { type SessionOptions, mountSessions } from "./routes/sessions";
+import { type StoreOptions, mountStore } from "./routes/store";
 
 export type HealthCheck = () => Promise<void>;
 
-export function createApp(deps: { checks: Record<string, HealthCheck>; mcp?: McpOptions; sessions?: SessionOptions }) {
+export function createApp(deps: {
+  checks: Record<string, HealthCheck>;
+  mcp?: McpOptions;
+  sessions?: SessionOptions;
+  store?: StoreOptions;
+}) {
   const app = new Hono();
 
   app.get("/health", async (c) => {
@@ -23,6 +29,7 @@ export function createApp(deps: { checks: Record<string, HealthCheck>; mcp?: Mcp
   });
 
   if (deps.sessions) mountSessions(app, deps.sessions);
+  if (deps.store) mountStore(app, deps.store);
   if (deps.mcp) mountMcp(app, deps.mcp);
 
   return app;
