@@ -9,6 +9,7 @@ import { attachDecisions } from "@/lib/sessions-view";
 const VERDICT_STYLE: Record<string, string> = {
   ALLOW: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
   BLOCK: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
+  REWRITE: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
   HOLD: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
 };
 
@@ -20,6 +21,35 @@ function Chip({ d }: { d: DecisionSummary }) {
     </span>
   );
 }
+
+function GuardChip({ d }: { d: DecisionSummary & { guard: NonNullable<DecisionSummary["guard"]> } }) {
+  const { guard } = d;
+  const style = VERDICT_STYLE[d.verdict] ?? "bg-black/10 dark:bg-white/10";
+  const unavailable = guard.latency_ms === null || d.reason_codes.includes("EXTRACTOR_UNAVAILABLE");
+  return (
+    <div className="flex flex-col gap-1">
+      <span className={`self-start rounded px-2 py-0.5 text-xs ${style}`}>{["guard", d.verdict, d.reason_codes.join(", ")].filter(Boolean).join(" · ")}</span>
+      <details open={d.verdict !== "ALLOW"} className="text-xs">
+        <summary className="cursor-pointer">Why</summary>
+        <p className={d.verdict === "ALLOW" ? "" : "line-through"}>{guard.draft}</p>
+        {guard.commitments.length > 0 ? (
+          <ul className="list-disc pl-4">
+            {guard.commitments.map((c, i) => (
+              <li key={i}>
+                {c.type}: &ldquo;{c.quoted_text}&rdquo;
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No commitments found</p>
+        )}
+        <p className="opacity-70">{unavailable ? "Extractor unavailable" : `Extractor: ${guard.latency_ms} ms`}</p>
+      </details>
+    </div>
+  );
+}
+
+const DecisionChip = ({ d }: { d: DecisionSummary }) => (d.guard ? <GuardChip d={{ ...d, guard: d.guard }} /> : <Chip d={d} />);
 
 async function Detail({ params }: { params: Promise<{ id: string }> }) {
   await connection();
@@ -43,7 +73,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
             {t.decisions.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {t.decisions.map((d) => (
-                  <Chip key={d.decision_id} d={d} />
+                  <DecisionChip key={d.decision_id} d={d} />
                 ))}
               </div>
             )}
@@ -55,7 +85,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
           <h2 className="text-sm font-medium">Other decisions</h2>
           <div className="mt-2 flex flex-wrap gap-1">
             {unlinked.map((d) => (
-              <Chip key={d.decision_id} d={d} />
+              <DecisionChip key={d.decision_id} d={d} />
             ))}
           </div>
         </div>

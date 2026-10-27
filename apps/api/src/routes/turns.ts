@@ -28,6 +28,12 @@ export interface DecisionSummary {
   verdict: string;
   reason_codes: string[];
   created_at: string;
+  guard?: {
+    draft: string;
+    final_reply: string;
+    commitments: { type: string; quoted_text: string }[];
+    latency_ms: number | null;
+  };
 }
 
 export interface TurnStore {

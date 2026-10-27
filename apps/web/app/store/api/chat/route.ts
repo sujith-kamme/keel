@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { HANDOFF, runTurn } from "@/lib/agent";
 import { env } from "@/lib/env";
-import { appendTurn, KeelError, sessionDetail } from "@/lib/keel";
+import { appendTurn, guardReply, KeelError, sessionDetail } from "@/lib/keel";
 import { connectAgentTools } from "@/lib/mcp";
 import { attachDecisions } from "@/lib/sessions-view";
 import { ChatBody } from "@/lib/store-input";
@@ -27,11 +27,19 @@ export async function POST(request: Request) {
     const agent = await connectAgentTools(chat.token);
     try {
       const { reply, decision_ids } = await runTurn(
-        { model: env().model, createMessage: (p) => anthropic.messages.create(p), tools: agent.tools, callTool: agent.callTool },
+        { model: env().model, mode: env().promptMode, createMessage: (p) => anthropic.messages.create(p), tools: agent.tools, callTool: agent.callTool },
         { context: { customer_email: chat.email, verified: chat.verified, orders: chat.orders }, history, customerText: text },
       );
-      await appendTurn(chat.session_id, { role: "agent", text: reply, decision_ids });
-      return NextResponse.json({ reply });
+      // Never send the unguarded draft: if the guard fails, hand off (DP-4).
+      const guard = await guardReply({
+        session_id: chat.session_id,
+        draft_reply: reply,
+        conversation: [...history.map(({ role, text }) => ({ role, text })), { role: "customer" as const, text }].slice(-50),
+        tool_calls_this_turn: decision_ids,
+      }).catch(() => null);
+      const final = guard?.final_reply ?? HANDOFF;
+      await appendTurn(chat.session_id, { role: "agent", text: final, decision_ids: guard ? [...decision_ids, guard.decision_id] : decision_ids });
+      return NextResponse.json({ reply: final });
     } finally {
       await agent.close().catch(() => {});
     }

@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
+import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
-import { createDb, sql } from "@keel/db";
+import { activePolicy, appendLedger, createDb, sql } from "@keel/db";
+import { PROMPT_VERSION, extract, extractorModel } from "@keel/extractor";
 import { PayPalClient, configFromEnv } from "@keel/paypal";
 import { Redis } from "ioredis";
 import { createApp } from "./app";
 import { createGatewayDeps } from "./gateway/deps";
 import { handleTool } from "./gateway/handle";
-import { createOrdersFor, createSessionStore, createTurnStore } from "./routes/session-store";
+import { createOrdersFor, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
 
 const { KEEL_SIGNING_KEY, KEEL_MERCHANT_KEY } = process.env;
 if (!KEEL_SIGNING_KEY || !KEEL_MERCHANT_KEY) throw new Error("KEEL_SIGNING_KEY and KEEL_MERCHANT_KEY must be set");
@@ -15,6 +17,11 @@ const db = createDb();
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true, maxRetriesPerRequest: 1 });
 const gateway = createGatewayDeps(db, new PayPalClient(configFromEnv()));
 const now = () => new Date();
+const newId = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "")}`;
+const anthropic = new Anthropic();
+const model = extractorModel(process.env.EXTRACTOR_MODEL);
+const timeoutMs = Number(process.env.EXTRACTOR_TIMEOUT_MS ?? 4000);
+const turnStore = createTurnStore(db);
 
 const app = createApp({
   checks: {
@@ -31,10 +38,21 @@ const app = createApp({
     demoOtp: process.env.DEMO_OTP === "true",
     store: createSessionStore(db),
     now,
-    newId: (prefix) => `${prefix}_${randomUUID().replaceAll("-", "")}`,
+    newId,
   },
   store: { merchantKey: KEEL_MERCHANT_KEY, ordersFor: createOrdersFor(db) },
-  turns: { merchantKey: KEEL_MERCHANT_KEY, store: createTurnStore(db), now },
+  turns: { merchantKey: KEEL_MERCHANT_KEY, store: turnStore, now },
+  guard: {
+    merchantKey: KEEL_MERCHANT_KEY,
+    session: turnStore.session,
+    turnDecisions: createTurnDecisions(db),
+    policy: (id) => activePolicy(db, id),
+    extract: (input) => extract({ parse: (p, o) => anthropic.messages.parse(p, o), model, timeoutMs }, input),
+    appendLedger: (c) => appendLedger(db, c),
+    extractor: { model, prompt_version: PROMPT_VERSION },
+    now,
+    newId,
+  },
   mcp: { signingKey: KEEL_SIGNING_KEY, now, handle: (cap, call) => handleTool(gateway, cap, call) },
 });
 

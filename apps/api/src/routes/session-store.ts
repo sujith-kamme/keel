@@ -1,8 +1,8 @@
 import { type Db, and, asc, desc, eq, inArray, ledgerEntries, lt, sessionTurns, sessions, sql, storeOrders } from "@keel/db";
-import { MAX_OTP_ATTEMPTS } from "@keel/engine";
+import { MAX_OTP_ATTEMPTS, type TurnDecision } from "@keel/engine";
 import type { SessionStore } from "./sessions";
 import type { StoreOrderSummary } from "./store";
-import type { SessionSummary, TurnStore } from "./turns";
+import type { DecisionSummary, SessionSummary, TurnStore } from "./turns";
 
 export function createOrdersFor(db: Db): (email: string) => Promise<StoreOrderSummary[]> {
   return async (email) => {
@@ -59,6 +59,26 @@ const summary = (r: typeof sessions.$inferSelect): SessionSummary => ({
   expires_at: r.expiresAt.toISOString(),
 });
 
+interface GuardPayload {
+  input?: { draft?: unknown; extraction?: { reply_commitments?: { type?: unknown; quoted_text?: unknown }[] } | null };
+  result?: { final_reply?: unknown };
+  extractor?: { latency_ms?: unknown };
+}
+
+const str = (v: unknown) => (typeof v === "string" ? v : "");
+
+function guardDetails(payload: unknown): NonNullable<DecisionSummary["guard"]> {
+  const p = (payload ?? {}) as GuardPayload;
+  const commitments = Array.isArray(p.input?.extraction?.reply_commitments) ? p.input.extraction.reply_commitments : [];
+  const latency = p.extractor?.latency_ms;
+  return {
+    draft: str(p.input?.draft),
+    final_reply: str(p.result?.final_reply),
+    commitments: commitments.map((c) => ({ type: str(c?.type), quoted_text: str(c?.quoted_text) })),
+    latency_ms: typeof latency === "number" ? latency : null,
+  };
+}
+
 export function createTurnStore(db: Db): TurnStore {
   return {
     listSessions: async (limit) => {
@@ -78,6 +98,7 @@ export function createTurnStore(db: Db): TurnStore {
         .select({
           decisionId: ledgerEntries.decisionId,
           tool: sql<string>`${ledgerEntries.payload}->>'tool'`,
+          payload: ledgerEntries.payload,
           orderId: ledgerEntries.orderId,
           verdict: ledgerEntries.verdict,
           reasonCodes: ledgerEntries.reasonCodes,
@@ -93,6 +114,7 @@ export function createTurnStore(db: Db): TurnStore {
         verdict: r.verdict,
         reason_codes: r.reasonCodes,
         created_at: r.createdAt.toISOString(),
+        ...(r.tool === "guard" ? { guard: guardDetails(r.payload) } : {}),
       }));
     },
     appendTurn: async (turn) => {
@@ -105,5 +127,22 @@ export function createTurnStore(db: Db): TurnStore {
         .where(and(eq(sessionTurns.sessionId, sessionId), eq(sessionTurns.role, "customer")));
       return row?.n ?? 0;
     },
+  };
+}
+
+/** Ledger rows for the given decision ids that belong to this session; ids from other sessions are dropped. */
+export function createTurnDecisions(db: Db): (sessionId: string, ids: string[]) => Promise<TurnDecision[]> {
+  return async (sessionId, ids) => {
+    if (ids.length === 0) return [];
+    const rows = await db
+      .select({ payload: ledgerEntries.payload, verdict: ledgerEntries.verdict })
+      .from(ledgerEntries)
+      .where(and(inArray(ledgerEntries.decisionId, ids), eq(ledgerEntries.sessionId, sessionId)));
+    return rows.map((r) => {
+      const p = r.payload as { tool: string; args?: Record<string, unknown>; message?: unknown };
+      const decision: TurnDecision = { tool: p.tool, verdict: r.verdict as TurnDecision["verdict"], args: p.args ?? {} };
+      if (typeof p.message === "string") decision.message = p.message;
+      return decision;
+    });
   };
 }

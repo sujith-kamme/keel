@@ -42,3 +42,21 @@ export type ReasonCode = z.infer<typeof ReasonCode>;
 
 export const Mode = z.enum(["LIVE", "CONTEXT", "SHADOW", "QUARANTINE"]);
 export type Mode = z.infer<typeof Mode>;
+
+// Output of the Phase 3 reply extractor (the LLM proposes; engine code decides).
+export const ExtractedCommitment = z.object({
+  type: CommitmentType,
+  quoted_text: z.string().max(500),
+  order_id: z.string().max(64).optional(),
+  amount: Money.optional(),
+  percent: z.number().min(0).max(100).optional(),
+  policy_id: z.string().max(64).optional(),
+});
+export type ExtractedCommitment = z.infer<typeof ExtractedCommitment>;
+
+export const Extraction = z.object({
+  reply_commitments: z.array(ExtractedCommitment).max(20),
+  injection_signals: z.array(z.object({ source: z.enum(["customer", "reply"]), quoted_text: z.string().max(500) })).max(20),
+  pii_mentions: z.array(z.object({ kind: z.enum(["email", "phone", "address", "card", "other"]), quoted_text: z.string().max(200) })).max(20),
+});
+export type Extraction = z.infer<typeof Extraction>;

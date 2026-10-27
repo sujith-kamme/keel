@@ -51,6 +51,12 @@ export interface DecisionSummary {
   verdict: string;
   reason_codes: string[];
   created_at: string;
+  guard?: {
+    draft: string;
+    final_reply: string;
+    commitments: { type: string; quoted_text: string }[];
+    latency_ms: number | null;
+  };
 }
 
 export interface SessionDetail {
@@ -92,3 +98,18 @@ export const listSessions = async (limit: number) =>
 
 export const appendTurn = (id: string, turn: { role: "customer" | "agent"; text: string; decision_ids: string[] }) =>
   keel<unknown>(`/v1/sessions/${encodeURIComponent(id)}/turns`, post(turn));
+
+export interface GuardResult {
+  verdict: "ALLOW" | "REWRITE" | "BLOCK";
+  reason_codes: string[];
+  final_reply: string;
+  decision_id: string;
+  session_state: string;
+}
+
+export const guardReply = (body: {
+  session_id: string;
+  draft_reply: string;
+  conversation: { role: "customer" | "agent"; text: string }[];
+  tool_calls_this_turn: string[];
+}) => keel<GuardResult>("/v1/guard", post(body));
