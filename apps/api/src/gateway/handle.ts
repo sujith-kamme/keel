@@ -49,7 +49,7 @@ export interface ToolResult {
   data?: Record<string, unknown>;
 }
 
-interface Outcome {
+export interface Outcome {
   verdict: Verdict;
   reason: ReasonCode;
   message?: string;
@@ -177,12 +177,18 @@ async function getOrder(deps: GatewayDeps, cap: Capability, orderId: string, now
   };
 }
 
-async function offerRefund(
+/**
+ * Facts → decide → refund. `decisionId` is also the PayPal request id, so a retry
+ * with the same id can't refund twice. `approved` (a human reviewer) also executes
+ * an ABOVE_AUTO_APPROVE hold; that rule is the last stage, so every hard rule passed.
+ */
+export async function offerRefund(
   deps: GatewayDeps,
   cap: Capability,
   args: Extract<ToolCall, { tool: "offer_refund" }>["args"],
   decisionId: string,
   now: Date,
+  approved = false,
 ): Promise<Outcome> {
   const [{ facts, verifier_errors }, store, policy] = await Promise.all([
     gatherFacts(verifierDeps(deps), {
@@ -217,7 +223,8 @@ async function offerRefund(
   const verdict = result.verdict;
   const reason = result.reason_codes[0] ?? "POLICY_INVALID";
   const record = { decision: { input, result }, verifier_errors };
-  if (verdict !== "ALLOW") return { verdict, reason, capture_id: store.captureId, record };
+  const execute = verdict === "ALLOW" || (approved && verdict === "HOLD" && reason === "ABOVE_AUTO_APPROVE");
+  if (!execute) return { verdict, reason, capture_id: store.captureId, record };
 
   try {
     const refund = await deps.refundCapture(store.captureId, money, decisionId);
@@ -241,7 +248,7 @@ async function offerRefund(
   }
 }
 
-async function offerDiscount(
+export async function offerDiscount(
   deps: GatewayDeps,
   cap: Capability,
   args: Extract<ToolCall, { tool: "offer_discount" }>["args"],

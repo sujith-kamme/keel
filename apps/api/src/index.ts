@@ -11,10 +11,13 @@ import { createApp } from "./app";
 import { createRisk } from "./risk";
 import { createGatewayDeps } from "./gateway/deps";
 import { handleTool } from "./gateway/handle";
+import { createReviewStore } from "./routes/review-store";
 import { createOrdersFor, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
 
-const { KEEL_SIGNING_KEY, KEEL_MERCHANT_KEY } = process.env;
-if (!KEEL_SIGNING_KEY || !KEEL_MERCHANT_KEY) throw new Error("KEEL_SIGNING_KEY and KEEL_MERCHANT_KEY must be set");
+const { KEEL_SIGNING_KEY, KEEL_MERCHANT_KEY, KEEL_OPERATOR_KEY } = process.env;
+if (!KEEL_SIGNING_KEY || !KEEL_MERCHANT_KEY || !KEEL_OPERATOR_KEY) {
+  throw new Error("KEEL_SIGNING_KEY, KEEL_MERCHANT_KEY and KEEL_OPERATOR_KEY must be set");
+}
 
 const db = createDb();
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true, maxRetriesPerRequest: 1 });
@@ -63,6 +66,7 @@ const app = createApp({
     newId,
   },
   mcp: { signingKey: KEEL_SIGNING_KEY, now, handle: (cap, call) => handleTool(gateway, cap, call) },
+  review: { operatorKey: KEEL_OPERATOR_KEY, merchantKey: KEEL_MERCHANT_KEY, store: createReviewStore(db), gateway, detail: risk.detail },
 });
 
 // On Render's free tier there is no background-worker service, so the API

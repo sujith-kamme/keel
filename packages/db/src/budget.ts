@@ -6,8 +6,10 @@ import { ledgerEntries } from "./schema";
 const DAY_MS = 86_400_000;
 
 // Refunds that moved money. PayPal may report a refund as PENDING before it
-// settles; it still counts against budgets.
-const executedRefund = sql`${ledgerEntries.payload}->>'tool' = 'offer_refund'
+// settles; it still counts against budgets. A reviewer-approved held refund is
+// executed on the `review` row (a discount's execution status is ISSUED).
+const executedRefund = sql`(${ledgerEntries.payload}->>'tool' = 'offer_refund'
+    or (${ledgerEntries.payload}->>'tool' = 'review' and ${ledgerEntries.payload}->>'action' = 'approve'))
   and ${ledgerEntries.payload}->'execution'->>'status' in ('COMPLETED', 'PENDING')`;
 const amount = sql<string>`${ledgerEntries.payload}->'execution'->>'amount'`;
 

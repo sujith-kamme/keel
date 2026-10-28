@@ -6,7 +6,7 @@ import { merchantAuth } from "./merchant-auth";
 const SESSION_TTL_MS = 30 * 60_000;
 // Matches the refund-standard session budget; the engine enforces the policy
 // budget, the token enforces this hard cap even if a policy is misconfigured.
-const MAX_REFUND_TOTAL = "100.00";
+export const MAX_REFUND_TOTAL = "100.00";
 
 export interface SessionRow {
   id: string;

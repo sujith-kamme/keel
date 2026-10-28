@@ -31,6 +31,8 @@ services:
         sync: false
       - key: KEEL_MERCHANT_KEY
         sync: false
+      - key: KEEL_OPERATOR_KEY
+        sync: false
       - key: DEMO_OTP
         value: "true"
       - key: EXTRACTOR_MODEL

@@ -3,6 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
 import { type McpOptions, mountMcp } from "./mcp/server";
 import { type GuardOptions, mountGuard } from "./routes/guard";
+import { type ReviewOptions, mountReview } from "./routes/review";
 import { type SessionOptions, mountSessions } from "./routes/sessions";
 import { type StoreOptions, mountStore } from "./routes/store";
 import { type TurnOptions, mountTurns } from "./routes/turns";
@@ -13,6 +14,7 @@ export function createApp(deps: {
   checks: Record<string, HealthCheck>;
   guard?: GuardOptions;
   mcp?: McpOptions;
+  review?: ReviewOptions;
   sessions?: SessionOptions;
   store?: StoreOptions;
   turns?: TurnOptions;
@@ -43,6 +45,7 @@ export function createApp(deps: {
   if (deps.turns) mountTurns(app, deps.turns);
   if (deps.guard) mountGuard(app, deps.guard);
   if (deps.mcp) mountMcp(app, deps.mcp);
+  if (deps.review) mountReview(app, deps.review);
 
   return app;
 }
