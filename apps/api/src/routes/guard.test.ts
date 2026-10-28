@@ -204,13 +204,21 @@ describe("POST /v1/guard", () => {
       });
     });
 
-    it("holds when assess quarantines on this reply, keeping the engine verdict in the ledger", async () => {
-      const { app, ledger } = setup({ assess: async () => ({ score: 8, quarantined: true }) });
-      const body = await (await post(app, valid)).json();
+    it("records the quarantine reply it sends when assess quarantines on this reply", async () => {
+      let n = 0;
+      const { app, ledger } = setup({ assess: async () => ({ score: 8, quarantined: true }), newId: (p) => `${p}_${++n}` });
+      const body = (await (await post(app, valid)).json()) as { decision_id: string };
       expect(body).toMatchObject({ verdict: "HOLD", reason_codes: ["RISK_THRESHOLD"], final_reply: QUARANTINE_TEMPLATE, session_state: "QUARANTINED" });
-      expect(ledger).toHaveLength(1);
+      expect(ledger).toHaveLength(2);
       expect(ledger[0]).toMatchObject({ mode: "LIVE", verdict: "ALLOW" });
-      expect(body).toMatchObject({ decision_id: "dec_abc123" });
+      expect(ledger[1]).toMatchObject({
+        mode: "QUARANTINE",
+        verdict: "HOLD",
+        reason_codes: ["RISK_THRESHOLD"],
+        payload: { tool: "guard", draft: "Hello there", quarantined: true, risk_score: 8 },
+      });
+      expect(body.decision_id).toBe(ledger[1]?.decision_id);
+      expect(body.decision_id).not.toBe(ledger[0]?.decision_id);
     });
 
     it("blocks with the safe fallback when control throws", async () => {

@@ -79,7 +79,7 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
     }
     const held = (decision_id: string) =>
       c.json({ verdict: "HOLD", reason_codes: ["RISK_THRESHOLD"], final_reply: QUARANTINE_TEMPLATE, decision_id, session_state: "QUARANTINED" });
-    if (ctl.state === "QUARANTINED") {
+    const hold = async (risk_score: number) => {
       const decision_id = opts.newId("dec");
       await opts.appendLedger({
         decision_id,
@@ -90,10 +90,11 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
         mode: "QUARANTINE",
         verdict: "HOLD",
         reason_codes: ["RISK_THRESHOLD"],
-        payload: { tool: "guard", draft: req.draft_reply, quarantined: true, risk_score: ctl.score },
+        payload: { tool: "guard", draft: req.draft_reply, quarantined: true, risk_score },
       });
       return held(decision_id);
-    }
+    };
+    if (ctl.state === "QUARANTINED") return hold(ctl.score);
 
     const turn_decisions = await opts.turnDecisions(req.session_id, req.tool_calls_this_turn);
     const customer_message = req.conversation.findLast((t) => t.role === "customer")?.text ?? null;
@@ -139,11 +140,14 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
         risk_score: ctl.score,
       },
     });
+    let risk: Awaited<ReturnType<GuardOptions["assess"]>> | null = null;
     try {
-      if ((await opts.assess(req.session_id)).quarantined) return held(decision_id);
+      risk = await opts.assess(req.session_id);
     } catch {
       console.error("risk assess failed", req.session_id);
     }
+    // The guard row above records the draft's verdict; the reply sent is the quarantine one.
+    if (risk?.quarantined) return hold(risk.score);
     return c.json({ verdict: result.verdict, reason_codes: result.reason_codes, final_reply: result.final_reply, decision_id, session_state: session.state });
   });
 }
