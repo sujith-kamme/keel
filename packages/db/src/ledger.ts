@@ -1,6 +1,6 @@
 import { chainEntry, type LedgerContent, type LedgerRecord } from "@keel/engine";
 import type { Mode, ReasonCode, Verdict } from "@keel/core";
-import { asc, desc, sql } from "drizzle-orm";
+import { asc, desc, lt, sql } from "drizzle-orm";
 import type { Db } from "./client";
 import { ledgerEntries } from "./schema";
 
@@ -37,19 +37,46 @@ export async function appendLedger(db: DbOrTx, content: LedgerContent): Promise<
   });
 }
 
+type LedgerRow = typeof ledgerEntries.$inferSelect;
+
+const toRecord = (row: LedgerRow): LedgerRecord => ({
+  decision_id: row.decisionId,
+  session_id: row.sessionId,
+  order_id: row.orderId,
+  capture_id: row.captureId,
+  dispute_id: row.disputeId,
+  mode: row.mode as Mode,
+  verdict: row.verdict as Verdict,
+  reason_codes: row.reasonCodes as ReasonCode[],
+  payload: row.payload,
+  prev_hash: row.prevHash,
+  hash: row.hash,
+});
+
 export async function readLedger(db: Db): Promise<LedgerRecord[]> {
   const rows = await db.select().from(ledgerEntries).orderBy(asc(ledgerEntries.seq));
-  return rows.map((row) => ({
-    decision_id: row.decisionId,
-    session_id: row.sessionId,
-    order_id: row.orderId,
-    capture_id: row.captureId,
-    dispute_id: row.disputeId,
-    mode: row.mode as Mode,
-    verdict: row.verdict as Verdict,
-    reason_codes: row.reasonCodes as ReasonCode[],
-    payload: row.payload,
-    prev_hash: row.prevHash,
-    hash: row.hash,
-  }));
+  return rows.map(toRecord);
+}
+
+export type LedgerPageRow = LedgerRecord & { seq: number; created_at: Date };
+
+/** Newest first; `limit` is clamped to 1..2000. */
+export async function readLedgerPage(db: Db, opts: { beforeSeq?: number; limit: number }): Promise<LedgerPageRow[]> {
+  const limit = Math.min(2000, Math.max(1, Math.trunc(opts.limit)));
+  const rows = await db
+    .select()
+    .from(ledgerEntries)
+    .where(opts.beforeSeq === undefined ? undefined : lt(ledgerEntries.seq, opts.beforeSeq))
+    .orderBy(desc(ledgerEntries.seq))
+    .limit(limit);
+  return rows.map((row) => ({ ...toRecord(row), seq: row.seq, created_at: row.createdAt }));
+}
+
+/**
+ * The whole chain in seq order. `seq` sits beside the record, not in it:
+ * verifyChain hashes every field but `hash` and `prev_hash`, and seq was never hashed.
+ */
+export async function readChain(db: Db): Promise<{ seq: number; record: LedgerRecord }[]> {
+  const rows = await db.select().from(ledgerEntries).orderBy(asc(ledgerEntries.seq));
+  return rows.map((row) => ({ seq: row.seq, record: toRecord(row) }));
 }

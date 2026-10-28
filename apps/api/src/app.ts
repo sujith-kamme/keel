@@ -6,6 +6,7 @@ import { type AgentOptions, mountAgents } from "./routes/agents";
 import { type DisputesOptions, mountDisputes } from "./routes/disputes";
 import { type GauntletOptions, mountGauntlet } from "./routes/gauntlet";
 import { type GuardOptions, mountGuard } from "./routes/guard";
+import { type LedgerOptions, mountLedger } from "./routes/ledger";
 import { type ReviewOptions, mountReview } from "./routes/review";
 import { type SessionOptions, mountSessions } from "./routes/sessions";
 import { type StoreOptions, mountStore } from "./routes/store";
@@ -19,6 +20,7 @@ export function createApp(deps: {
   disputes?: DisputesOptions;
   gauntlet?: GauntletOptions;
   guard?: GuardOptions;
+  ledger?: LedgerOptions;
   mcp?: McpOptions;
   review?: ReviewOptions;
   sessions?: SessionOptions;
@@ -55,6 +57,7 @@ export function createApp(deps: {
   if (deps.agents) mountAgents(app, deps.agents);
   if (deps.gauntlet) mountGauntlet(app, deps.gauntlet);
   if (deps.disputes) mountDisputes(app, deps.disputes);
+  if (deps.ledger) mountLedger(app, deps.ledger);
 
   return app;
 }

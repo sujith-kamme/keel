@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
 import { agentModel, connectAgentTools, promptMode, runTurn } from "@keel/agent";
-import { activePolicy, appendLedger, createDb, sql } from "@keel/db";
+import { activePolicy, appendLedger, createDb, readChain, readLedgerPage, sql } from "@keel/db";
 import { PROMPT_VERSION, extract, extractorModel } from "@keel/extractor";
 import { type Versions, customerModel, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
 import { PayPalClient, configFromEnv } from "@keel/paypal";
@@ -160,6 +160,12 @@ const app = createApp({
     webhook: webhookId ? (headers, raw) => verifyWebhook(paypal, headers, raw, webhookId) : null,
     now,
     newId,
+  },
+  ledger: {
+    operatorKey: KEEL_OPERATOR_KEY,
+    merchantKey: KEEL_MERCHANT_KEY,
+    page: (o) => readLedgerPage(db, o),
+    chain: () => readChain(db),
   },
 });
 
