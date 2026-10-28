@@ -23,6 +23,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run",
     "seed:store": "tsx --env-file=.env scripts/seed-store.ts",
+    "seed:context": "tsx --env-file=.env scripts/seed-context.ts",
     "smoke:mcp": "tsx scripts/mcp-smoke.ts",
     "smoke:guard": "tsx scripts/guard-smoke.ts",
     "smoke:risk": "tsx scripts/risk-smoke.ts"
