@@ -35,9 +35,11 @@ export function createRisk(
     consoleUrl: string;
     now: () => Date;
     newId: (prefix: string) => string;
+    appendLedger?: typeof appendLedger;
   },
 ): RiskService {
   const { cfg } = opts;
+  const append = opts.appendLedger ?? appendLedger;
 
   async function load(sessionId: string) {
     const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
@@ -72,15 +74,15 @@ export function createRisk(
       const { session, sigs, score: s } = await load(sessionId);
       let state = session.state;
       if (shouldQuarantine(s, state, cfg)) {
-        const updated = await db
-          .update(sessions)
-          .set({ state: "QUARANTINED" })
-          .where(and(eq(sessions.id, sessionId), inArray(sessions.state, ["ACTIVE", "ESCALATED"])))
-          .returning({ id: sessions.id });
-        state = "QUARANTINED";
-        if (updated.length === 1) {
-          const decisionId = opts.newId("dec");
-          await appendLedger(db, {
+        const decisionId = opts.newId("dec");
+        const quarantined = await db.transaction(async (tx) => {
+          const updated = await tx
+            .update(sessions)
+            .set({ state: "QUARANTINED" })
+            .where(and(eq(sessions.id, sessionId), inArray(sessions.state, ["ACTIVE", "ESCALATED"])))
+            .returning({ id: sessions.id });
+          if (updated.length !== 1) return false;
+          await append(tx, {
             decision_id: decisionId,
             session_id: sessionId,
             order_id: null,
@@ -91,6 +93,11 @@ export function createRisk(
             reason_codes: ["RISK_THRESHOLD"],
             payload: { tool: "risk", score: s, threshold: cfg.threshold, signals: sigs },
           });
+          return true;
+        });
+        const [current] = await db.select({ state: sessions.state }).from(sessions).where(eq(sessions.id, sessionId));
+        state = current?.state ?? state;
+        if (quarantined) {
           try {
             await opts.enqueue({
               event: "session.quarantined",
@@ -98,7 +105,7 @@ export function createRisk(
               decision_id: decisionId,
               reason_codes: ["RISK_THRESHOLD"],
               score: s,
-              console_url: `${opts.consoleUrl}/sessions/${sessionId}`,
+              console_url: `${opts.consoleUrl}/sessions/${encodeURIComponent(sessionId)}`,
               at: opts.now().toISOString(),
             });
           } catch {

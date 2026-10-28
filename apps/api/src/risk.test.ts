@@ -44,12 +44,13 @@ describe.skipIf(!process.env.DATABASE_URL)("risk service (Postgres)", () => {
     await appendLedger(db, injection(id));
     for (let i = 0; i < 3; i++) await appendLedger(db, blocked(id));
   }
-  function make() {
+  function make(append?: typeof appendLedger) {
     const events: NotifyEvent[] = [];
     let fail = false;
     const svc = createRisk(db, {
       cfg,
       consoleUrl,
+      appendLedger: append,
       now: () => new Date(),
       newId: (p) => `${p}_${rid()}`,
       enqueue: async (e) => {
@@ -107,6 +108,28 @@ describe.skipIf(!process.env.DATABASE_URL)("risk service (Postgres)", () => {
     await crossing(id);
     await expect(svc.assess(id)).resolves.toEqual({ score: 70, quarantined: true });
     expect(await stateOf(id)).toBe("QUARANTINED");
+    expect(await riskRows(id)).toHaveLength(1);
+  });
+
+  it("a failed ledger append rolls the state change back", async () => {
+    const id = await setup();
+    const { svc, events } = make(async () => {
+      throw new Error("ledger down");
+    });
+    await crossing(id);
+    await expect(svc.assess(id)).rejects.toThrow("ledger down");
+    expect(await stateOf(id)).toBe("ACTIVE");
+    expect(await riskRows(id)).toHaveLength(0);
+    expect(events).toHaveLength(0);
+  });
+
+  it("ignores malformed guard payloads", async () => {
+    const id = await setup();
+    const { svc } = make();
+    await appendLedger(db, row(id, "guard", "ALLOW", ["OK"]));
+    await appendLedger(db, row(id, "guard", "ALLOW", ["OK"], { input: { extraction: { injection_signals: "customer" } } }));
+    await appendLedger(db, row(id, "guard", "ALLOW", ["OK"], { input: { extraction: { injection_signals: [null, 5, { source: "tool" }] } } }));
+    expect(await svc.detail(id)).toEqual({ score: 0, threshold: 60, signals: [] });
   });
 
   it("detail resets after a release row", async () => {
