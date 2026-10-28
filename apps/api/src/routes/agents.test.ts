@@ -25,7 +25,7 @@ function setup() {
   mountAgents(app, { operatorKey, merchantKey, store, newId: (p) => `${p}_${++n}` });
   return { app, ledger };
 }
-const post = (app: Hono, id: string, action: string, body: unknown, headers = op) =>
+const post = (app: Hono, id: string, action: string, body: unknown, headers: Record<string, string> = op) =>
   app.request(`/v1/agents/${id}/${action}`, { method: "POST", headers, body: JSON.stringify(body) });
 
 describe("agents API", () => {
