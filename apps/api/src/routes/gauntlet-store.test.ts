@@ -83,6 +83,25 @@ describe.skipIf(!process.env.DATABASE_URL)("gauntlet store (Postgres)", () => {
     expect((await store.runs.get(done))?.status).toBe("DONE");
   });
 
+  it("only finishes a RUNNING run and only fails a QUEUED or RUNNING one", async () => {
+    const card = { runs: 1 } as never;
+    const failed = await insertRun({ status: "FAILED", error: "interrupted" });
+    await store.runner.finish(failed, card, now);
+    expect(await store.runs.get(failed)).toMatchObject({ status: "FAILED", error: "interrupted", scorecard: null });
+
+    const done = await insertRun({ status: "DONE" });
+    await store.runner.fail(done, "late", now);
+    expect(await store.runs.get(done)).toMatchObject({ status: "DONE", error: null });
+
+    const queued = await insertRun({ status: "QUEUED" });
+    await store.runner.finish(queued, card, now);
+    expect((await store.runs.get(queued))?.status).toBe("QUEUED");
+    await store.runner.fail(queued, "boom", now);
+    expect(await store.runs.get(queued)).toMatchObject({ status: "FAILED", error: "boom" });
+    await store.runner.fail(queued, "again", now);
+    expect((await store.runs.get(queued))?.error).toBe("boom");
+  });
+
   it("refuses to create a run while one is in progress", async () => {
     const fresh = { guarded: true, packs: ["honest"], repeats: 1, versions, progress: { total: 1, done: 0 }, created_by: "test" };
     const first = `run_${rid()}`;

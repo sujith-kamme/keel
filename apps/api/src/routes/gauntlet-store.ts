@@ -42,7 +42,11 @@ export function createGauntletStore(db: Db, opts: { fixturePrefix?: string } = {
   const prefix = opts.fixturePrefix ?? "ctx-";
 
   const fail = async (id: string, error: string, now: Date) => {
-    await db.update(gauntletRuns).set({ status: "FAILED", error, finishedAt: now }).where(eq(gauntletRuns.id, id));
+    // Conditional: a run already finished or failed (e.g. by failStale) keeps its outcome.
+    await db
+      .update(gauntletRuns)
+      .set({ status: "FAILED", error, finishedAt: now })
+      .where(and(eq(gauntletRuns.id, id), inArray(gauntletRuns.status, ["QUEUED", "RUNNING"])));
   };
 
   const runs: GauntletRunStore = {
@@ -178,7 +182,10 @@ export function createGauntletStore(db: Db, opts: { fixturePrefix?: string } = {
       });
     },
     finish: async (runId, scorecard, now) => {
-      await db.update(gauntletRuns).set({ status: "DONE", scorecard, finishedAt: now }).where(eq(gauntletRuns.id, runId));
+      await db
+        .update(gauntletRuns)
+        .set({ status: "DONE", scorecard, finishedAt: now })
+        .where(and(eq(gauntletRuns.id, runId), eq(gauntletRuns.status, "RUNNING")));
     },
     fail,
   };
