@@ -1,12 +1,16 @@
-export interface NotifyEvent {
-  event: "session.quarantined" | "action.held";
-  session_id: string;
-  decision_id: string;
-  reason_codes: string[];
-  score?: number;
-  console_url: string;
-  at: string;
-}
+import type { DisputeNotice } from "./dispute";
+
+export type NotifyEvent =
+  | {
+      event: "session.quarantined" | "action.held";
+      session_id: string;
+      decision_id: string;
+      reason_codes: string[];
+      score?: number;
+      console_url: string;
+      at: string;
+    }
+  | DisputeNotice;
 
 const HOOK_PREFIX = "https://hooks.zapier.com/";
 
@@ -20,6 +24,9 @@ export function notifyConfig(env: { ZAPIER_HOOK_URL?: string }): { hookUrl: stri
 
 // Copy exactly the known keys so nothing else in job data can leave the process.
 function pick(e: NotifyEvent): NotifyEvent {
+  if (e.event === "dispute.classified") {
+    return { event: e.event, dispute_id: e.dispute_id, decision_id: e.decision_id, reason_codes: e.reason_codes, console_url: e.console_url, at: e.at };
+  }
   const out: NotifyEvent = {
     event: e.event,
     session_id: e.session_id,
