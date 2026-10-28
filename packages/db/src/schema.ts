@@ -1,4 +1,4 @@
-import { bigserial, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigserial, boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 // Append-only ledger (docs/FSD.md §6). Rows are never updated or deleted;
 // `hash` chains each entry to the previous one for tamper evidence.
@@ -100,3 +100,11 @@ export const sessionTurns = pgTable(
   },
   (t) => [index("session_turns_session_idx").on(t.sessionId, t.id)],
 );
+
+// Kill switch (docs/FSD.md FR-CAP-4). agent_id "*" freezes every agent.
+export const agentControls = pgTable("agent_controls", {
+  agentId: text("agent_id").primaryKey(),
+  frozen: boolean("frozen").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: text("updated_by").notNull(),
+});
