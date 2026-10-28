@@ -163,7 +163,7 @@ export function mountDisputes(app: Hono, opts: DisputesOptions): void {
     if (no) return no;
     const id = idParam(c);
     const detail = id ? await opts.store.detail(id) : null;
-    return detail ? c.json(detail) : c.json({ error: "not_found" }, 404);
+    return detail ? c.json({ ...detail, sandbox: opts.sandbox !== undefined }) : c.json({ error: "not_found" }, 404);
   });
 
   app.get("/v1/disputes/:id/evidence.pdf", async (c) => {

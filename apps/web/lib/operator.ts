@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { CONSOLE_COOKIE, isConsoleSession } from "./console-auth";
 import { env } from "./env";
 import type { Certification, Run, RunResult, ScenarioEntry, StartInput } from "./context-view";
+import type { DisputeDetail, DisputeItem } from "./disputes-view";
 import { errorMessage, type ReviewItem } from "./review-view";
 
 export class OperatorError extends Error {
@@ -79,15 +80,42 @@ export const draftScenario = async (sessionId: string) =>
 export const saveScenario = (scenario: Record<string, unknown>, sourceSessionId: string) =>
   operator<{ id: string }>("/v1/gauntlet/scenarios", post({ scenario, source_session_id: sourceSessionId }));
 
+export const disputes = async () => (await operator<{ items: DisputeItem[] }>("/v1/disputes")).items;
+
+export const dispute = (id: string) => operator<DisputeDetail>(`/v1/disputes/${encodeURIComponent(id)}`);
+
+export const disputeAction = (id: string, kind: "evidence" | "accept", reviewer: string) =>
+  operator<unknown>(`/v1/disputes/${encodeURIComponent(id)}/${kind === "evidence" ? "submit-evidence" : "accept-claim"}`, post({ reviewer }));
+
+export const lookupDispute = (id: string) => operator<unknown>("/v1/disputes/lookup", post({ dispute_id: id }));
+
+export const syncDisputes = () => operator<unknown>("/v1/disputes/sync", { method: "POST" });
+
+export const sandboxDispute = (id: string, step: "escalate" | "adjudicate", outcome?: "SELLER_FAVOR" | "BUYER_FAVOR") =>
+  operator<unknown>(`/v1/disputes/${encodeURIComponent(id)}/sandbox/${step}`, step === "adjudicate" ? post({ outcome }) : { method: "POST" });
+
+/** The evidence PDF bytes, or null when there is none. */
+export async function disputeEvidencePdf(id: string): Promise<ArrayBuffer | null> {
+  const { keelApiUrl, operatorKey } = env();
+  const res = await fetch(`${keelApiUrl}/v1/disputes/${encodeURIComponent(id)}/evidence.pdf`, {
+    headers: { authorization: `Bearer ${operatorKey}` },
+    signal: AbortSignal.timeout(30_000),
+    cache: "no-store",
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new OperatorError(res.status);
+  return res.arrayBuffer();
+}
+
 export type ActionResult = { ok: true } | { ok: false; message: string };
 
 /** Turns an API failure into an inline message; anything else is rethrown. */
-export async function toResult(fn: () => Promise<unknown>): Promise<ActionResult> {
+export async function toResult(fn: () => Promise<unknown>, message = errorMessage): Promise<ActionResult> {
   try {
     await fn();
     return { ok: true };
   } catch (e) {
-    if (e instanceof OperatorError) return { ok: false, message: errorMessage(e.status, e.error, e.reasonCode) };
+    if (e instanceof OperatorError) return { ok: false, message: message(e.status, e.error, e.reasonCode) };
     throw e;
   }
 }
