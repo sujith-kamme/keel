@@ -17,6 +17,7 @@ const MONEY_TOOLS = ["offer_refund", "offer_discount"];
 const refused = (r: RiskRow) => r.verdict === "BLOCK" || r.verdict === "HOLD";
 
 // Signals come from the session's ledger rows since the last reviewer release.
+// `rows` must be in ledger order (oldest first, by seq).
 export function signals(rows: RiskRow[], sessionOrderIds: string[]): RiskSignal[] {
   const lastRelease = rows.map((r) => r.tool).lastIndexOf("release");
   const out: RiskSignal[] = [];
@@ -35,7 +36,9 @@ export function signals(rows: RiskRow[], sessionOrderIds: string[]): RiskSignal[
 
 export function score(sigs: RiskSignal[], now: Date, cfg: RiskConfig): number {
   const total = sigs.reduce((sum, s) => {
-    const ageMin = Math.max(0, (now.getTime() - Date.parse(s.at)) / 60_000);
+    const t = Date.parse(s.at);
+    // A timestamp that does not parse counts at full weight (fail closed).
+    const ageMin = Number.isFinite(t) ? Math.max(0, (now.getTime() - t) / 60_000) : 0;
     return sum + s.weight * 0.5 ** (ageMin / cfg.half_life_min);
   }, 0);
   return Math.round(total);
@@ -46,7 +49,7 @@ export function shouldQuarantine(score: number, state: string, cfg: RiskConfig):
 }
 
 function positive(name: string, raw: string | undefined, fallback: number): number {
-  if (raw === undefined) return fallback;
+  if (raw === undefined || raw.trim() === "") return fallback;
   const n = Number(raw);
   if (!Number.isFinite(n) || n <= 0) throw new Error(`${name} must be a number > 0`);
   return n;

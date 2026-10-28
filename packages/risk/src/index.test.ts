@@ -62,6 +62,12 @@ describe("score", () => {
   });
 });
 
+describe("score with bad timestamps", () => {
+  it("counts an unparseable timestamp at full weight", () => {
+    expect(score([{ kind: "INJECTION", weight: 40, at: "not-a-date" }], new Date(T0), cfg)).toBe(40);
+  });
+});
+
 describe("shouldQuarantine", () => {
   it("scripted attack crosses the threshold", () => {
     const rows = [row({ tool: "guard", injection_from_customer: true }), blocked(), blocked(), blocked()];
@@ -76,6 +82,7 @@ describe("shouldQuarantine", () => {
 
 describe("riskConfig", () => {
   it("defaults", () => expect(riskConfig({})).toEqual({ threshold: 60, half_life_min: 30 }));
+  it("treats blank values as unset", () => expect(riskConfig({ RISK_THRESHOLD: "  ", RISK_HALF_LIFE_MIN: "" })).toEqual({ threshold: 60, half_life_min: 30 }));
   it("parses set values", () => expect(riskConfig({ RISK_THRESHOLD: "80", RISK_HALF_LIFE_MIN: "10" })).toEqual({ threshold: 80, half_life_min: 10 }));
   it("rejects bad values", () => {
     expect(() => riskConfig({ RISK_THRESHOLD: "abc" })).toThrow();
