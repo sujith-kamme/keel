@@ -84,6 +84,23 @@ const sameArgs = (c: Commitment, d: TurnDecision) =>
 
 const centsEqual = (a: string, b: string) => sameMoney(a, b);
 
+// A restated figure (earlier decision or lookup) must name the decision's order, or,
+// when it names none, that order must be the only one seen this session.
+function sameOrder(c: Commitment, input: ReplyInput, orderId: unknown): boolean {
+  if (typeof orderId !== "string") return false;
+  if (c.order_id) return c.order_id === orderId;
+  const seen = new Set<unknown>();
+  for (const d of [...input.turn_decisions, ...(input.session_decisions ?? [])]) {
+    if (d.args.order_id !== undefined) seen.add(d.args.order_id);
+    if (d.order_facts) seen.add(d.order_facts.order_id);
+  }
+  return seen.size === 1 && seen.has(orderId);
+}
+
+// Restating an earlier executed refund or discount: it must state the amount (or percent) and the same order.
+const restates = (c: Commitment, input: ReplyInput, d: TurnDecision) =>
+  (c.type === "DISCOUNT" ? c.percent !== undefined : c.amount !== undefined) && sameArgs(c, d) && sameOrder(c, input, d.args.order_id);
+
 // Reporting a figure Keel's lookup returned this turn is a statement of fact, not a promise.
 // Only this turn's decisions count, and a commitment without an amount is never backed.
 function factsBack(c: Commitment, input: ReplyInput, figures: (f: NonNullable<TurnDecision["order_facts"]>) => string[]): boolean {
@@ -92,7 +109,7 @@ function factsBack(c: Commitment, input: ReplyInput, figures: (f: NonNullable<Tu
   return input.turn_decisions.some((d) => {
     const f = d.order_facts;
     if (d.tool !== "get_order" || d.verdict !== "ALLOW" || !f) return false;
-    if (c.order_id && c.order_id !== f.order_id) return false;
+    if (!sameOrder(c, input, f.order_id)) return false;
     if (amount.currency && amount.currency !== f.currency) return false;
     return figures(f).some((v) => centsEqual(amount.value, v));
   });
@@ -100,13 +117,16 @@ function factsBack(c: Commitment, input: ReplyInput, figures: (f: NonNullable<Tu
 
 function isBacked(c: Commitment, input: ReplyInput): boolean {
   if (quotesKeel(c, input)) return true;
-  const allowed = (tool: string) => [...input.turn_decisions, ...(input.session_decisions ?? [])].filter((d) => d.tool === tool && d.verdict === "ALLOW");
+  // This turn's money decisions back on matching args; earlier ones only when restated exactly.
+  const backedBy = (tool: string) =>
+    input.turn_decisions.some((d) => d.tool === tool && d.verdict === "ALLOW" && sameArgs(c, d)) ||
+    (input.session_decisions ?? []).some((d) => d.tool === tool && d.verdict === "ALLOW" && restates(c, input, d));
   switch (c.type) {
     case "REFUND":
-      return allowed("offer_refund").some((d) => sameArgs(c, d)) ||
+      return backedBy("offer_refund") ||
         factsBack(c, input, (f) => (sameMoney(f.refunded, "0.00") ? [] : [f.refunded]));
     case "DISCOUNT":
-      return allowed("offer_discount").some((d) => sameArgs(c, d));
+      return backedBy("offer_discount");
     case "POLICY_CLAIM": {
       const draft = normalise(input.draft);
       const quotes = (text: unknown) => typeof text === "string" && draft.includes(normalise(text));

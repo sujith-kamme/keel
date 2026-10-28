@@ -200,6 +200,32 @@ describe("honest templates (DP-7)", () => {
       expect(decideReply(input({ extraction: c(10), session_decisions: [d] })).verdict).toBe("ALLOW");
       expect(decideReply(input({ extraction: c(15), session_decisions: [d] })).verdict).toBe("BLOCK");
     });
+    it("does not back a refund promise about order B with an earlier refund on order A", () => {
+      const r = decideReply(input({ extraction: ext(refund("20.00", "O-2")), session_decisions: [offerRefund("ALLOW", "20.00", "O-1")] }));
+      expect(r.verdict).toBe("BLOCK");
+      // Without an order id, two orders in play make the earlier refund ambiguous.
+      const two = input({
+        extraction: ext(refund("20.00")),
+        turn_decisions: [{ tool: "get_order", verdict: "ALLOW", args: { order_id: "O-2" } }],
+        session_decisions: [offerRefund("ALLOW", "20.00", "O-1")],
+      });
+      expect(decideReply(two).verdict).toBe("BLOCK");
+    });
+    it("does not back an amount-less refund claim with an earlier refund", () => {
+      expect(decideReply(input({ extraction: ext(refund(undefined, "O-1")), session_decisions: [offerRefund("ALLOW", "20.00")] })).verdict).toBe("BLOCK");
+      expect(decideReply(input({ extraction: ext(refund()), session_decisions: [offerRefund("ALLOW", "20.00")] })).verdict).toBe("BLOCK");
+    });
+    it("does not back a percent-less discount claim with an earlier discount", () => {
+      const d = { tool: "offer_discount", verdict: "ALLOW" as const, args: { order_id: "O-1", percent: 10 } };
+      expect(decideReply(input({ extraction: ext({ type: "DISCOUNT", quoted_text: "discount", order_id: "O-1" }), session_decisions: [d] })).verdict).toBe("BLOCK");
+    });
+    it("backs a matching amount without an order id in a single-order session", () => {
+      expect(decideReply(input({ extraction: ext(refund("20.00")), session_decisions: [offerRefund("ALLOW", "20.00")] })).verdict).toBe("ALLOW");
+    });
+    it("keeps same-turn offer_refund backing as before", () => {
+      // An amount-less claim is still backed by this turn's own executed refund.
+      expect(decideReply(input({ extraction: ext(refund()), turn_decisions: [offerRefund("ALLOW", "20.00")] })).verdict).toBe("ALLOW");
+    });
     it("replays an input recorded without session_decisions", () => {
       const i = input({ extraction: claim() });
       const result = decideReply(i);
@@ -248,6 +274,12 @@ describe("decideReply: figures from this turn's order lookup", () => {
     expect(run(refund("34.00"), lookup())).toBe("BLOCK");
     expect(run(refund("35.00", "O-2"), lookup())).toBe("BLOCK");
     expect(run(refund(), lookup())).toBe("BLOCK");
+  });
+  it("does not back a figure without an order id when several orders are in play", () => {
+    const other: TurnDecision = { tool: "get_order", verdict: "ALLOW", args: { order_id: "O-2" } };
+    expect(run(price("500.00"), lookup(), other)).toBe("BLOCK");
+    expect(run(price("500.00", "O-1"), lookup(), other)).toBe("ALLOW");
+    expect(decideReply(input({ extraction: ext(refund("35.00")), turn_decisions: [lookup()], session_decisions: [offerRefund("ALLOW", "5.00", "O-2")] })).verdict).toBe("BLOCK");
   });
   it("replays old rows without order_facts unchanged", () => {
     const i = input({ extraction: ext(price("500.00")), turn_decisions: [{ tool: "get_order", verdict: "ALLOW", args: {} }] });
