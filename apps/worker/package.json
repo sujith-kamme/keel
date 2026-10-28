@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./gauntlet": "./src/jobs/gauntlet.ts",
     "./queue": "./src/queue.ts",
     "./worker": "./src/worker.ts"
   },
@@ -12,6 +13,8 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@keel/agent": "*",
+    "@keel/gauntlet": "*",
     "bullmq": "5.81.5",
     "ioredis": "5.11.1",
     "tsx": "4.23.15"
