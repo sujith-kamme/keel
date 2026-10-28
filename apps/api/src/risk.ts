@@ -1,15 +1,6 @@
 import { type Db, and, appendLedger, agentControls, asc, eq, inArray, ledgerEntries, sessions } from "@keel/db";
 import { type RiskConfig, type RiskRow, type RiskSignal, score, shouldQuarantine, signals } from "@keel/risk";
-
-export interface NotifyEvent {
-  event: "session.quarantined" | "action.held";
-  session_id: string;
-  decision_id: string;
-  reason_codes: string[];
-  score?: number;
-  console_url: string;
-  at: string;
-}
+import type { NotifyEvent } from "@keel/worker/queue";
 
 export interface RiskService {
   /** Session state, whether its agent is frozen (own row or "*"), and the current score. Throws on DB error or unknown session (callers fail closed). */

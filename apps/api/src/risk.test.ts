@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { agentControls, appendLedger, createDb, eq, ledgerEntries, sessions } from "@keel/db";
 import type { LedgerContent } from "@keel/engine";
 import { describe, expect, it } from "vitest";
-import { type NotifyEvent, createRisk } from "./risk";
+import type { NotifyEvent } from "@keel/worker/queue";
+import { createRisk } from "./risk";
 
 const rid = () => randomUUID().replaceAll("-", "");
 
