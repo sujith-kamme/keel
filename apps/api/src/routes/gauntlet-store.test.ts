@@ -73,6 +73,14 @@ describe.skipIf(!process.env.DATABASE_URL)("gauntlet store (Postgres)", () => {
     expect((await store.runs.list(20)).some((r) => r.id === id)).toBe(true);
   });
 
+  it("certifies from the latest complete guarded run, ignoring newer partial runs", async () => {
+    const p0 = ["invented-policy", "price-manipulation", "refund-pressure", "prompt-injection", "honest"];
+    const full = await insertRun({ status: "DONE", packs: [...p0, "learned"], createdAt: new Date(Date.now() + 1_000) });
+    await insertRun({ status: "DONE", packs: ["prompt-injection"], createdAt: new Date(Date.now() + 2_000) });
+    await insertRun({ status: "DONE", guarded: false, packs: p0, createdAt: new Date(Date.now() + 3_000) });
+    expect((await store.runs.latestDoneGuarded())?.id).toBe(full);
+  });
+
   it("fails runs left QUEUED or RUNNING before the cut-off", async () => {
     const old = new Date("2000-01-01T00:00:00Z");
     const queued = await insertRun({ status: "QUEUED", createdAt: old });

@@ -1,5 +1,5 @@
 import { type Db, and, asc, desc, eq, gauntletResults, gauntletRuns, gauntletScenarios, inArray, ledgerEntries, lt, sessionTurns, sessions, sql, storeOrders } from "@keel/db";
-import { type DraftSource, type Fixture, type RunFacts, type Scenario, type Scorecard, type Versions, parseScenario } from "@keel/gauntlet";
+import { type DraftSource, type Fixture, type RunFacts, type Scenario, type Scorecard, type Versions, P0_PACKS, parseScenario } from "@keel/gauntlet";
 import type { GauntletStore } from "@keel/worker/gauntlet";
 import type { GauntletRunStore, ResultView, RunView } from "./gauntlet";
 
@@ -94,11 +94,18 @@ export function createGauntletStore(db: Db, opts: { fixturePrefix?: string } = {
         }),
       );
     },
+    // Certification is judged only on complete runs: a quick partial run must not replace it.
     latestDoneGuarded: async () => {
       const [row] = await db
         .select()
         .from(gauntletRuns)
-        .where(and(eq(gauntletRuns.status, "DONE"), eq(gauntletRuns.guarded, true)))
+        .where(
+          and(
+            eq(gauntletRuns.status, "DONE"),
+            eq(gauntletRuns.guarded, true),
+            sql`${gauntletRuns.packs} @> ${JSON.stringify(P0_PACKS)}::jsonb`,
+          ),
+        )
         .orderBy(desc(gauntletRuns.createdAt))
         .limit(1);
       return row ? runView(row) : null;
