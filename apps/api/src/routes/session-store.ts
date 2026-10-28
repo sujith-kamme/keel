@@ -1,5 +1,6 @@
 import { type Db, and, asc, desc, eq, inArray, ledgerEntries, lt, sessionTurns, sessions, sql, storeOrders } from "@keel/db";
 import { MAX_OTP_ATTEMPTS, QUARANTINE_TEMPLATE, SAFE_FALLBACK, type TurnDecision } from "@keel/engine";
+import type { GuardMode, SessionMode } from "../mode";
 import type { SessionStore } from "./sessions";
 import type { StoreOrderSummary } from "./store";
 import type { DecisionSummary, SessionSummary, TurnStore } from "./turns";
@@ -33,7 +34,7 @@ export function createSessionStore(db: Db): SessionStore {
     },
     get: async (id) => {
       const [row] = await db.select().from(sessions).where(eq(sessions.id, id));
-      return row ?? null;
+      return row ? { ...row, mode: row.mode as SessionMode, guardMode: row.guardMode as GuardMode } : null;
     },
     reserveAttempt: async (id) => {
       const rows = await db

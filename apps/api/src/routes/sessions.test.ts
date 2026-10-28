@@ -61,6 +61,32 @@ describe("sessions API", () => {
     expect(body).not.toHaveProperty("demo_otp");
   });
 
+  it("defaults to a LIVE session with an enforcing guard", async () => {
+    const { app, rows } = setup();
+    await post(app, "/v1/sessions", start);
+    expect(rows.get("ses_1")).toMatchObject({ mode: "LIVE", guardMode: "ENFORCE" });
+  });
+
+  it("stores CONTEXT and SHADOW, and always returns the OTP for CONTEXT", async () => {
+    const { app, rows } = setup(false);
+    const res = await post(app, "/v1/sessions", { ...start, mode: "CONTEXT", guard_mode: "SHADOW" });
+    expect(res.status).toBe(201);
+    expect(((await res.json()) as { demo_otp: string }).demo_otp).toMatch(/^\d{6}$/);
+    expect(rows.get("ses_1")).toMatchObject({ mode: "CONTEXT", guardMode: "SHADOW" });
+    const enforce = await post(app, "/v1/sessions", { ...start, mode: "CONTEXT" });
+    expect(enforce.status).toBe(201);
+    expect(rows.get("ses_1")).toMatchObject({ mode: "CONTEXT", guardMode: "ENFORCE" });
+  });
+
+  it("rejects SHADOW on a LIVE session and unknown modes", async () => {
+    const { app, rows } = setup();
+    expect((await post(app, "/v1/sessions", { ...start, guard_mode: "SHADOW" })).status).toBe(400);
+    expect((await post(app, "/v1/sessions", { ...start, mode: "LIVE", guard_mode: "SHADOW" })).status).toBe(400);
+    expect((await post(app, "/v1/sessions", { ...start, mode: "DEMO" })).status).toBe(400);
+    expect((await post(app, "/v1/sessions", { ...start, guard_mode: "OFF" })).status).toBe(400);
+    expect(rows.size).toBe(0);
+  });
+
   it("rejects an invalid request", async () => {
     const { app } = setup();
     expect((await post(app, "/v1/sessions", { ...start, customer_email: "not-an-email" })).status).toBe(400);

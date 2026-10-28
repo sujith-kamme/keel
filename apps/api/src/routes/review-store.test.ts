@@ -10,7 +10,7 @@ describe.skipIf(!process.env.DATABASE_URL)("review store (Postgres)", () => {
   const db = createDb();
   const store = createReviewStore(db);
 
-  async function session(state: string) {
+  async function session(state: string, mode = "LIVE") {
     const id = `ses_test_${rid()}`;
     await db.insert(sessions).values({
       id,
@@ -22,6 +22,7 @@ describe.skipIf(!process.env.DATABASE_URL)("review store (Postgres)", () => {
       otpExpiresAt: new Date(Date.now() + 60_000),
       expiresAt: new Date(Date.now() + 60_000),
       state,
+      mode,
     });
     return id;
   }
@@ -56,6 +57,16 @@ describe.skipIf(!process.env.DATABASE_URL)("review store (Postgres)", () => {
     expect(await store.isResolved(b.decision_id)).toBe(false);
     expect(await store.entry(c.decision_id)).toMatchObject({ decision_id: c.decision_id, tool: "offer_refund", session_id: sid, order_id: "O-1" });
     expect(await store.entry(`dec_${rid()}`)).toBeNull();
+  });
+
+  it("leaves CONTEXT sessions and their held rows out of the queue", async () => {
+    const held = await session("QUARANTINED", "CONTEXT");
+    const flagged = await session("QUARANTINED", "CONTEXT");
+    await appendLedger(db, row(held, "offer_refund", "HOLD", ["RISK_THRESHOLD"], { args: {} }));
+    await appendLedger(db, row(flagged, "risk", "HOLD", ["RISK_THRESHOLD"]));
+    expect((await store.pendingHeld(1000)).some((h) => h.session_id === held)).toBe(false);
+    expect((await store.flaggedSessions(1000)).some((s) => [held, flagged].includes(s.session_id))).toBe(false);
+    expect((await store.session(held))?.mode).toBe("CONTEXT");
   });
 
   it("reports an unconfirmed payment from the held row or a failed approve attempt", async () => {
@@ -103,6 +114,6 @@ describe.skipIf(!process.env.DATABASE_URL)("review store (Postgres)", () => {
     const again = row(sid, "release", "ALLOW", ["OK"]);
     expect(await store.release(sid, again)).toBe("not_flagged");
     expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.decisionId, again.decision_id))).toHaveLength(0);
-    expect(await store.session(sid)).toEqual({ id: sid, agent_id: "demo", verified_payer: "maya@demo.keel.test", order_ids: ["O-1"] });
+    expect(await store.session(sid)).toEqual({ id: sid, agent_id: "demo", verified_payer: "maya@demo.keel.test", order_ids: ["O-1"], mode: "LIVE" });
   });
 });

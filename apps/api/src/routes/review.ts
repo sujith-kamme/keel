@@ -36,7 +36,7 @@ export interface ReviewStore {
    * can settle it.
    */
   paymentUnconfirmed: (decisionId: string) => Promise<boolean>;
-  session: (id: string) => Promise<{ id: string; agent_id: string; verified_payer: string | null; order_ids: string[] } | null>;
+  session: (id: string) => Promise<{ id: string; agent_id: string; verified_payer: string | null; order_ids: string[]; mode: string } | null>;
   /** Sets a QUARANTINED or ESCALATED session ACTIVE and appends `content` atomically. */
   release: (sessionId: string, content: LedgerContent) => Promise<"released" | "not_found" | "not_flagged">;
 }
@@ -122,6 +122,8 @@ export function mountReview(app: Hono, opts: ReviewOptions): void {
     if (!held || held.verdict !== "HOLD" || !MONEY_TOOLS.includes(held.tool) || held.session_id === null) {
       return c.json({ error: "not_found" }, 404);
     }
+    // Simulated (CONTEXT) sessions have no review queue.
+    if ((await store.session(held.session_id))?.mode !== "LIVE") return c.json({ error: "not_found" }, 404);
     if (await store.isResolved(id)) return c.json({ error: "already_resolved" }, 409);
     return { held: { ...held, session_id: held.session_id }, reviewer: req.reviewer };
   }
@@ -213,7 +215,7 @@ export function mountReview(app: Hono, opts: ReviewOptions): void {
     if (!req) return c.json({ error: "invalid_request" }, 400);
     const id = c.req.param("id");
     const decision_id = g.newId("dec");
-    const released = !SESSION_ID.test(id)
+    const released = !SESSION_ID.test(id) || (await store.session(id))?.mode !== "LIVE"
       ? "not_found"
       : await store.release(id, {
         decision_id,

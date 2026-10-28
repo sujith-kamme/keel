@@ -36,7 +36,7 @@ function setup(over: Partial<GuardOptions> = {}) {
       calls.extract.push(input);
       return empty;
     },
-    control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 0 }),
+    control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" }),
     assess: async () => ({ score: 0, quarantined: false }),
     appendLedger: async (c) => void ledger.push(c),
     extractor: { model: "claude-haiku-5-5", prompt_version: "v1" },
@@ -185,9 +185,46 @@ describe("POST /v1/guard", () => {
     expect(((await (await post(app, valid)).json()) as { session_state: string }).session_state).toBe("HELD");
   });
 
+  describe("session mode", () => {
+    const ctl = (over: Record<string, unknown>) => async () => ({ state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE", ...over });
+    const blocking: Partial<GuardOptions> = { extract: async () => extraction([{ type: "DISCOUNT", quoted_text: "50% off", percent: 50 }]) };
+
+    it("reports shadow false and enforces on a normal session", async () => {
+      const { app } = setup();
+      expect(await (await post(app, valid)).json()).toMatchObject({ shadow: false });
+    });
+
+    it("writes CONTEXT guard rows for a CONTEXT session", async () => {
+      const { app, ledger } = setup({ control: ctl({ mode: "CONTEXT" }) });
+      await post(app, valid);
+      expect(ledger[0]).toMatchObject({ mode: "CONTEXT" });
+    });
+
+    it("on a SHADOW session records the real verdict but returns the draft", async () => {
+      const { app, ledger } = setup({ control: ctl({ mode: "CONTEXT", guard_mode: "SHADOW" }), ...blocking });
+      const body = (await (await post(app, { ...valid, draft_reply: "Sure, 50% off!" })).json()) as Record<string, unknown>;
+      expect(body).toMatchObject({ final_reply: "Sure, 50% off!", shadow: true });
+      expect(body.verdict).not.toBe("ALLOW");
+      expect(ledger[0]).toMatchObject({ mode: "CONTEXT", verdict: body.verdict });
+      expect(ledger[0]!.payload).toMatchObject({ tool: "guard", result: { verdict: body.verdict } });
+    });
+
+    it("on a quarantined SHADOW session records the HOLD row but returns the draft", async () => {
+      const { app, ledger } = setup({ control: ctl({ mode: "CONTEXT", guard_mode: "SHADOW", state: "QUARANTINED", score: 9 }) });
+      const body = await (await post(app, valid)).json();
+      expect(body).toMatchObject({ verdict: "HOLD", final_reply: "Hello there", shadow: true, session_state: "QUARANTINED" });
+      expect(ledger[0]).toMatchObject({ mode: "CONTEXT", verdict: "HOLD", payload: { quarantined: true } });
+    });
+
+    it("still fails closed when control fails", async () => {
+      const { app } = setup({ control: async () => { throw new Error("db"); } });
+      expect(await (await post(app, valid)).json()).toMatchObject({ verdict: "BLOCK", final_reply: SAFE_FALLBACK, shadow: false });
+    });
+  });
+
   describe("risk control", () => {
     it("holds a quarantined session without calling the extractor", async () => {
-      const { app, ledger, calls } = setup({ control: async () => ({ state: "QUARANTINED", agent_frozen: false, score: 9 }) });
+      const { app, ledger, calls } = setup({ control: async () => ({ state: "QUARANTINED", agent_frozen: false, score: 9, mode: "LIVE", guard_mode: "ENFORCE" }) });
       const res = await post(app, valid);
       expect(await res.json()).toMatchObject({
         verdict: "HOLD",
@@ -250,7 +287,7 @@ describe("POST /v1/guard", () => {
     });
 
     it("records the risk score in the payload", async () => {
-      const { app, ledger } = setup({ control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 4 }) });
+      const { app, ledger } = setup({ control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 4, mode: "LIVE", guard_mode: "ENFORCE" }) });
       await post(app, valid);
       expect(ledger[0]?.payload).toMatchObject({ tool: "guard", risk_score: 4 });
     });

@@ -80,6 +80,10 @@ export const sessions = pgTable("sessions", {
   otpExpiresAt: timestamp("otp_expires_at", { withTimezone: true }).notNull(),
   otpAttempts: integer("otp_attempts").notNull().default(0),
   state: text("state").notNull().default("ACTIVE"),
+  // LIVE | CONTEXT: Gauntlet sessions are simulated and never reach the review queue or notifications.
+  mode: text("mode").notNull().default("LIVE"),
+  // ENFORCE | SHADOW: a shadow guard records its verdict but lets the draft through.
+  guardMode: text("guard_mode").notNull().default("ENFORCE"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });

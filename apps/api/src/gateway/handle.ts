@@ -2,6 +2,7 @@ import type { Commitment, ReasonCode, Verdict } from "@keel/core";
 import { type Capability, type DecisionInput, type LedgerContent, checkScope, decide } from "@keel/engine";
 import type { OrderDetails } from "@keel/paypal";
 import { gatherFacts } from "@keel/verifiers";
+import { ledgerMode } from "../mode";
 import { maskEmail, refusalMessage } from "./messages";
 
 export type ToolCall =
@@ -35,7 +36,7 @@ export interface GatewayDeps {
   escalate: (sessionId: string) => Promise<void>;
   /** Serializes money decisions: session lock, then order lock (fixed order), held until `fn` resolves. */
   withOrderLock: <T>(sessionId: string, orderId: string, fn: () => Promise<T>) => Promise<T>;
-  control: (sessionId: string) => Promise<{ state: string; agent_frozen: boolean; score: number }>;
+  control: (sessionId: string) => Promise<{ state: string; agent_frozen: boolean; score: number; mode: string; guard_mode: string }>;
   assess: (sessionId: string) => Promise<unknown>;
   notifyHeld: (e: { session_id: string; decision_id: string; reason_codes: string[] }) => Promise<void>;
   now: () => Date;
@@ -86,7 +87,7 @@ export async function handleTool(deps: GatewayDeps, cap: Capability, call: ToolC
       order_id: outcome.order_id ?? null,
       capture_id: outcome.capture_id ?? null,
       dispute_id: null,
-      mode: ctl?.state === "QUARANTINED" ? "QUARANTINE" : "LIVE",
+      mode: ctl ? ledgerMode(ctl.mode, ctl.state) : "LIVE",
       verdict: outcome.verdict,
       reason_codes: [outcome.reason],
       payload: { tool: call.tool, args: call.args, message, risk_score: ctl?.score ?? null, ...outcome.record },
@@ -133,7 +134,7 @@ export async function handleTool(deps: GatewayDeps, cap: Capability, call: ToolC
   } catch {
     console.error(`risk assess failed for session ${cap.session_id}`);
   }
-  if (isMoney && outcome.verdict === "HOLD") {
+  if (isMoney && outcome.verdict === "HOLD" && ctl?.mode !== "CONTEXT") {
     try {
       await deps.notifyHeld({ session_id: cap.session_id, decision_id: decisionId, reason_codes: [outcome.reason] });
     } catch {
