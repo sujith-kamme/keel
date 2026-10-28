@@ -77,7 +77,7 @@ const ASK_EXAMPLES = ["held refunds over $50 grouped by reason code", "blocked d
 const ASK_SCHEMA: StructuredSchemaParams = {
   columns: {
     verdict: { includeSetValues: true },
-    tool: { includeSetValues: true, description: "dispute_action is an operator's dispute decision (ALLOW conceded, BLOCK defended)" },
+    tool: { includeSetValues: true, description: "dispute is Keel's decision on a PayPal dispute (ALLOW conceded, BLOCK defended, HOLD left for review); dispute_action is an operator submitting evidence or accepting a claim" },
     reason_codes: { includeSetValues: true },
     mode: { includeSetValues: true },
     amount: { description: "Refund amount in dollars" },
