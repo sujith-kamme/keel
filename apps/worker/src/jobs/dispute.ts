@@ -301,7 +301,14 @@ export async function act(deps: DisputeDeps, d: Dispute, row: DisputeRow, kind: 
 }
 
 export async function syncDispute(deps: DisputeDeps, id: string): Promise<void> {
-  let d = await deps.paypal.get(id);
+  let d: Dispute;
+  try {
+    d = await deps.paypal.get(id);
+  } catch (e) {
+    // Not a dispute on this merchant account (a mistyped case id): nothing to retry.
+    if ((e as { status?: number }).status === 404) return;
+    throw e;
+  }
   let row = await deps.store.upsert(d, outcomeOf(d), deps.now());
   if (!row.classification) {
     await classify(deps, d, row);

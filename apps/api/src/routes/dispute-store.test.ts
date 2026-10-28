@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { appendLedger, createDb, eq, ledgerEntries, sessions, storeOrders } from "@keel/db";
+import { appendLedger, createDb, disputes, eq, ledgerEntries, sessions, sql, storeOrders } from "@keel/db";
 import type { Dispute } from "@keel/paypal/disputes";
 import type { Classified, LedgerEntry } from "@keel/worker/dispute";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { createDisputeStore } from "./dispute-store";
 
 const rid = () => randomUUID().replaceAll("-", "");
@@ -11,9 +11,15 @@ describe.skipIf(!process.env.DATABASE_URL)("dispute store (Postgres)", () => {
   const db = createDb();
   const store = createDisputeStore(db);
   const now = new Date();
+  const prefix = `PP-T-${rid().slice(0, 8)}`;
+
+  // Test rows would otherwise be polled against PayPal as open disputes.
+  afterAll(async () => {
+    await db.delete(disputes).where(sql`${disputes.id} like ${`${prefix}%`}`);
+  });
 
   const paypalDispute = (captureId: string): Dispute => ({
-    dispute_id: `PP-T-${rid().slice(0, 16)}`,
+    dispute_id: `${prefix}-${rid().slice(0, 16)}`,
     reason: "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
     status: "OPEN",
     dispute_amount: { currency_code: "USD", value: "35.00" },

@@ -209,6 +209,13 @@ describe("syncDispute", () => {
     expect(t.rows.get("PP-D-1")!.action).toBe("EVIDENCE_SUBMITTED");
   });
 
+  it("stops quietly when PayPal has no such dispute", async () => {
+    const t = setup();
+    t.paypal.get.mockRejectedValueOnce(Object.assign(new Error("404"), { status: 404 }));
+    await syncDispute(t.deps, "PP-NOPE");
+    expect(t.rows.size).toBe(0);
+  });
+
   it("doesn't classify twice when another sync won", async () => {
     const t = setup();
     const classify = t.deps.store.classify;
