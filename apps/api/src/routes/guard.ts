@@ -1,6 +1,6 @@
 import type { Extraction } from "@keel/core";
 import type { LedgerContent, ReplyInput, TurnDecision } from "@keel/engine";
-import { decideReply } from "@keel/engine";
+import { QUARANTINE_TEMPLATE, SAFE_FALLBACK, decideReply } from "@keel/engine";
 import type { ExtractInput } from "@keel/extractor";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
@@ -15,6 +15,8 @@ export interface GuardOptions {
   turnDecisions: (sessionId: string, ids: string[]) => Promise<TurnDecision[]>;
   /** The active approved policy JSON, or null. */
   policy: (policyId: string) => Promise<unknown>;
+  control: (sessionId: string) => Promise<{ state: string; agent_frozen: boolean; score: number }>;
+  assess: (sessionId: string) => Promise<{ score: number; quarantined: boolean }>;
   extract: (input: ExtractInput) => Promise<Extraction>;
   appendLedger: (content: LedgerContent) => Promise<unknown>;
   extractor: { model: string; prompt_version: string };
@@ -57,6 +59,42 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
     const session = await opts.session(req.session_id);
     if (!session || new Date(session.expires_at) <= opts.now()) return c.json({ error: "not_found" }, 404);
 
+    let ctl: Awaited<ReturnType<GuardOptions["control"]>>;
+    try {
+      ctl = await opts.control(req.session_id);
+    } catch {
+      const decision_id = opts.newId("dec");
+      await opts.appendLedger({
+        decision_id,
+        session_id: req.session_id,
+        order_id: null,
+        capture_id: null,
+        dispute_id: null,
+        mode: "LIVE",
+        verdict: "BLOCK",
+        reason_codes: ["VERIFIER_UNAVAILABLE"],
+        payload: { tool: "guard", draft: req.draft_reply, control_error: true },
+      });
+      return c.json({ verdict: "BLOCK", reason_codes: ["VERIFIER_UNAVAILABLE"], final_reply: SAFE_FALLBACK, decision_id, session_state: session.state });
+    }
+    const held = (decision_id: string) =>
+      c.json({ verdict: "HOLD", reason_codes: ["RISK_THRESHOLD"], final_reply: QUARANTINE_TEMPLATE, decision_id, session_state: "QUARANTINED" });
+    if (ctl.state === "QUARANTINED") {
+      const decision_id = opts.newId("dec");
+      await opts.appendLedger({
+        decision_id,
+        session_id: req.session_id,
+        order_id: null,
+        capture_id: null,
+        dispute_id: null,
+        mode: "QUARANTINE",
+        verdict: "HOLD",
+        reason_codes: ["RISK_THRESHOLD"],
+        payload: { tool: "guard", draft: req.draft_reply, quarantined: true, risk_score: ctl.score },
+      });
+      return held(decision_id);
+    }
+
     const turn_decisions = await opts.turnDecisions(req.session_id, req.tool_calls_this_turn);
     const customer_message = req.conversation.findLast((t) => t.role === "customer")?.text ?? null;
 
@@ -98,8 +136,14 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
         result,
         extractor: { ...opts.extractor, latency_ms },
         ...(extractor_error ? { extractor_error } : {}),
+        risk_score: ctl.score,
       },
     });
+    try {
+      if ((await opts.assess(req.session_id)).quarantined) return held(decision_id);
+    } catch {
+      console.error("risk assess failed", req.session_id);
+    }
     return c.json({ verdict: result.verdict, reason_codes: result.reason_codes, final_reply: result.final_reply, decision_id, session_state: session.state });
   });
 }

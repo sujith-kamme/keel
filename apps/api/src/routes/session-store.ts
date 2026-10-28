@@ -1,5 +1,5 @@
 import { type Db, and, asc, desc, eq, inArray, ledgerEntries, lt, sessionTurns, sessions, sql, storeOrders } from "@keel/db";
-import { MAX_OTP_ATTEMPTS, type TurnDecision } from "@keel/engine";
+import { MAX_OTP_ATTEMPTS, QUARANTINE_TEMPLATE, SAFE_FALLBACK, type TurnDecision } from "@keel/engine";
 import type { SessionStore } from "./sessions";
 import type { StoreOrderSummary } from "./store";
 import type { DecisionSummary, SessionSummary, TurnStore } from "./turns";
@@ -63,6 +63,9 @@ interface GuardPayload {
   input?: { draft?: unknown; extraction?: { reply_commitments?: { type?: unknown; quoted_text?: unknown }[] } | null };
   result?: { final_reply?: unknown };
   extractor?: { latency_ms?: unknown };
+  draft?: unknown;
+  quarantined?: unknown;
+  control_error?: unknown;
 }
 
 const str = (v: unknown) => (typeof v === "string" ? v : "");
@@ -71,9 +74,11 @@ function guardDetails(payload: unknown): NonNullable<DecisionSummary["guard"]> {
   const p = (payload ?? {}) as GuardPayload;
   const commitments = Array.isArray(p.input?.extraction?.reply_commitments) ? p.input.extraction.reply_commitments : [];
   const latency = p.extractor?.latency_ms;
+  // Quarantine and control-error rows are written without extraction, so derive the reply that was sent.
+  const derived = p.quarantined === true ? QUARANTINE_TEMPLATE : p.control_error === true ? SAFE_FALLBACK : "";
   return {
-    draft: str(p.input?.draft),
-    final_reply: str(p.result?.final_reply),
+    draft: str(p.input?.draft) || str(p.draft),
+    final_reply: str(p.result?.final_reply) || derived,
     commitments: commitments.map((c) => ({ type: str(c?.type), quoted_text: str(c?.quoted_text) })),
     latency_ms: typeof latency === "number" ? latency : null,
   };

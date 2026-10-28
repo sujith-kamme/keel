@@ -100,7 +100,7 @@ export const appendTurn = (id: string, turn: { role: "customer" | "agent"; text:
   keel<unknown>(`/v1/sessions/${encodeURIComponent(id)}/turns`, post(turn));
 
 export interface GuardResult {
-  verdict: "ALLOW" | "REWRITE" | "BLOCK";
+  verdict: "ALLOW" | "REWRITE" | "BLOCK" | "HOLD";
   reason_codes: string[];
   final_reply: string;
   decision_id: string;

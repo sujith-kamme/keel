@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { appendLedger, createDb, sessions } from "@keel/db";
-import type { LedgerContent } from "@keel/engine";
+import { type LedgerContent, QUARANTINE_TEMPLATE, SAFE_FALLBACK } from "@keel/engine";
 import { describe, expect, it } from "vitest";
 import { createTurnDecisions, createTurnStore } from "./session-store";
 
@@ -48,6 +48,9 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     });
     await appendLedger(db, { ...ledger("guard"), payload: { tool: "guard", input: { draft: "hi", extraction: null }, result: { final_reply: "hi" } } });
 
+    await appendLedger(db, { ...ledger("guard"), payload: { tool: "guard", draft: "held", quarantined: true, risk_score: 9 } });
+    await appendLedger(db, { ...ledger("guard"), payload: { tool: "guard", draft: "down", control_error: true } });
+
     const session = await store.session(id);
     expect(Object.keys(session!).sort()).toEqual(SUMMARY_KEYS);
     expect(session!.verified).toBe(false);
@@ -60,7 +63,7 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
       ["agent", ["dec_a"]],
     ]);
     const decisions = await store.decisions(id);
-    expect(decisions.map((d) => d.tool)).toEqual(["get_order", "offer_refund", "guard", "guard"]);
+    expect(decisions.map((d) => d.tool)).toEqual(["get_order", "offer_refund", "guard", "guard", "guard", "guard"]);
     expect("guard" in decisions[0]!).toBe(false);
     expect("guard" in decisions[1]!).toBe(false);
     expect(decisions[2]!.guard).toEqual({
@@ -70,6 +73,8 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
       latency_ms: 42,
     });
     expect(decisions[3]!.guard).toEqual({ draft: "hi", final_reply: "hi", commitments: [], latency_ms: null });
+    expect(decisions[4]!.guard).toEqual({ draft: "held", final_reply: QUARANTINE_TEMPLATE, commitments: [], latency_ms: null });
+    expect(decisions[5]!.guard).toEqual({ draft: "down", final_reply: SAFE_FALLBACK, commitments: [], latency_ms: null });
     expect(await store.customerTurnCount(id)).toBe(1);
   });
 

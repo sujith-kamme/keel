@@ -1,5 +1,5 @@
 import type { Extraction } from "@keel/core";
-import { type LedgerContent, type TurnDecision, replayReply } from "@keel/engine";
+import { type LedgerContent, QUARANTINE_TEMPLATE, SAFE_FALLBACK, type TurnDecision, replayReply } from "@keel/engine";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { type GuardOptions, KNOWN_POLICY_IDS, mountGuard } from "./guard";
@@ -36,6 +36,8 @@ function setup(over: Partial<GuardOptions> = {}) {
       calls.extract.push(input);
       return empty;
     },
+    control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 0 }),
+    assess: async () => ({ score: 0, quarantined: false }),
     appendLedger: async (c) => void ledger.push(c),
     extractor: { model: "claude-haiku-5-5", prompt_version: "v1" },
     now: () => now,
@@ -181,5 +183,68 @@ describe("POST /v1/guard", () => {
   it("takes session_state from the session row", async () => {
     const { app } = setup({ session: async (id) => ({ id, state: "HELD", expires_at: "2026-10-27T12:30:00.000Z" }) });
     expect(((await (await post(app, valid)).json()) as { session_state: string }).session_state).toBe("HELD");
+  });
+
+  describe("risk control", () => {
+    it("holds a quarantined session without calling the extractor", async () => {
+      const { app, ledger, calls } = setup({ control: async () => ({ state: "QUARANTINED", agent_frozen: false, score: 9 }) });
+      const res = await post(app, valid);
+      expect(await res.json()).toMatchObject({
+        verdict: "HOLD",
+        reason_codes: ["RISK_THRESHOLD"],
+        final_reply: QUARANTINE_TEMPLATE,
+        session_state: "QUARANTINED",
+      });
+      expect(calls.extract).toEqual([]);
+      expect(ledger).toHaveLength(1);
+      expect(ledger[0]).toMatchObject({
+        mode: "QUARANTINE",
+        verdict: "HOLD",
+        payload: { tool: "guard", draft: "Hello there", quarantined: true, risk_score: 9 },
+      });
+    });
+
+    it("holds when assess quarantines on this reply, keeping the engine verdict in the ledger", async () => {
+      const { app, ledger } = setup({ assess: async () => ({ score: 8, quarantined: true }) });
+      const body = await (await post(app, valid)).json();
+      expect(body).toMatchObject({ verdict: "HOLD", reason_codes: ["RISK_THRESHOLD"], final_reply: QUARANTINE_TEMPLATE, session_state: "QUARANTINED" });
+      expect(ledger).toHaveLength(1);
+      expect(ledger[0]).toMatchObject({ mode: "LIVE", verdict: "ALLOW" });
+      expect(body).toMatchObject({ decision_id: "dec_abc123" });
+    });
+
+    it("blocks with the safe fallback when control throws", async () => {
+      const { app, ledger, calls } = setup({
+        control: async () => {
+          throw new Error("db down");
+        },
+      });
+      const body = await (await post(app, valid)).json();
+      expect(body).toMatchObject({ verdict: "BLOCK", reason_codes: ["VERIFIER_UNAVAILABLE"], final_reply: SAFE_FALLBACK });
+      expect(calls.extract).toEqual([]);
+      expect(ledger).toHaveLength(1);
+      expect(ledger[0]).toMatchObject({
+        mode: "LIVE",
+        verdict: "BLOCK",
+        reason_codes: ["VERIFIER_UNAVAILABLE"],
+        payload: { tool: "guard", draft: "Hello there", control_error: true },
+      });
+    });
+
+    it("returns the normal response when assess throws", async () => {
+      const { app } = setup({
+        assess: async () => {
+          throw new Error("boom");
+        },
+      });
+      const body = await (await post(app, valid)).json();
+      expect(body).toMatchObject({ verdict: "ALLOW", session_state: "ACTIVE" });
+    });
+
+    it("records the risk score in the payload", async () => {
+      const { app, ledger } = setup({ control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 4 }) });
+      await post(app, valid);
+      expect(ledger[0]?.payload).toMatchObject({ tool: "guard", risk_score: 4 });
+    });
   });
 });

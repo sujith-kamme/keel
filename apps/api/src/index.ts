@@ -54,6 +54,8 @@ const app = createApp({
     session: turnStore.session,
     turnDecisions: createTurnDecisions(db),
     policy: (id) => activePolicy(db, id),
+    control: risk.control,
+    assess: risk.assess,
     extract: (input) => extract({ parse: (p, o) => anthropic.messages.parse(p, o), model, timeoutMs }, input),
     appendLedger: (c) => appendLedger(db, c),
     extractor: { model, prompt_version: PROMPT_VERSION },
