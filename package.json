@@ -30,10 +30,12 @@
     "dispute:orders": "tsx --env-file=.env scripts/dispute-orders.ts",
     "dispute:sandbox": "tsx --env-file=.env scripts/dispute-sandbox.ts",
     "smoke:dispute": "tsx scripts/dispute-smoke.ts",
-    "smoke:gauntlet": "tsx scripts/gauntlet-smoke.ts"
+    "smoke:gauntlet": "tsx scripts/gauntlet-smoke.ts",
+    "postman": "tsx scripts/postman.ts"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
+    "openapi-to-postmanv2": "6.4.0",
     "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "4.1.12"
