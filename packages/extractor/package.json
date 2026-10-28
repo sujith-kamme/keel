@@ -4,5 +4,5 @@
   "type": "module",
   "exports": "./src/index.ts",
   "scripts": { "typecheck": "tsc -p ." },
-  "dependencies": { "@keel/core": "*", "@anthropic-ai/sdk": "1.3.0", "zod": "4.6.7" }
+  "dependencies": { "@keel/core": "*", "@keel/engine": "*", "@anthropic-ai/sdk": "1.3.0", "zod": "4.6.7" }
 }

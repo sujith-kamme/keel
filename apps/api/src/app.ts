@@ -9,6 +9,7 @@ import { type GridQueryOptions, mountGridQuery } from "./routes/grid-query";
 import { type GuardOptions, mountGuard } from "./routes/guard";
 import { type LedgerOptions, mountLedger } from "./routes/ledger";
 import { type OverviewOptions, mountOverview } from "./routes/overview";
+import { type PoliciesOptions, mountPolicies } from "./routes/policies";
 import { type ReviewOptions, mountReview } from "./routes/review";
 import { type SessionOptions, mountSessions } from "./routes/sessions";
 import { type StoreOptions, mountStore } from "./routes/store";
@@ -26,6 +27,7 @@ export function createApp(deps: {
   ledger?: LedgerOptions;
   mcp?: McpOptions;
   overview?: OverviewOptions;
+  policies?: PoliciesOptions;
   review?: ReviewOptions;
   sessions?: SessionOptions;
   store?: StoreOptions;
@@ -66,6 +68,7 @@ export function createApp(deps: {
   if (deps.ledger) mountLedger(app, deps.ledger);
   if (deps.overview) mountOverview(app, deps.overview);
   if (deps.gridQuery) mountGridQuery(app, deps.gridQuery);
+  if (deps.policies) mountPolicies(app, deps.policies);
 
   return app;
 }
