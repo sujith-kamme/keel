@@ -12,7 +12,7 @@ export interface Dispute {
   disputed_transactions: { seller_transaction_id?: string; buyer_transaction_id?: string }[];
   messages?: { posted_by: string; content: string; time_posted?: string }[];
   evidences?: { evidence_type: string; source?: string; notes?: string }[];
-  dispute_outcome?: { outcome_code: string; amount_refunded?: PayPalAmount };
+  dispute_outcome?: { outcome_code: string; outcome_reason?: string; amount_refunded?: PayPalAmount };
   links?: { rel: string; href: string; method: string }[];
   create_time?: string;
   update_time?: string;

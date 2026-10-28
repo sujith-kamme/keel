@@ -122,7 +122,7 @@ export function outcomeOf(d: Dispute): DisputeOutcome {
   if (d.status !== "RESOLVED") return "OPEN";
   const code = d.dispute_outcome?.outcome_code ?? "";
   if (code === "RESOLVED_SELLER_FAVOUR" || code === "CANCELED_BY_BUYER" || code === "DENIED") return "WON";
-  if (code === "ACCEPTED") return "CONCEDED";
+  if (code === "ACCEPTED" || d.dispute_outcome?.outcome_reason === "SELLER_ISSUED_REFUND") return "CONCEDED";
   return "LOST";
 }
 
@@ -152,6 +152,16 @@ export function refundAttempts(rows: LedgerRow[], currency: string): RefundAttem
       reason_codes: r.reason_codes as ReasonCode[],
       review: reviews.get(r.decision_id) ?? null,
     }));
+}
+
+/** Drops refund attempts on other orders, and their reviews: one session can discuss several orders. */
+export function forOrder(rows: LedgerRow[], orderId: string): LedgerRow[] {
+  const other = new Set(
+    rows
+      .filter((r) => r.payload.tool === "offer_refund" && (r.payload.args as { order_id?: unknown } | undefined)?.order_id !== orderId)
+      .map((r) => r.decision_id),
+  );
+  return rows.filter((r) => !other.has(r.decision_id) && !(r.payload.tool === "review" && other.has(r.payload.ref as string)));
 }
 
 function detail(r: LedgerRow): string {
@@ -189,6 +199,7 @@ async function classify(deps: DisputeDeps, d: Dispute, row: DisputeRow): Promise
     }
   }
   const order = ctx.order;
+  const rows = order ? forOrder(ctx.rows, order.order_id) : ctx.rows;
   const refunds = order ? await deps.paypal.refunds(order.order_id) : [];
   const capture = order ? await deps.paypal.capture(order.capture_id) : null;
   const amount = { value: d.dispute_amount.value, currency: d.dispute_amount.currency_code };
@@ -196,9 +207,9 @@ async function classify(deps: DisputeDeps, d: Dispute, row: DisputeRow): Promise
     reason: d.reason,
     amount,
     captureCurrency: order?.currency ?? null,
-    ledgerRows: ctx.rows.length,
+    ledgerRows: rows.length,
     injection,
-    refunds: order ? refundAttempts(ctx.rows, order.currency) : [],
+    refunds: order ? refundAttempts(rows, order.currency) : [],
     refunded: { value: sumCents(refunds.filter((r) => PAID.has(r.status)).map((r) => r.amount)), currency: amount.currency },
   });
 
@@ -214,7 +225,7 @@ async function classify(deps: DisputeDeps, d: Dispute, row: DisputeRow): Promise
       order,
       paypal: { capture, refunds },
       turns: ctx.turns,
-      rows: ctx.rows.map(packRow),
+      rows: rows.map(packRow),
       policies: ctx.policies,
     });
     const pdf = await renderPdf(pack);
@@ -227,7 +238,7 @@ async function classify(deps: DisputeDeps, d: Dispute, row: DisputeRow): Promise
   }
 
   const decisionId = deps.newId("dec");
-  const sessionId = ctx.rows.find((r) => r.session_id)?.session_id ?? null;
+  const sessionId = rows.find((r) => r.session_id)?.session_id ?? null;
   const classified: Classified = { ...result, injection, decision_id: decisionId, order_id: order?.order_id ?? null, ...evidence };
   const ledger: LedgerEntry = {
     decision_id: decisionId,
@@ -244,7 +255,7 @@ async function classify(deps: DisputeDeps, d: Dispute, row: DisputeRow): Promise
       dispute_reason: d.reason,
       amount,
       injection,
-      matched_rows: ctx.rows.map((r) => r.decision_id),
+      matched_rows: rows.map((r) => r.decision_id),
       evidence_sha256: evidence.evidence_sha256,
     },
   };
