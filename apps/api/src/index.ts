@@ -4,7 +4,7 @@ import { serve } from "@hono/node-server";
 import { agentModel, connectAgentTools, promptMode, runTurn } from "@keel/agent";
 import { activePolicy, appendLedger, createDb, sql } from "@keel/db";
 import { PROMPT_VERSION, extract, extractorModel } from "@keel/extractor";
-import { type Versions, customerModel, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
+import { type Versions, customerModel, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
 import { PayPalClient, configFromEnv } from "@keel/paypal";
 import { riskConfig } from "@keel/risk";
 import { type KeelClient, gauntletConcurrency, runGauntlet } from "@keel/worker/gauntlet";
@@ -43,6 +43,7 @@ const turnStore = createTurnStore(db);
 // Gauntlet (Phase 5). Typos in these settings fail here, at start-up.
 const gauntletStore = createGauntletStore(db);
 const builtinScenarios = loadBuiltin();
+const draftModel = customerModel(process.env.GAUNTLET_CUSTOMER_MODEL);
 const catalog = async () => scenarioCatalog(builtinScenarios, await gauntletStore.learned());
 const demoAgent = { model: agentModel(process.env.DEMO_AGENT_MODEL), mode: promptMode(process.env.DEMO_AGENT_PROMPT) };
 const currentVersions = async (): Promise<Versions> => {
@@ -101,6 +102,10 @@ const app = createApp({
     enqueue: enqueueGauntlet,
     now,
     newId,
+    draftSource: gauntletStore.draftSource,
+    draft: (src, at) =>
+      draftScenario({ parse: (p, o) => anthropic.messages.parse(p, o), model: draftModel, timeoutMs: 20_000 }, src, at),
+    saveScenario: gauntletStore.saveLearned,
   },
 });
 

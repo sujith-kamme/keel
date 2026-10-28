@@ -1,4 +1,4 @@
-import type { Scenario, Scorecard, Versions } from "@keel/gauntlet";
+import { type DraftSource, NotEligible, type Scenario, Scorecard, Versions } from "@keel/gauntlet";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 import { type GauntletOptions, type GauntletRunStore, type RunView, mountGauntlet, scenarioCatalog, scenariosFor } from "./gauntlet";
@@ -69,6 +69,9 @@ function setup(over: Partial<GauntletOptions> = {}) {
     enqueue: vi.fn(async () => {}),
     now: () => NOW,
     newId: (p) => `${p}_abc`,
+    draftSource: async (id) => (id === "ses_known" ? ({ session: { id, mode: "LIVE", state: "QUARANTINED" }, order: null, rows: [], customer_turns: ["hi"] } satisfies DraftSource) : null),
+    draft: async () => scenario("learned-20261027-abc123", "learned"),
+    saveScenario: vi.fn(async () => true),
     ...over,
   };
   const app = new Hono();
@@ -187,5 +190,63 @@ describe("scenario catalog", () => {
     const cat = scenarioCatalog([scenario("a", "honest"), scenario("b", "refund-pressure")], [scenario("l", "learned")]);
     expect(scenariosFor(cat, ["honest"]).map((s) => s.id)).toEqual(["a"]);
     expect(scenariosFor(cat, ["learned", "refund-pressure"]).map((s) => s.id)).toEqual(["b", "l"]);
+  });
+});
+
+describe("scenario drafts", () => {
+  const draft = (app: Hono, body: unknown, key = operatorKey) => app.request("/v1/gauntlet/drafts", { method: "POST", headers: auth(key), body: JSON.stringify(body) });
+  const save = (app: Hono, body: unknown, key = operatorKey) => app.request("/v1/gauntlet/scenarios", { method: "POST", headers: auth(key), body: JSON.stringify(body) });
+
+  it("auth: 401 without the operator key, 403 for the merchant key", async () => {
+    const { app } = setup();
+    for (const fn of [draft, save]) {
+      expect((await fn(app, {}, "w".repeat(32))).status).toBe(401);
+      expect((await fn(app, {}, merchantKey)).status).toBe(403);
+    }
+  });
+
+  it("drafts: 404 unknown session, 422 not eligible, 502 on failure, 200 with the scenario", async () => {
+    expect((await draft(setup().app, { session_id: "ses_nope" })).status).toBe(404);
+    expect((await draft(setup().app, { session_id: "bad id" })).status).toBe(400);
+    const noEl = setup({ draft: async () => Promise.reject(new NotEligible()) });
+    const r422 = await draft(noEl.app, { session_id: "ses_known" });
+    expect(r422.status).toBe(422);
+    expect(await r422.json()).toEqual({ error: "not_eligible" });
+    const r502 = await draft(setup({ draft: async () => Promise.reject(new Error("boom")) }).app, { session_id: "ses_known" });
+    expect(r502.status).toBe(502);
+    expect(await r502.json()).toEqual({ error: "draft_failed" });
+    const { app, opts } = setup();
+    const ok = await draft(app, { session_id: "ses_known" });
+    expect(ok.status).toBe(200);
+    expect(((await ok.json()) as { scenario: Scenario }).scenario.id).toBe("learned-20261027-abc123");
+    expect(opts.saveScenario).not.toHaveBeenCalled();
+  });
+
+  it("saves: 400 for a wrong pack or invalid body, 409 on a built-in or learned id, 201 then listed", async () => {
+    const learned = scenario("learned-new", "learned");
+    const { app, opts } = setup();
+    expect((await save(app, { scenario: scenario("x-honest", "honest") })).status).toBe(400);
+    expect((await save(app, { scenario: { ...learned, extra: 1 } })).status).toBe(400);
+    expect((await save(app, { scenario: learned, source_session_id: "bad id" })).status).toBe(400);
+    expect((await save(app, { scenario: scenario("b-refund", "learned") })).status).toBe(409);
+    expect((await save(app, { scenario: scenario("l-one", "learned") })).status).toBe(409);
+    expect(opts.saveScenario).not.toHaveBeenCalled();
+
+    const saved: Scenario[] = [];
+    const live = setup({
+      catalog: async () => scenarioCatalog([scenario("b-honest", "honest")], saved),
+      saveScenario: async (s) => (saved.push(s), true),
+    });
+    const res = await save(live.app, { scenario: learned, source_session_id: "ses_known" });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ id: "learned-new" });
+    const list = await live.app.request("/v1/gauntlet/scenarios", { headers: auth(operatorKey) });
+    expect(((await list.json()) as { scenarios: { id: string; source: string }[] }).scenarios).toContainEqual(expect.objectContaining({ id: "learned-new", source: "learned" }));
+    expect((await save(live.app, { scenario: learned })).status).toBe(409);
+  });
+
+  it("409s when the store reports the id taken", async () => {
+    const { app } = setup({ saveScenario: async () => false });
+    expect((await save(app, { scenario: scenario("learned-race", "learned") })).status).toBe(409);
   });
 });

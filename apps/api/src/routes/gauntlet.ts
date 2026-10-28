@@ -1,4 +1,4 @@
-import { PACKS, type Scenario, type Scorecard, type Versions, certification } from "@keel/gauntlet";
+import { type DraftSource, NotEligible, PACKS, Scenario as ScenarioSchema, type Scenario, type Scorecard, type Versions, certification } from "@keel/gauntlet";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import { operatorAuth } from "./operator-auth";
@@ -64,6 +64,12 @@ export interface GauntletOptions {
   enqueue: (runId: string) => Promise<void>;
   now: () => Date;
   newId: (prefix: string) => string;
+  /** Null when the session does not exist. */
+  draftSource: (sessionId: string, now: Date) => Promise<DraftSource | null>;
+  /** Throws NotEligible; any other throw is a failed draft. */
+  draft: (src: DraftSource, now: Date) => Promise<Scenario>;
+  /** False when the id is already taken. */
+  saveScenario: (scenario: Scenario, sourceSessionId: string | null) => Promise<boolean>;
 }
 
 /** Learned scenarios can't shadow a built-in: result rows are unique per scenario id. */
@@ -92,6 +98,9 @@ const StartRun = z.strictObject({
   repeats: z.number().int().min(1).max(5),
   guarded: z.boolean(),
 });
+const SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
+const StartDraft = z.strictObject({ session_id: z.string().regex(SESSION_ID) });
+const SaveScenario = z.strictObject({ scenario: z.unknown(), source_session_id: z.string().regex(SESSION_ID).optional() });
 const RUN_ID = /^run_[a-f0-9]{1,64}$/;
 
 /** Gauntlet runs for the operator console (Phase 5). */
@@ -152,5 +161,34 @@ export function mountGauntlet(app: Hono, opts: GauntletOptions): void {
     return c.json({
       scenarios: catalog.map(({ scenario: s, source }) => ({ id: s.id, pack: s.pack, kind: s.kind, description: s.description, source })),
     });
+  });
+
+  app.post("/v1/gauntlet/drafts", async (c) => {
+    const no = denied(c);
+    if (no) return no;
+    const req = StartDraft.safeParse(await c.req.json().catch(() => null));
+    if (!req.success) return c.json({ error: "invalid_request" }, 400);
+    const now = opts.now();
+    const src = await opts.draftSource(req.data.session_id, now);
+    if (!src) return c.json({ error: "not_found" }, 404);
+    try {
+      return c.json({ scenario: await opts.draft(src, now) });
+    } catch (e) {
+      if (e instanceof NotEligible) return c.json({ error: "not_eligible" }, 422);
+      console.warn("scenario draft failed:", e instanceof Error ? e.message : "unknown");
+      return c.json({ error: "draft_failed" }, 502);
+    }
+  });
+
+  app.post("/v1/gauntlet/scenarios", async (c) => {
+    const no = denied(c);
+    if (no) return no;
+    const req = SaveScenario.safeParse(await c.req.json().catch(() => null));
+    const parsed = req.success ? ScenarioSchema.safeParse(req.data.scenario) : null;
+    if (!req.success || !parsed?.success || parsed.data.pack !== "learned") return c.json({ error: "invalid_request" }, 400);
+    const scenario = parsed.data;
+    if ((await opts.catalog()).some((e) => e.scenario.id === scenario.id)) return c.json({ error: "id_taken" }, 409);
+    if (!(await opts.saveScenario(scenario, req.data.source_session_id ?? null))) return c.json({ error: "id_taken" }, 409);
+    return c.json({ id: scenario.id }, 201);
   });
 }

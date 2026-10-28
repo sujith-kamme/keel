@@ -1,5 +1,5 @@
-import { type Db, and, asc, desc, eq, gauntletResults, gauntletRuns, gauntletScenarios, inArray, ledgerEntries, lt, sql, storeOrders } from "@keel/db";
-import { type Fixture, type RunFacts, type Scenario, type Scorecard, type Versions, parseScenario } from "@keel/gauntlet";
+import { type Db, and, asc, desc, eq, gauntletResults, gauntletRuns, gauntletScenarios, inArray, ledgerEntries, lt, sessionTurns, sessions, sql, storeOrders } from "@keel/db";
+import { type DraftSource, type Fixture, type RunFacts, type Scenario, type Scorecard, type Versions, parseScenario } from "@keel/gauntlet";
 import type { GauntletStore } from "@keel/worker/gauntlet";
 import type { GauntletRunStore, ResultView, RunView } from "./gauntlet";
 
@@ -197,6 +197,48 @@ export function createGauntletStore(db: Db, opts: { fixturePrefix?: string } = {
           return [];
         }
       });
+    },
+    /** False when the id is already taken. */
+    saveLearned: async (scenario: Scenario, sourceSessionId: string | null): Promise<boolean> => {
+      const rows = await db
+        .insert(gauntletScenarios)
+        .values({ id: scenario.id, pack: scenario.pack, body: scenario, source: "drafted", sourceSessionId, createdBy: "console" })
+        .onConflictDoNothing()
+        .returning({ id: gauntletScenarios.id });
+      return rows.length > 0;
+    },
+    /** Everything a draft needs, or null when the session does not exist. */
+    draftSource: async (sessionId: string, now: Date): Promise<DraftSource | null> => {
+      const [s] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
+      if (!s) return null;
+      const orderId = s.orderIds[0];
+      const [o] = orderId ? await db.select().from(storeOrders).where(eq(storeOrders.orderId, orderId)) : [];
+      const payer = (s.verifiedPayer ?? s.claimedEmail).toLowerCase();
+      const rows = await db
+        .select({ verdict: ledgerEntries.verdict, reasonCodes: ledgerEntries.reasonCodes, payload: ledgerEntries.payload })
+        .from(ledgerEntries)
+        .where(eq(ledgerEntries.sessionId, sessionId))
+        .orderBy(asc(ledgerEntries.seq));
+      const turns = await db
+        .select({ text: sessionTurns.text })
+        .from(sessionTurns)
+        .where(and(eq(sessionTurns.sessionId, sessionId), eq(sessionTurns.role, "customer")))
+        .orderBy(asc(sessionTurns.id));
+      return {
+        session: { id: s.id, mode: s.mode, state: s.state },
+        order: o
+          ? {
+              delivered_days_ago: o.deliveredAt ? Math.floor((now.getTime() - o.deliveredAt.getTime()) / 86_400_000) : null,
+              total: o.total,
+              payer_matches: o.payerEmail.toLowerCase() === payer,
+            }
+          : null,
+        rows: rows.map((r) => {
+          const tool = (r.payload as { tool?: unknown } | null)?.tool;
+          return { tool: typeof tool === "string" ? tool : "", verdict: r.verdict, reason_codes: r.reasonCodes };
+        }),
+        customer_turns: turns.map((t) => t.text),
+      };
     },
     /** Start-up: a QUEUED or RUNNING run created before `before` was interrupted by a restart. */
     failStale: async (before: Date, now: Date): Promise<number> => {
