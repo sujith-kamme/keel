@@ -7,7 +7,7 @@ import { PROMPT_VERSION, extract, extractorModel } from "@keel/extractor";
 import { type Versions, customerModel, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
 import { PayPalClient, configFromEnv } from "@keel/paypal";
 import { riskConfig } from "@keel/risk";
-import { type KeelClient, gauntletConcurrency, runGauntlet } from "@keel/worker/gauntlet";
+import { type KeelClient, KeelHttpError, gauntletConcurrency, runGauntlet } from "@keel/worker/gauntlet";
 import { enqueueGauntlet, enqueueNotify } from "@keel/worker/queue";
 import { Redis } from "ioredis";
 import { createApp } from "./app";
@@ -134,7 +134,7 @@ if (process.env.RUN_WORKER === "true") {
     });
     if (!res.ok) {
       const error = ((await res.json().catch(() => null)) as { error?: string } | null)?.error;
-      throw new Error(`Keel ${path.split("/").slice(0, 3).join("/")} responded ${res.status}${error ? ` ${error}` : ""}`);
+      throw new KeelHttpError(path.split("/").slice(0, 3).join("/"), res.status, error ?? null);
     }
     return (await res.json()) as T;
   };

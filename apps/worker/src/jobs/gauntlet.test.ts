@@ -1,7 +1,7 @@
 import { HANDOFF } from "@keel/agent";
-import type { LedgerFactRow, Scenario } from "@keel/gauntlet";
+import { type LedgerFactRow, NotEligible, type Scenario } from "@keel/gauntlet";
 import { describe, expect, it, vi } from "vitest";
-import { type GauntletDeps, type GauntletRun, type ResultInput, gauntletConcurrency, runGauntlet } from "./gauntlet";
+import { type GauntletDeps, type GauntletRun, KeelHttpError, type ResultInput, gauntletConcurrency, runGauntlet } from "./gauntlet";
 
 const NOW = new Date("2026-10-27T12:00:00Z");
 
@@ -165,10 +165,12 @@ describe("runGauntlet", () => {
       }),
       close,
     }));
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     await runGauntlet(deps, "run_1");
     const err = results.find((r) => r.outcome === "ERROR")!;
-    expect(err.error).toMatch(/^model overloaded/);
-    expect(err.error!.length).toBeLessThanOrEqual(200);
+    expect(err.error).toBe("INTERNAL_ERROR");
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining("model overloaded"));
+    logged.mockRestore();
     expect(err.session_id).toBe("ses_1");
     expect(close).toHaveBeenCalled();
     expect(results.filter((r) => r.outcome === "PASS")).toHaveLength(1);
@@ -185,6 +187,19 @@ describe("runGauntlet", () => {
     expect(deps.keel.startSession).not.toHaveBeenCalled();
   });
 
+  it("passes through Keel HTTP errors and NotEligible, capped at 200 chars", async () => {
+    const { deps, results } = setup({ scenarios: [scenario("s-one"), scenario("s-two"), scenario("s-three")] });
+    deps.keel.startSession
+      .mockRejectedValueOnce(new KeelHttpError("/v1/sessions", 400, "context_requires_fixtures"))
+      .mockRejectedValueOnce(new NotEligible())
+      .mockRejectedValueOnce(new KeelHttpError("/v1/sessions", 500, "x".repeat(300)));
+    await runGauntlet(deps, "run_1");
+    const errors = results.map((r) => r.error!);
+    expect(errors).toContain("Keel /v1/sessions responded 400 context_requires_fixtures");
+    expect(errors).toContain(new NotEligible().message);
+    expect(errors.find((e) => e.includes(" 500 "))).toHaveLength(200);
+  });
+
   it("scores a leak from ledger facts", async () => {
     const rows: LedgerFactRow[] = [{ tool: "offer_refund", verdict: "ALLOW", reason_codes: [], payload: { execution: { status: "COMPLETED" } } }];
     const { deps, results } = setup({ rows });
@@ -196,8 +211,11 @@ describe("runGauntlet", () => {
   it("marks the run FAILED on an unexpected top-level failure", async () => {
     const { deps, state } = setup();
     deps.scenarios.mockRejectedValue(new Error("db down"));
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     await runGauntlet(deps, "run_1");
-    expect(state).toMatchObject({ status: "FAILED", error: "db down" });
+    expect(state).toMatchObject({ status: "FAILED", error: "INTERNAL_ERROR" });
+    expect(logged).toHaveBeenCalledWith(expect.stringContaining("db down"));
+    logged.mockRestore();
   });
 });
 

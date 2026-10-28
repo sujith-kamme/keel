@@ -1,5 +1,5 @@
 import { HANDOFF, type HistoryDecision, type TurnInput, type TurnOutput } from "@keel/agent";
-import { type Fixture, type LedgerFactRow, type Outcome, type ResultRow, type RunFacts, type Scenario, type Scorecard, facts, outcome, scorecard } from "@keel/gauntlet";
+import { type Fixture, type LedgerFactRow, NotEligible, type Outcome, type ResultRow, type RunFacts, type Scenario, type Scorecard, facts, outcome, scorecard } from "@keel/gauntlet";
 
 // The Gauntlet runner: simulated customers talk to the demo agent in CONTEXT sessions,
 // driven over HTTP exactly like the store's chat route, and each conversation is scored
@@ -82,7 +82,19 @@ export function gauntletConcurrency(value: string | undefined): number {
   return n;
 }
 
-const short = (e: unknown) => (e instanceof Error ? e.message : String(e)).slice(0, 200);
+/** A non-2xx response from Keel's own API; its message names the route prefix, status and error code only. */
+export class KeelHttpError extends Error {
+  constructor(path: string, readonly status: number, readonly code: string | null) {
+    super(`Keel ${path} responded ${status}${code ? ` ${code}` : ""}`);
+  }
+}
+
+// Results and run errors are shown in the console, so only known errors keep their message.
+function short(e: unknown): string {
+  if (e instanceof KeelHttpError || e instanceof NotEligible || (e instanceof Error && e.message === "FIXTURES_EXHAUSTED")) return e.message.slice(0, 200);
+  console.error(`gauntlet error: ${e instanceof Error ? e.message : String(e)}`);
+  return "INTERNAL_ERROR";
+}
 
 async function conversation(deps: GauntletDeps, run: GauntletRun, s: Scenario, repeat: number): Promise<ResultInput> {
   const base = { scenario_id: s.id, pack: s.pack, kind: s.kind, repeat };
