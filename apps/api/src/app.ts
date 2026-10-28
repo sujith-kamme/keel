@@ -5,7 +5,10 @@ import { type McpOptions, mountMcp } from "./mcp/server";
 import { type AgentOptions, mountAgents } from "./routes/agents";
 import { type DisputesOptions, mountDisputes } from "./routes/disputes";
 import { type GauntletOptions, mountGauntlet } from "./routes/gauntlet";
+import { type GridQueryOptions, mountGridQuery } from "./routes/grid-query";
 import { type GuardOptions, mountGuard } from "./routes/guard";
+import { type LedgerOptions, mountLedger } from "./routes/ledger";
+import { type OverviewOptions, mountOverview } from "./routes/overview";
 import { type ReviewOptions, mountReview } from "./routes/review";
 import { type SessionOptions, mountSessions } from "./routes/sessions";
 import { type StoreOptions, mountStore } from "./routes/store";
@@ -18,8 +21,11 @@ export function createApp(deps: {
   checks: Record<string, HealthCheck>;
   disputes?: DisputesOptions;
   gauntlet?: GauntletOptions;
+  gridQuery?: GridQueryOptions;
   guard?: GuardOptions;
+  ledger?: LedgerOptions;
   mcp?: McpOptions;
+  overview?: OverviewOptions;
   review?: ReviewOptions;
   sessions?: SessionOptions;
   store?: StoreOptions;
@@ -29,7 +35,9 @@ export function createApp(deps: {
 
   app.use(secureHeaders());
   // Every request Keel accepts is small JSON; refuse anything bigger before parsing.
-  app.use("/v1/*", bodyLimit({ maxSize: 64 * 1024, onError: (c) => c.json({ error: "payload_too_large" }, 413) }));
+  // grid-query carries a grid schema of up to 64 KB and sets its own limit.
+  const limit = bodyLimit({ maxSize: 64 * 1024, onError: (c) => c.json({ error: "payload_too_large" }, 413) });
+  app.use("/v1/*", (c, next) => (c.req.path === "/v1/grid-query" ? next() : limit(c, next)));
 
   app.get("/health", async (c) => {
     const results = await Promise.all(
@@ -55,6 +63,9 @@ export function createApp(deps: {
   if (deps.agents) mountAgents(app, deps.agents);
   if (deps.gauntlet) mountGauntlet(app, deps.gauntlet);
   if (deps.disputes) mountDisputes(app, deps.disputes);
+  if (deps.ledger) mountLedger(app, deps.ledger);
+  if (deps.overview) mountOverview(app, deps.overview);
+  if (deps.gridQuery) mountGridQuery(app, deps.gridQuery);
 
   return app;
 }

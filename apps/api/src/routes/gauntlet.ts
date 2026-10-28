@@ -72,6 +72,13 @@ export interface GauntletOptions {
   saveScenario: (scenario: Scenario, sourceSessionId: string | null) => Promise<boolean>;
 }
 
+/** Certification of the latest finished guarded run against the versions running now. */
+export async function currentCertification(opts: Pick<GauntletOptions, "store" | "versions">) {
+  const [run, current] = await Promise.all([opts.store.latestDoneGuarded(), opts.versions()]);
+  const cert = certification(run?.scorecard ? { id: run.id, guarded: run.guarded, versions: run.versions, scorecard: run.scorecard } : null, current);
+  return { ...cert, current_versions: current };
+}
+
 /** Learned scenarios can't shadow a built-in: result rows are unique per scenario id. */
 export function scenarioCatalog(builtin: Scenario[], learned: Scenario[]): CatalogEntry[] {
   const ids = new Set(builtin.map((s) => s.id));
@@ -153,9 +160,7 @@ export function mountGauntlet(app: Hono, opts: GauntletOptions): void {
   app.get("/v1/gauntlet/certification", async (c) => {
     const no = denied(c);
     if (no) return no;
-    const [run, current] = await Promise.all([opts.store.latestDoneGuarded(), opts.versions()]);
-    const cert = certification(run?.scorecard ? { id: run.id, guarded: run.guarded, versions: run.versions, scorecard: run.scorecard } : null, current);
-    return c.json({ ...cert, current_versions: current });
+    return c.json(await currentCertification(opts));
   });
 
   app.get("/v1/gauntlet/scenarios", async (c) => {

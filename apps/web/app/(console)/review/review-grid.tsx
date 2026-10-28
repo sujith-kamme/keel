@@ -1,17 +1,19 @@
 "use client";
 
-import { AllCommunityModule, ModuleRegistry, colorSchemeVariable, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
+import { colorSchemeVariable, themeQuartz, type ColDef, type GridApi, type ICellRendererParams, type StructuredSchemaParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { AddToGauntlet } from "@/components/add-to-gauntlet";
+import { AskGrid } from "@/components/ask-grid";
 import { ReleaseButton } from "@/components/release-button";
+import { amountValue } from "@/lib/ledger-view";
 import { relativeTime } from "@/lib/sessions-view";
 import type { ReviewRow } from "@/lib/review-view";
 import { approve, deny } from "./actions";
 
-ModuleRegistry.registerModules([AllCommunityModule]);
+import "@/lib/ag-grid";
 
 const theme = themeQuartz
   .withPart(colorSchemeVariable)
@@ -56,9 +58,11 @@ function Actions({ data }: ICellRendererParams<ReviewRow>) {
   );
 }
 
+const set = { filter: "agSetColumnFilter", enableRowGroup: true } as const;
+
 const columns: ColDef<ReviewRow>[] = [
   { headerName: "Created", field: "createdAt", valueFormatter: (p) => relativeTime(p.value, new Date()), width: 120 },
-  { headerName: "Kind", field: "kindLabel", width: 120 },
+  { headerName: "Kind", field: "kindLabel", ...set, width: 120 },
   {
     headerName: "Session",
     field: "sessionId",
@@ -68,13 +72,39 @@ const columns: ColDef<ReviewRow>[] = [
       </Link>
     ),
   },
-  { headerName: "Tool", field: "tool", width: 140 },
-  { headerName: "Amount / %", field: "amount", width: 120 },
-  { headerName: "Reason codes", field: "reasons", flex: 1, minWidth: 160 },
-  { headerName: "Risk score", field: "score", width: 110, valueFormatter: (p) => (p.value === null ? "n/a" : String(p.value)) },
-  { headerName: "State", field: "state", width: 130 },
+  { headerName: "Tool", field: "tool", ...set, width: 140 },
+  {
+    headerName: "Amount / %",
+    colId: "amount",
+    // A number for the filter and sort; percent (discount) rows have no amount.
+    valueGetter: (p) => (p.data ? amountValue(p.data.amount) : null),
+    valueFormatter: (p) => p.data?.amount ?? "",
+    filter: "agNumberColumnFilter",
+    width: 120,
+  },
+  { headerName: "Reason codes", field: "reasons", ...set, flex: 1, minWidth: 160 },
+  {
+    headerName: "Risk score",
+    field: "score",
+    filter: "agNumberColumnFilter",
+    width: 110,
+    valueFormatter: (p) => (p.value === null ? "n/a" : String(p.value)),
+  },
+  { headerName: "State", field: "state", ...set, width: 130 },
   { headerName: "Actions", cellRenderer: Actions, flex: 1, minWidth: 260, sortable: false },
 ];
+
+const ASK_EXAMPLES = ["refunds over $50 grouped by reason code", "quarantined sessions only", "oldest first"];
+const ASK_SCHEMA: StructuredSchemaParams = {
+  columns: {
+    kindLabel: { includeSetValues: true },
+    tool: { includeSetValues: true },
+    reasons: { includeSetValues: true, description: "Reason codes, comma-separated" },
+    state: { includeSetValues: true, description: "Session state" },
+    amount: { description: "Refund amount in dollars; empty for percent discounts" },
+    createdAt: { description: "When it was created (ISO time)" },
+  },
+};
 
 export function ReviewGrid({ rows }: { rows: ReviewRow[] }) {
   // AG Grid follows data-ag-theme-mode; mirror the console's prefers-color-scheme.
@@ -86,9 +116,21 @@ export function ReviewGrid({ rows }: { rows: ReviewRow[] }) {
     return () => mq.removeEventListener("change", apply);
   }, []);
   const defaultColDef = useMemo<ColDef<ReviewRow>>(() => ({ sortable: true, resizable: true }), []);
+  const [api, setApi] = useState<GridApi<ReviewRow> | null>(null);
   return (
     <div className="mt-4">
-      <AgGridReact<ReviewRow> theme={theme} rowData={rows} columnDefs={columns} defaultColDef={defaultColDef} getRowId={(p) => p.data.id} domLayout="autoHeight" />
+      <AskGrid api={api} examples={ASK_EXAMPLES} schemaParams={ASK_SCHEMA} />
+      <div className="mt-3">
+        <AgGridReact<ReviewRow>
+          theme={theme}
+          rowData={rows}
+          columnDefs={columns}
+          defaultColDef={defaultColDef}
+          getRowId={(p) => p.data.id}
+          domLayout="autoHeight"
+          onGridReady={(e) => setApi(e.api)}
+        />
+      </div>
     </div>
   );
 }

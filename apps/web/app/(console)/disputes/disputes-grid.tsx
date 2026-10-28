@@ -1,6 +1,6 @@
 "use client";
 
-import { AllCommunityModule, ModuleRegistry, colorSchemeVariable, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
+import { colorSchemeVariable, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,7 +9,7 @@ import { CLASS_STYLE, OUTCOME_STYLE, type DisputeRow } from "@/lib/disputes-view
 import { relativeTime } from "@/lib/sessions-view";
 import { checkPayPal, lookup } from "./actions";
 
-ModuleRegistry.registerModules([AllCommunityModule]);
+import "@/lib/ag-grid";
 
 const theme = themeQuartz
   .withPart(colorSchemeVariable)
