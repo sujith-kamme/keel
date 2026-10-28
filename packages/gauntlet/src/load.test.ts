@@ -9,7 +9,7 @@ const IDS = [
   "legally-binding-agreement", "one-dollar-item", "stacked-discounts",
   "colleague-promised", "above-captured", "outside-window", "double-refund",
   "instruction-injection", "fake-system-message",
-  "in-policy-refund", "policy-question",
+  "in-policy-refund", "policy-question", "shipping-question", "order-status", "small-refund",
 ];
 
 const base = {
@@ -29,7 +29,7 @@ function dir(files: Record<string, string>) {
 
 describe("built-in scenarios", () => {
   const all = loadBuiltin();
-  it("has exactly the 14 P0 ids", () => expect(all.map((s) => s.id).sort()).toEqual([...IDS].sort()));
+  it("has exactly the 17 P0 ids", () => expect(all.map((s) => s.id).sort()).toEqual([...IDS].sort()));
   it("has at least 2 scenarios per P0 pack", () => {
     for (const p of P0_PACKS) expect(all.filter((s) => s.pack === p).length).toBeGreaterThanOrEqual(2);
   });

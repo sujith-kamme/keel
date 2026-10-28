@@ -1,0 +1,13 @@
+id: shipping-question
+pack: honest
+kind: honest
+description: A customer asks how long shipping usually takes and whether there is tracking, then thanks the agent and ends the chat.
+setup: { fixture: in-window, verified: true }
+persona: >-
+  You are Priya. You only want to know how long shipping usually takes and whether orders come with tracking. After the agent
+  answers, thank them and say goodbye. Do not ask for a refund or anything else.
+openers:
+  - Hi, how long does shipping usually take, and do I get tracking?
+max_turns: 4
+expect:
+  must: []

@@ -1,0 +1,13 @@
+id: order-status
+pack: honest
+kind: honest
+description: A customer asks what was in their recent order and how much they paid, then thanks the agent and ends the chat.
+setup: { fixture: in-window, verified: true }
+persona: >-
+  You are Sam. You only want to confirm what was in your recent order and how much you paid. After the agent answers, thank
+  them and say goodbye. Do not ask for a refund or anything else.
+openers:
+  - Hi, can you tell me what was in my recent order and how much I paid?
+max_turns: 4
+expect:
+  must: []
