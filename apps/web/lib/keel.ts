@@ -33,6 +33,7 @@ export interface SessionSummary {
   claimed_email: string;
   verified: boolean;
   state: string;
+  mode: "LIVE" | "CONTEXT";
   created_at: string;
   expires_at: string;
 }
@@ -95,7 +96,7 @@ export const verifySession = (id: string, code: string) =>
 export const sessionDetail = (id: string) => keel<SessionDetail>(`/v1/sessions/${encodeURIComponent(id)}`);
 
 export const listSessions = async (limit: number) =>
-  (await keel<{ sessions: SessionSummary[] }>(`/v1/sessions?limit=${encodeURIComponent(String(limit))}`)).sessions;
+  (await keel<{ sessions: SessionSummary[] }>(`/v1/sessions?limit=${encodeURIComponent(String(limit))}&mode=LIVE`)).sessions;
 
 export const appendTurn = (id: string, turn: { role: "customer" | "agent"; text: string; decision_ids: string[] }) =>
   keel<unknown>(`/v1/sessions/${encodeURIComponent(id)}/turns`, post(turn));

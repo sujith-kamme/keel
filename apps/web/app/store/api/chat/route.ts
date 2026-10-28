@@ -1,9 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
-import { HANDOFF, runTurn } from "@/lib/agent";
+import { HANDOFF, connectAgentTools, runTurn } from "@keel/agent";
 import { env } from "@/lib/env";
 import { appendTurn, guardReply, KeelError, sessionDetail } from "@/lib/keel";
-import { connectAgentTools } from "@/lib/mcp";
 import { attachDecisions } from "@/lib/sessions-view";
 import { ChatBody } from "@/lib/store-input";
 import { readChatCookie } from "../cookie";
@@ -24,7 +23,7 @@ export async function POST(request: Request) {
       throw err;
     }
     const anthropic = new Anthropic({ apiKey: env().anthropicKey });
-    const agent = await connectAgentTools(chat.token);
+    const agent = await connectAgentTools(env().keelApiUrl, chat.token);
     try {
       const { reply, decision_ids } = await runTurn(
         { model: env().model, mode: env().promptMode, createMessage: (p) => anthropic.messages.create(p), tools: agent.tools, callTool: agent.callTool },

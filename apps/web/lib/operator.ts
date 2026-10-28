@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { CONSOLE_COOKIE, isConsoleSession } from "./console-auth";
 import { env } from "./env";
+import type { Certification, Run, RunResult, ScenarioEntry, StartInput } from "./context-view";
 import { errorMessage, type ReviewItem } from "./review-view";
 
 export class OperatorError extends Error {
@@ -61,6 +62,22 @@ export const agentControl = (agentId: string) => operator<AgentControl>(`/v1/age
 
 export const setFrozen = (agentId: string, frozen: boolean, operatorName: string) =>
   operator<AgentControl>(`/v1/agents/${encodeURIComponent(agentId)}/${frozen ? "freeze" : "unfreeze"}`, post({ operator: operatorName }));
+
+export const gauntletCertification = () => operator<Certification>("/v1/gauntlet/certification");
+
+export const gauntletRuns = async () => (await operator<{ runs: Run[] }>("/v1/gauntlet/runs")).runs;
+
+export const gauntletRun = (id: string) => operator<{ run: Run; results: RunResult[] }>(`/v1/gauntlet/runs/${encodeURIComponent(id)}`);
+
+export const gauntletScenarios = async () => (await operator<{ scenarios: ScenarioEntry[] }>("/v1/gauntlet/scenarios")).scenarios;
+
+export const startGauntletRun = (input: StartInput) => operator<{ run_id: string }>("/v1/gauntlet/runs", post(input));
+
+export const draftScenario = async (sessionId: string) =>
+  (await operator<{ scenario: Record<string, unknown> }>("/v1/gauntlet/drafts", post({ session_id: sessionId }))).scenario;
+
+export const saveScenario = (scenario: Record<string, unknown>, sourceSessionId: string) =>
+  operator<{ id: string }>("/v1/gauntlet/scenarios", post({ scenario, source_session_id: sourceSessionId }));
 
 export type ActionResult = { ok: true } | { ok: false; message: string };
 

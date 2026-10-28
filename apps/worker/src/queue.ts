@@ -1,4 +1,4 @@
-import { Queue } from "bullmq";
+import { type JobsOptions, Queue } from "bullmq";
 import { Redis } from "ioredis";
 import type { NotifyEvent } from "./jobs/notify";
 
@@ -15,25 +15,31 @@ let queue: Queue | undefined;
 
 const ENQUEUE_TIMEOUT_MS = 2000;
 
-// BullMQ waits for Redis indefinitely, so callers get a hard timeout instead:
-// notifications never block decisions (FR-NTF-2).
-export async function enqueueNotify(event: NotifyEvent): Promise<void> {
+// BullMQ waits for Redis indefinitely, so callers get a hard timeout instead.
+async function add(name: string, data: object, opts: JobsOptions): Promise<void> {
   queue ??= new Queue(QUEUE, { connection: redisConnection() });
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new Error("enqueue timed out")), ENQUEUE_TIMEOUT_MS);
   });
   try {
-    await Promise.race([
-      queue.add("notify", event, {
-        attempts: 5,
-        backoff: { type: "exponential", delay: 5000 },
-        removeOnComplete: 100,
-        removeOnFail: 500,
-      }),
-      timeout,
-    ]);
+    await Promise.race([queue.add(name, data, opts), timeout]);
   } finally {
     clearTimeout(timer);
   }
+}
+
+// Notifications never block decisions (FR-NTF-2).
+export async function enqueueNotify(event: NotifyEvent): Promise<void> {
+  await add("notify", event, {
+    attempts: 5,
+    backoff: { type: "exponential", delay: 5000 },
+    removeOnComplete: 100,
+    removeOnFail: 500,
+  });
+}
+
+// One attempt: a half-finished run is marked FAILED, never re-run.
+export async function enqueueGauntlet(runId: string): Promise<void> {
+  await add("gauntlet.run", { run_id: runId }, { attempts: 1, removeOnComplete: 100, removeOnFail: 500 });
 }

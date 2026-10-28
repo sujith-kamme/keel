@@ -1,14 +1,12 @@
-import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { env } from "./env";
 
 /** Connects to Keel's MCP endpoint as the agent, with the session's capability token. */
-export async function connectAgentTools(token: string) {
+export async function connectAgentTools(apiUrl: string, token: string) {
   const client = new Client({ name: "keel-demo-agent", version: "0.1.0" });
   await client.connect(
-    new StreamableHTTPClientTransport(new URL(`${env().keelApiUrl}/v1/mcp`), {
+    new StreamableHTTPClientTransport(new URL(`${apiUrl}/v1/mcp`), {
       requestInit: { headers: { authorization: `Bearer ${token}` } },
     }),
   );

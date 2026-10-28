@@ -4,12 +4,11 @@
 //
 //   npm run seed:store                    # local (.env)
 //   npm run seed:store -- --fresh in-policy   # new order for a spent scenario
-import { randomUUID } from "node:crypto";
-import { catalogItems, createDb, eq, storeOrders } from "@keel/db";
-import { fromCents, toCents } from "@keel/engine";
+import { catalogItems, createDb } from "@keel/db";
+import { fromCents } from "@keel/engine";
 import { PayPalClient, configFromEnv } from "@keel/paypal";
+import { seedOrder } from "./lib/seed-orders.ts";
 
-const DAY_MS = 86_400_000;
 const QUERIES = ["running shoes", "rain jacket", "water bottle"];
 
 const SCENARIOS = [
@@ -70,34 +69,11 @@ const freshIndex = process.argv.indexOf("--fresh");
 const fresh = freshIndex === -1 ? null : process.argv[freshIndex + 1];
 
 for (const [i, s] of SCENARIOS.entries()) {
-  let scenario = s.scenario;
-  if (fresh === s.scenario) scenario = `${s.scenario}-${Date.now()}`;
-  else {
-    const [existing] = await db.select().from(storeOrders).where(eq(storeOrders.scenario, scenario));
-    if (existing) {
-      console.log(`${scenario}: exists (${existing.orderId})`);
-      continue;
-    }
-  }
+  const forceNew = fresh === s.scenario;
+  const spec = { ...s, scenario: forceNew ? `${s.scenario}-${Date.now()}` : s.scenario };
   const item = catalog[i % catalog.length];
   if (!item) throw new Error("Catalog is empty");
-  const order = await paypal.createCardOrder({ value: s.total, currency: "USD" }, item.title.slice(0, 127), `seed-${randomUUID()}`);
-  const capture = order.purchase_units[0]?.payments?.captures?.[0];
-  if (order.status !== "COMPLETED" || !capture) throw new Error(`${scenario}: order ${order.id} did not capture`);
-  if (toCents(capture.amount.value) !== toCents(s.total)) throw new Error(`${scenario}: captured ${capture.amount.value}`);
-
-  await db.insert(storeOrders).values({
-    orderId: order.id,
-    captureId: capture.id,
-    scenario,
-    payerEmail: s.payer,
-    currency: "USD",
-    total: s.total,
-    // One line per order; its price is the scenario total so the demo amounts stay fixed.
-    items: [{ sku: item.sku, title: item.title, price: s.total }],
-    deliveredAt: new Date(Date.now() - s.deliveredDaysAgo * DAY_MS),
-  });
-  console.log(`${scenario}: ${order.id} (capture ${capture.id}) ${s.total} USD for ${s.payer}`);
+  console.log(await seedOrder(db, paypal, spec, item, forceNew));
 }
 
 await db.$client.end();

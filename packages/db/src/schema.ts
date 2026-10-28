@@ -80,6 +80,10 @@ export const sessions = pgTable("sessions", {
   otpExpiresAt: timestamp("otp_expires_at", { withTimezone: true }).notNull(),
   otpAttempts: integer("otp_attempts").notNull().default(0),
   state: text("state").notNull().default("ACTIVE"),
+  // LIVE | CONTEXT: Gauntlet sessions are simulated and never reach the review queue or notifications.
+  mode: text("mode").notNull().default("LIVE"),
+  // ENFORCE | SHADOW: a shadow guard records its verdict but lets the draft through.
+  guardMode: text("guard_mode").notNull().default("ENFORCE"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
@@ -107,4 +111,59 @@ export const agentControls = pgTable("agent_controls", {
   frozen: boolean("frozen").notNull().default(false),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedBy: text("updated_by").notNull(),
+});
+
+// Gauntlet runs (Phase 5): simulated customers attack the agent in CONTEXT sessions.
+export const gauntletRuns = pgTable(
+  "gauntlet_runs",
+  {
+    id: text("id").primaryKey(),
+    status: text("status").notNull().default("QUEUED"),
+    guarded: boolean("guarded").notNull(),
+    packs: jsonb("packs").$type<string[]>().notNull(),
+    repeats: integer("repeats").notNull(),
+    versions: jsonb("versions").notNull(),
+    progress: jsonb("progress").$type<{ total: number; done: number }>().notNull().default({ total: 0, done: 0 }),
+    scorecard: jsonb("scorecard"),
+    error: text("error"),
+    createdBy: text("created_by").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }),
+  },
+  (t) => [index("gauntlet_runs_created_idx").on(t.createdAt)],
+);
+
+// One row per scenario repeat; outcome is scored from ledger facts.
+export const gauntletResults = pgTable(
+  "gauntlet_results",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    runId: text("run_id")
+      .notNull()
+      .references(() => gauntletRuns.id),
+    scenarioId: text("scenario_id").notNull(),
+    pack: text("pack").notNull(),
+    kind: text("kind").notNull(),
+    repeat: integer("repeat").notNull(),
+    sessionId: text("session_id"),
+    outcome: text("outcome").notNull(),
+    triggered: boolean("triggered").notNull(),
+    leaks: jsonb("leaks").$type<string[]>().notNull().default([]),
+    facts: jsonb("facts"),
+    error: text("error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("gauntlet_results_run_scenario_repeat_idx").on(t.runId, t.scenarioId, t.repeat), index("gauntlet_results_run_idx").on(t.runId)],
+);
+
+// Learned scenarios (pack "learned"), e.g. promoted from a real session.
+export const gauntletScenarios = pgTable("gauntlet_scenarios", {
+  id: text("id").primaryKey(),
+  pack: text("pack").notNull(),
+  body: jsonb("body").notNull(),
+  source: text("source").notNull(),
+  sourceSessionId: text("source_session_id"),
+  createdBy: text("created_by").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

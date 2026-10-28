@@ -4,6 +4,7 @@ import { QUARANTINE_TEMPLATE, SAFE_FALLBACK, decideReply } from "@keel/engine";
 import type { ExtractInput } from "@keel/extractor";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
+import { ledgerMode } from "../mode";
 import { merchantAuth } from "./merchant-auth";
 
 export const KNOWN_POLICY_IDS = ["refund-standard", "discount-goodwill", "policy-returns", "policy-bereavement", "policy-shipping"];
@@ -13,9 +14,11 @@ export interface GuardOptions {
   session: (id: string) => Promise<{ id: string; state: string; expires_at: string } | null>;
   /** Only ledger rows belonging to this session. */
   turnDecisions: (sessionId: string, ids: string[]) => Promise<TurnDecision[]>;
+  /** Executed refund/discount ALLOWs from this session, which may back a restated commitment. */
+  sessionDecisions: (sessionId: string, excludeIds: string[]) => Promise<TurnDecision[]>;
   /** The active approved policy JSON, or null. */
   policy: (policyId: string) => Promise<unknown>;
-  control: (sessionId: string) => Promise<{ state: string; agent_frozen: boolean; score: number }>;
+  control: (sessionId: string) => Promise<{ state: string; agent_frozen: boolean; score: number; mode: string; guard_mode: string }>;
   assess: (sessionId: string) => Promise<{ score: number; quarantined: boolean }>;
   extract: (input: ExtractInput) => Promise<Extraction>;
   appendLedger: (content: LedgerContent) => Promise<unknown>;
@@ -75,10 +78,19 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
         reason_codes: ["VERIFIER_UNAVAILABLE"],
         payload: { tool: "guard", draft: req.draft_reply, control_error: true },
       });
-      return c.json({ verdict: "BLOCK", reason_codes: ["VERIFIER_UNAVAILABLE"], final_reply: SAFE_FALLBACK, decision_id, session_state: session.state });
+      return c.json({ verdict: "BLOCK", reason_codes: ["VERIFIER_UNAVAILABLE"], final_reply: SAFE_FALLBACK, decision_id, session_state: session.state, shadow: false });
     }
+    const shadow = ctl.guard_mode === "SHADOW";
+    // A shadow guard records the real decision but lets the agent's draft through.
     const held = (decision_id: string) =>
-      c.json({ verdict: "HOLD", reason_codes: ["RISK_THRESHOLD"], final_reply: QUARANTINE_TEMPLATE, decision_id, session_state: "QUARANTINED" });
+      c.json({
+        verdict: "HOLD",
+        reason_codes: ["RISK_THRESHOLD"],
+        final_reply: shadow ? req.draft_reply : QUARANTINE_TEMPLATE,
+        decision_id,
+        session_state: "QUARANTINED",
+        shadow,
+      });
     const hold = async (risk_score: number) => {
       const decision_id = opts.newId("dec");
       await opts.appendLedger({
@@ -87,7 +99,7 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
         order_id: null,
         capture_id: null,
         dispute_id: null,
-        mode: "QUARANTINE",
+        mode: ledgerMode(ctl.mode, "QUARANTINED"),
         verdict: "HOLD",
         reason_codes: ["RISK_THRESHOLD"],
         payload: { tool: "guard", draft: req.draft_reply, quarantined: true, risk_score },
@@ -97,6 +109,13 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
     if (ctl.state === "QUARANTINED") return hold(ctl.score);
 
     const turn_decisions = await opts.turnDecisions(req.session_id, req.tool_calls_this_turn);
+    // Fail closed: a failed lookup means fewer backings, so more blocking.
+    let session_decisions: TurnDecision[] = [];
+    try {
+      session_decisions = await opts.sessionDecisions(req.session_id, req.tool_calls_this_turn);
+    } catch {
+      console.error("session decisions lookup failed", req.session_id);
+    }
     const customer_message = req.conversation.findLast((t) => t.role === "customer")?.text ?? null;
 
     let extraction: Extraction | null = null;
@@ -119,7 +138,7 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
       policies[id] = await lookup(opts, id);
     }
 
-    const input: ReplyInput = { draft: req.draft_reply, extraction, turn_decisions, policies };
+    const input: ReplyInput = { draft: req.draft_reply, extraction, turn_decisions, session_decisions, policies };
     const result = decideReply(input);
     const decision_id = opts.newId("dec");
     await opts.appendLedger({
@@ -128,7 +147,7 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
       order_id: null,
       capture_id: null,
       dispute_id: null,
-      mode: "LIVE",
+      mode: ledgerMode(ctl.mode, ctl.state),
       verdict: result.verdict,
       reason_codes: result.reason_codes,
       payload: {
@@ -148,6 +167,13 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
     }
     // The guard row above records the draft's verdict; the reply sent is the quarantine one.
     if (risk?.quarantined) return hold(risk.score);
-    return c.json({ verdict: result.verdict, reason_codes: result.reason_codes, final_reply: result.final_reply, decision_id, session_state: session.state });
+    return c.json({
+      verdict: result.verdict,
+      reason_codes: result.reason_codes,
+      final_reply: shadow ? req.draft_reply : result.final_reply,
+      decision_id,
+      session_state: session.state,
+      shadow,
+    });
   });
 }

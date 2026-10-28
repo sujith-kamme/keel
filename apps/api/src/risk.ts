@@ -1,10 +1,11 @@
 import { type DbOrTx, and, appendLedger, agentControls, asc, eq, inArray, ledgerEntries, sessions } from "@keel/db";
 import { type RiskConfig, type RiskRow, type RiskSignal, score, shouldQuarantine, signals } from "@keel/risk";
 import type { NotifyEvent } from "@keel/worker/queue";
+import { type GuardMode, type SessionMode, ledgerMode } from "./mode";
 
 export interface RiskService {
   /** Session state, whether its agent is frozen (own row or "*"), and the current score. Throws on DB error or unknown session (callers fail closed). */
-  control(sessionId: string): Promise<{ state: string; agent_frozen: boolean; score: number }>;
+  control(sessionId: string): Promise<{ state: string; agent_frozen: boolean; score: number; mode: SessionMode; guard_mode: GuardMode }>;
   /** Recompute; on crossing the threshold set QUARANTINED, append a `risk` ledger row, enqueue session.quarantined. */
   assess(sessionId: string): Promise<{ score: number; quarantined: boolean }>;
   detail(sessionId: string): Promise<{ score: number; threshold: number; signals: RiskSignal[] }>;
@@ -58,7 +59,13 @@ export function createRisk(
         .select()
         .from(agentControls)
         .where(inArray(agentControls.agentId, [session.agentId, "*"]));
-      return { state: session.state, agent_frozen: controls.some((c) => c.frozen), score: s };
+      return {
+        state: session.state,
+        agent_frozen: controls.some((c) => c.frozen),
+        score: s,
+        mode: session.mode as SessionMode,
+        guard_mode: session.guardMode as GuardMode,
+      };
     },
 
     assess: async (sessionId) => {
@@ -79,7 +86,7 @@ export function createRisk(
             order_id: null,
             capture_id: null,
             dispute_id: null,
-            mode: "QUARANTINE",
+            mode: ledgerMode(session.mode, "QUARANTINED"),
             verdict: "HOLD",
             reason_codes: ["RISK_THRESHOLD"],
             payload: { tool: "risk", score: s, threshold: cfg.threshold, signals: sigs },
@@ -88,7 +95,8 @@ export function createRisk(
         });
         const [current] = await db.select({ state: sessions.state }).from(sessions).where(eq(sessions.id, sessionId));
         state = current?.state ?? state;
-        if (quarantined) {
+        // Simulated sessions never page anyone.
+        if (quarantined && session.mode !== "CONTEXT") {
           try {
             await opts.enqueue({
               event: "session.quarantined",

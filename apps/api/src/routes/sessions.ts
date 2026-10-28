@@ -1,6 +1,7 @@
 import { type Capability, TOOLS, checkOtp, issueToken, newOtp } from "@keel/engine";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
+import type { GuardMode, SessionMode } from "../mode";
 import { merchantAuth } from "./merchant-auth";
 
 const SESSION_TTL_MS = 30 * 60_000;
@@ -18,11 +19,15 @@ export interface SessionRow {
   otpExpiresAt: Date;
   otpAttempts: number;
   expiresAt: Date;
+  mode: SessionMode;
+  guardMode: GuardMode;
 }
 
 export interface SessionStore {
   /** The requested orders that exist and belong to this customer. */
   customerOrders: (orderIds: string[], email: string) => Promise<string[]>;
+  /** The requested orders that are Gauntlet fixtures (scenario `ctx-*`) belonging to this payer. */
+  fixtureOrders: (orderIds: string[], email: string) => Promise<string[]>;
   create: (row: SessionRow) => Promise<void>;
   get: (id: string) => Promise<SessionRow | null>;
   /**
@@ -38,6 +43,8 @@ export interface SessionOptions {
   signingKey: string;
   /** Return the OTP in the response (demo only: there is no email delivery). */
   demoOtp: boolean;
+  /** The only customer a CONTEXT (Gauntlet) session may be opened for. */
+  gauntletPayer: string;
   store: SessionStore;
   now: () => Date;
   newId: (prefix: string) => string;
@@ -47,6 +54,8 @@ const StartSession = z.object({
   agent_id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
   customer_email: z.email().max(254),
   order_ids: z.array(z.string().regex(/^[A-Za-z0-9_-]{1,64}$/)).max(20),
+  mode: z.enum(["LIVE", "CONTEXT"]).default("LIVE"),
+  guard_mode: z.enum(["ENFORCE", "SHADOW"]).default("ENFORCE"),
 });
 const Verify = z.object({ code: z.string().regex(/^\d{6}$/) });
 
@@ -76,9 +85,19 @@ export function mountSessions(app: Hono, opts: SessionOptions): void {
     if (!authorized(c)) return c.json({ error: "unauthorized" }, 401);
     const req = await body(c, StartSession);
     if (!req) return c.json({ error: "invalid_request" }, 400);
+    // A shadow guard never blocks, so it is only for simulated (CONTEXT) sessions.
+    if (req.guard_mode === "SHADOW" && req.mode === "LIVE") return c.json({ error: "invalid_request" }, 400);
     const now = opts.now();
     const otp = newOtp(now);
     const email = req.customer_email.toLowerCase();
+    // CONTEXT sessions get the OTP back and spend outside the live budget, so
+    // they may only touch the Gauntlet payer's fixture orders.
+    if (req.mode === "CONTEXT") {
+      const fixtures = email === opts.gauntletPayer ? await opts.store.fixtureOrders(req.order_ids, email) : [];
+      if (email !== opts.gauntletPayer || fixtures.length !== req.order_ids.length) {
+        return c.json({ error: "context_requires_fixtures" }, 400);
+      }
+    }
     const row: SessionRow = {
       id: opts.newId("ses"),
       agentId: req.agent_id,
@@ -91,6 +110,8 @@ export function mountSessions(app: Hono, opts: SessionOptions): void {
       otpExpiresAt: new Date(otp.expires_at),
       otpAttempts: 0,
       expiresAt: new Date(now.getTime() + SESSION_TTL_MS),
+      mode: req.mode,
+      guardMode: req.guard_mode,
     };
     await opts.store.create(row);
     return c.json(
@@ -99,7 +120,8 @@ export function mountSessions(app: Hono, opts: SessionOptions): void {
         capability_token: token(row, null, opts.signingKey),
         orders: row.orderIds,
         expires_at: row.expiresAt.toISOString(),
-        ...(opts.demoOtp ? { demo_otp: otp.code } : {}),
+        // Simulated customers have no inbox, so CONTEXT sessions always get the code.
+        ...(opts.demoOtp || row.mode === "CONTEXT" ? { demo_otp: otp.code } : {}),
       },
       201,
     );

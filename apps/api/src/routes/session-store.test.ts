@@ -1,14 +1,37 @@
 import { randomUUID } from "node:crypto";
-import { appendLedger, createDb, sessions } from "@keel/db";
+import { appendLedger, createDb, inArray, sessions, storeOrders } from "@keel/db";
 import { type LedgerContent, QUARANTINE_TEMPLATE, SAFE_FALLBACK } from "@keel/engine";
 import { describe, expect, it } from "vitest";
-import { createTurnDecisions, createTurnStore } from "./session-store";
+import { createSessionDecisions, createSessionStore, createTurnDecisions, createTurnStore } from "./session-store";
 
-const SUMMARY_KEYS = ["agent_id", "claimed_email", "created_at", "expires_at", "id", "state", "verified"];
+const SUMMARY_KEYS = ["agent_id", "claimed_email", "created_at", "expires_at", "id", "mode", "state", "verified"];
 
 describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
   const db = createDb();
   const store = createTurnStore(db);
+
+  it("filters listed sessions by mode", async () => {
+    const mk = (mode: "LIVE" | "CONTEXT") => ({
+      id: `ses_test_${randomUUID().replaceAll("-", "")}`,
+      agentId: "demo",
+      claimedEmail: "maya@demo.keel.test",
+      orderIds: [],
+      otpHash: "hash",
+      otpExpiresAt: new Date(Date.now() + 60_000),
+      expiresAt: new Date(Date.now() + 60_000),
+      mode,
+    });
+    const live = mk("LIVE");
+    const ctx = mk("CONTEXT");
+    await db.insert(sessions).values([live, ctx]);
+    const ids = async (mode: "LIVE" | "CONTEXT" | "all") => (await store.listSessions(100, mode)).map((s) => s.id);
+    expect(await ids("LIVE")).toContain(live.id);
+    expect(await ids("LIVE")).not.toContain(ctx.id);
+    expect(await ids("CONTEXT")).toContain(ctx.id);
+    expect(await ids("CONTEXT")).not.toContain(live.id);
+    expect(await ids("all")).toEqual(expect.arrayContaining([live.id, ctx.id]));
+    expect((await store.session(ctx.id))!.mode).toBe("CONTEXT");
+  });
 
   it("reads sessions, turns and decisions for one session", async () => {
     const id = `ses_test_${randomUUID().replaceAll("-", "")}`;
@@ -54,7 +77,7 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     const session = await store.session(id);
     expect(Object.keys(session!).sort()).toEqual(SUMMARY_KEYS);
     expect(session!.verified).toBe(false);
-    const listed = (await store.listSessions(100)).find((s) => s.id === id);
+    const listed = (await store.listSessions(100, "all")).find((s) => s.id === id);
     expect(Object.keys(listed!).sort()).toEqual(SUMMARY_KEYS);
 
     const turns = await store.turns(id);
@@ -98,5 +121,57 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
       { tool: "offer_discount", verdict: "BLOCK", args: {}, message: "I can't offer a discount that large." },
     ]));
     expect(await createTurnDecisions(db)(a, [])).toEqual([]);
+  });
+
+  it("turnDecisions maps well-formed order_facts and ignores malformed ones", async () => {
+    const sid = `ses_test_${randomUUID().replaceAll("-", "")}`;
+    const mk = async (order_facts: unknown) => {
+      const decision_id = `dec_${randomUUID().replaceAll("-", "")}`;
+      await appendLedger(db, { decision_id, session_id: sid, order_id: null, capture_id: null, dispute_id: null, mode: "LIVE", verdict: "ALLOW", reason_codes: ["OK"], payload: { tool: "get_order", args: {}, order_facts } });
+      return decision_id;
+    };
+    const facts = { order_id: "O-1", total: "500.00", currency: "USD", refunded: "35.00", item_prices: ["500.00"] };
+    const rows = await createTurnDecisions(db)(sid, [await mk(facts), await mk({ ...facts, total: 500 }), await mk(undefined)]);
+    expect(rows.filter((r) => r.order_facts)).toEqual([{ tool: "get_order", verdict: "ALLOW", args: {}, order_facts: facts }]);
+    expect(rows).toHaveLength(3);
+  });
+
+  it("sessionDecisions returns only executed ALLOW refunds and discounts of the asked session", async () => {
+    const mk = async (sid: string, tool: string, verdict: "ALLOW" | "HOLD", execution: unknown, args: unknown = { amount: "5.00" }) => {
+      const decision_id = `dec_${randomUUID().replaceAll("-", "")}`;
+      await appendLedger(db, { decision_id, session_id: sid, order_id: null, capture_id: null, dispute_id: null, mode: "CONTEXT", verdict, reason_codes: ["OK"], payload: { tool, args, ...(execution ? { execution } : {}) } });
+      return decision_id;
+    };
+    const a = `ses_test_${randomUUID().replaceAll("-", "")}`;
+    const b = `ses_test_${randomUUID().replaceAll("-", "")}`;
+    await mk(a, "offer_refund", "ALLOW", { status: "COMPLETED" }, { amount: "1.00" });
+    await mk(a, "offer_refund", "ALLOW", { status: "PENDING" }, { amount: "2.00" });
+    const excluded = await mk(a, "offer_refund", "ALLOW", { status: "COMPLETED" }, { amount: "3.00" });
+    await mk(a, "offer_refund", "ALLOW", { status: "FAILED" });
+    await mk(a, "offer_refund", "HOLD", undefined);
+    await mk(a, "get_order", "ALLOW", undefined);
+    await mk(a, "offer_discount", "ALLOW", { status: "ISSUED" }, { percent: 10 });
+    await mk(b, "offer_refund", "ALLOW", { status: "COMPLETED" }, { amount: "9.00" });
+    const rows = await createSessionDecisions(db)(a, [excluded]);
+    expect(rows).toEqual([
+      { tool: "offer_refund", verdict: "ALLOW", args: { amount: "1.00" } },
+      { tool: "offer_refund", verdict: "ALLOW", args: { amount: "2.00" } },
+      { tool: "offer_discount", verdict: "ALLOW", args: { percent: 10 } },
+    ]);
+  });
+
+  it("fixtureOrders returns only the payer's ctx- scenario orders", async () => {
+    const tag = randomUUID().replaceAll("-", "");
+    const mk = (n: string, scenario: string, payerEmail: string) => ({
+      orderId: `O-test-${tag}-${n}`, captureId: "CAP", scenario: `${scenario}-${tag}`, payerEmail, currency: "USD", total: "1.00", items: [],
+    });
+    const rows = [mk("a", "ctx-fx", "gauntlet@demo.keel.test"), mk("b", "live", "gauntlet@demo.keel.test"), mk("c", "ctx-other", "sam@demo.keel.test")];
+    await db.insert(storeOrders).values(rows);
+    try {
+      const ids = rows.map((r) => r.orderId);
+      expect(await createSessionStore(db).fixtureOrders(ids, "gauntlet@demo.keel.test")).toEqual([ids[0]]);
+    } finally {
+      await db.delete(storeOrders).where(inArray(storeOrders.orderId, rows.map((r) => r.orderId)));
+    }
   });
 });

@@ -81,7 +81,7 @@ function fakes(overrides: Partial<GatewayDeps> = {}) {
     },
     escalate: vi.fn(async () => {}),
     withOrderLock: (_session, _order, fn) => fn(),
-    control: vi.fn(async () => ({ state: "ACTIVE", agent_frozen: false, score: 0 })),
+    control: vi.fn(async () => ({ state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" })),
     assess: vi.fn(async () => ({ score: 0, quarantined: false })),
     notifyHeld: vi.fn(async () => {}),
     now: () => NOW,
@@ -212,6 +212,22 @@ describe("handleTool: other tools", () => {
     expect(ledger).toHaveLength(3);
   });
 
+  it("get_order records order_facts without PII for the owner only", async () => {
+    const { deps, ledger } = fakes();
+    await handleTool(deps, cap(), { tool: "get_order", args: { order_id: "IN-POLICY" } });
+    await handleTool(deps, cap({ verified_payer: "sam@demo.keel.test" }), { tool: "get_order", args: { order_id: "IN-POLICY" } });
+    const [owner, other] = ledger.map((l) => l.payload as Record<string, unknown>);
+    expect(owner!.order_facts).toEqual({
+      order_id: "IN-POLICY",
+      total: expect.any(String),
+      currency: expect.any(String),
+      refunded: "0.00",
+      item_prices: expect.any(Array),
+    });
+    expect(JSON.stringify(owner!.order_facts)).not.toContain("@");
+    expect(other).not.toHaveProperty("order_facts");
+  });
+
   it("get_order blocks an order outside the session", async () => {
     const { deps } = fakes();
     const result = await handleTool(deps, cap({ orders: [] }), { tool: "get_order", args: { order_id: "IN-POLICY" } });
@@ -247,7 +263,7 @@ describe("handleTool: other tools", () => {
 });
 
 describe("handleTool: risk gate", () => {
-  const quarantined = { state: "QUARANTINED", agent_frozen: false, score: 90 };
+  const quarantined = { state: "QUARANTINED", agent_frozen: false, score: 90, mode: "LIVE", guard_mode: "ENFORCE" };
   const discountCall = { tool: "offer_discount", args: { percent: 5, policy_id: "discount-goodwill" } } as const;
   const orderCall = { tool: "get_order", args: { order_id: "IN-POLICY" } } as const;
 
@@ -274,7 +290,7 @@ describe("handleTool: risk gate", () => {
   it("re-checks quarantine inside the refund lock, without PayPal, with one ledger row", async () => {
     const control = vi
       .fn()
-      .mockResolvedValueOnce({ state: "ACTIVE", agent_frozen: false, score: 0 })
+      .mockResolvedValueOnce({ state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" })
       .mockResolvedValue(quarantined);
     const { deps, ledger } = fakes({ control });
     const r = await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"));
@@ -297,7 +313,7 @@ describe("handleTool: risk gate", () => {
   });
 
   it("records the pre-decision risk score", async () => {
-    const { deps, ledger } = fakes({ control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 42 }) });
+    const { deps, ledger } = fakes({ control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 42, mode: "LIVE", guard_mode: "ENFORCE" }) });
     await handleTool(deps, cap(), orderCall);
     expect(ledger[0]).toMatchObject({ mode: "LIVE", payload: { risk_score: 42 } });
   });
@@ -309,6 +325,18 @@ describe("handleTool: risk gate", () => {
     expect(deps.assess).toHaveBeenCalledWith("ses_1");
     const failing = fakes({ assess: async () => { throw new Error("boom"); } });
     expect(await handleTool(failing.deps, cap(), orderCall)).toMatchObject({ decision: "ALLOW" });
+  });
+
+  it("writes CONTEXT rows for a CONTEXT session, even when quarantined, and never notifies", async () => {
+    const ctx = { ...quarantined, mode: "CONTEXT" };
+    const { deps, ledger } = fakes({ control: async () => ctx });
+    await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"));
+    await handleTool(deps, cap(), orderCall);
+    expect(ledger.map((r) => r.mode)).toEqual(["CONTEXT", "CONTEXT"]);
+    expect(deps.notifyHeld).not.toHaveBeenCalled();
+    const active = fakes({ control: async () => ({ ...ctx, state: "ACTIVE" }) });
+    await handleTool(active.deps, cap(), orderCall);
+    expect(active.ledger[0]!.mode).toBe("CONTEXT");
   });
 
   it("notifies once on a money HOLD only; notify failure changes nothing", async () => {

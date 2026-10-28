@@ -12,11 +12,13 @@ describe.skipIf(!process.env.DATABASE_URL)("risk service (Postgres)", () => {
   const cfg = { threshold: 60, half_life_min: 30 };
   const consoleUrl = "https://console.test";
 
-  async function setup(agentId = "demo") {
+  async function setup(agentId = "demo", mode = "LIVE", guardMode = "ENFORCE") {
     const id = `ses_test_${rid()}`;
     await db.insert(sessions).values({
       id,
       agentId,
+      mode,
+      guardMode,
       claimedEmail: "maya@demo.keel.test",
       orderIds: ["O-1"],
       otpHash: "hash",
@@ -102,6 +104,24 @@ describe.skipIf(!process.env.DATABASE_URL)("risk service (Postgres)", () => {
     expect(events).toHaveLength(1);
   });
 
+  it("quarantines a CONTEXT session with a CONTEXT risk row and no notification", async () => {
+    const id = await setup("demo", "CONTEXT", "SHADOW");
+    const { svc, events } = make();
+    await crossing(id);
+    expect(await svc.assess(id)).toEqual({ score: 70, quarantined: true });
+    expect(await stateOf(id)).toBe("QUARANTINED");
+    const rows = await riskRows(id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.mode).toBe("CONTEXT");
+    expect(events).toHaveLength(0);
+    expect(await svc.control(id)).toMatchObject({ mode: "CONTEXT", guard_mode: "SHADOW", state: "QUARANTINED" });
+  });
+
+  it("control reports mode LIVE and guard mode ENFORCE by default", async () => {
+    const id = await setup();
+    expect(await make().svc.control(id)).toMatchObject({ mode: "LIVE", guard_mode: "ENFORCE" });
+  });
+
   it("enqueue failure does not undo quarantine or throw", async () => {
     const id = await setup();
     const { svc, failEnqueue } = make();
@@ -146,7 +166,7 @@ describe.skipIf(!process.env.DATABASE_URL)("risk service (Postgres)", () => {
     const agent = `agent_test_${rid()}`;
     const id = await setup(agent);
     const { svc } = make();
-    expect(await svc.control(id)).toEqual({ state: "ACTIVE", agent_frozen: false, score: 0 });
+    expect(await svc.control(id)).toEqual({ state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" });
     await db.insert(agentControls).values({ agentId: agent, frozen: true, updatedBy: "test" });
     try {
       expect((await svc.control(id)).agent_frozen).toBe(true);

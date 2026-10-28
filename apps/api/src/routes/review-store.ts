@@ -51,7 +51,7 @@ export function createReviewStore(db: Db): ReviewStore {
         .select({ ...heldColumns, state: sessions.state })
         .from(ledgerEntries)
         .innerJoin(sessions, eq(sessions.id, ledgerEntries.sessionId))
-        .where(and(eq(ledgerEntries.verdict, "HOLD"), sql`${ledgerEntries.payload}->>'tool' in ${MONEY_TOOLS}`, sql`not ${resolved(ledgerEntries.decisionId)}`))
+        .where(and(eq(sessions.mode, "LIVE"), eq(ledgerEntries.verdict, "HOLD"), sql`${ledgerEntries.payload}->>'tool' in ${MONEY_TOOLS}`, sql`not ${resolved(ledgerEntries.decisionId)}`))
         .orderBy(desc(ledgerEntries.seq))
         .limit(limit);
       return rows.map((r) => ({ ...toEntry(r), session_id: r.sessionId ?? "", session_state: r.state }));
@@ -68,6 +68,7 @@ export function createReviewStore(db: Db): ReviewStore {
         .from(sessions)
         .where(
           and(
+            eq(sessions.mode, "LIVE"),
             inArray(sessions.state, ["QUARANTINED", "ESCALATED"]),
             sql`not exists (select 1 from ledger_entries h where h.session_id = ${sessions.id} and h.verdict = 'HOLD'
               and h.payload->>'tool' in ${MONEY_TOOLS} and not ${resolved(sql.raw("h.decision_id"))})`,
@@ -96,7 +97,7 @@ export function createReviewStore(db: Db): ReviewStore {
     },
     session: async (id) => {
       const [row] = await db.select().from(sessions).where(eq(sessions.id, id));
-      return row ? { id: row.id, agent_id: row.agentId, verified_payer: row.verifiedPayer, order_ids: row.orderIds } : null;
+      return row ? { id: row.id, agent_id: row.agentId, verified_payer: row.verifiedPayer, order_ids: row.orderIds, mode: row.mode } : null;
     },
     release: (sessionId, content) =>
       db.transaction(async (tx) => {

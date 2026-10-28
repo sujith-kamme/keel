@@ -1,5 +1,5 @@
 import "server-only";
-import { agentModel, promptMode, type AgentModel, type PromptMode } from "./agent";
+import { agentModel, promptMode, type AgentModel, type PromptMode } from "@keel/agent";
 
 export interface Env {
   keelApiUrl: string;

@@ -77,9 +77,9 @@ function setup(over: Partial<GatewayDeps> = {}, detail: ReviewOptions["detail"] 
   const ledger: Row[] = [];
   let n = 0;
   const sessions = new Map([
-    ["ses_1", { id: "ses_1", agent_id: "agt", verified_payer: "maya@demo.keel.test", order_ids: ["IN-POLICY", "LARGE"], state: "QUARANTINED", created_at: "2026-10-27T10:00:00.000Z" }],
-    ["ses_2", { id: "ses_2", agent_id: "agt", verified_payer: null, order_ids: [] as string[], state: "ESCALATED", created_at: "2026-10-27T09:00:00.000Z" }],
-    ["ses_3", { id: "ses_3", agent_id: "agt", verified_payer: null, order_ids: ["IN-POLICY"], state: "ACTIVE", created_at: "2026-10-27T08:00:00.000Z" }],
+    ["ses_1", { id: "ses_1", agent_id: "agt", verified_payer: "maya@demo.keel.test", order_ids: ["IN-POLICY", "LARGE"], state: "QUARANTINED", created_at: "2026-10-27T10:00:00.000Z", mode: "LIVE" }],
+    ["ses_2", { id: "ses_2", agent_id: "agt", verified_payer: null, order_ids: [] as string[], state: "ESCALATED", created_at: "2026-10-27T09:00:00.000Z", mode: "LIVE" }],
+    ["ses_3", { id: "ses_3", agent_id: "agt", verified_payer: null, order_ids: ["IN-POLICY"], state: "ACTIVE", created_at: "2026-10-27T08:00:00.000Z", mode: "LIVE" }],
   ]);
   const push = (c: LedgerContent) => void ledger.push({ ...c, created_at: new Date(NOW.getTime() + ledger.length * 1000).toISOString() });
   const isResolved = (id: string) =>
@@ -130,7 +130,7 @@ function setup(over: Partial<GatewayDeps> = {}, detail: ReviewOptions["detail"] 
     appendLedger: async (c) => push(c),
     escalate: async () => {},
     withOrderLock: vi.fn((_session: string, _order: string, fn: () => Promise<unknown>) => fn()) as GatewayDeps["withOrderLock"],
-    control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 0 }),
+    control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" }),
     assess: async () => ({}),
     notifyHeld: async () => {},
     now: () => NOW,
@@ -332,6 +332,25 @@ describe("POST /v1/review/:id/approve", () => {
     expect((await act(app, "dec_refund", "approve", {})).status).toBe(400);
     expect((await act(app, "dec_refund", "approve", { reviewer: "a", extra: 1 })).status).toBe(400);
     expect((await act(app, "dec_refund", "approve", { reviewer: "x".repeat(65) })).status).toBe(400);
+  });
+});
+
+describe("CONTEXT sessions", () => {
+  function withContext() {
+    const r = setup();
+    r.sessions.set("ses_ctx", { id: "ses_ctx", agent_id: "agt", verified_payer: "maya@demo.keel.test", order_ids: ["IN-POLICY"], state: "QUARANTINED", created_at: "2026-10-27T07:00:00.000Z", mode: "CONTEXT" });
+    r.push({ ...held("dec_ctx", "offer_refund", "RISK_THRESHOLD", { order_id: "IN-POLICY", amount: "42.00", reason: "damaged", policy_id: "refund-standard" }, "ses_ctx"), mode: "CONTEXT" });
+    return r;
+  }
+
+  it("404s approve, deny and release for a held row or session of a CONTEXT session", async () => {
+    const { app, ledger } = withContext();
+    const before = ledger.length;
+    expect((await act(app, "dec_ctx", "approve")).status).toBe(404);
+    expect((await act(app, "dec_ctx", "deny")).status).toBe(404);
+    const res = await app.request("/v1/sessions/ses_ctx/release", { method: "POST", headers, body: JSON.stringify({ reviewer: "a" }) });
+    expect(res.status).toBe(404);
+    expect(ledger).toHaveLength(before);
   });
 });
 

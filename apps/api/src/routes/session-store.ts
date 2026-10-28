@@ -1,5 +1,6 @@
 import { type Db, and, asc, desc, eq, inArray, ledgerEntries, lt, sessionTurns, sessions, sql, storeOrders } from "@keel/db";
 import { MAX_OTP_ATTEMPTS, QUARANTINE_TEMPLATE, SAFE_FALLBACK, type TurnDecision } from "@keel/engine";
+import type { GuardMode, SessionMode } from "../mode";
 import type { SessionStore } from "./sessions";
 import type { StoreOrderSummary } from "./store";
 import type { DecisionSummary, SessionSummary, TurnStore } from "./turns";
@@ -28,12 +29,21 @@ export function createSessionStore(db: Db): SessionStore {
       const known = new Set(rows.map((r) => r.orderId));
       return orderIds.filter((id) => known.has(id));
     },
+    fixtureOrders: async (orderIds, email) => {
+      if (orderIds.length === 0) return [];
+      const rows = await db
+        .select({ orderId: storeOrders.orderId })
+        .from(storeOrders)
+        .where(and(inArray(storeOrders.orderId, orderIds), eq(storeOrders.payerEmail, email), sql`${storeOrders.scenario} LIKE 'ctx-%'`));
+      const known = new Set(rows.map((r) => r.orderId));
+      return orderIds.filter((id) => known.has(id));
+    },
     create: async (row) => {
       await db.insert(sessions).values(row);
     },
     get: async (id) => {
       const [row] = await db.select().from(sessions).where(eq(sessions.id, id));
-      return row ?? null;
+      return row ? { ...row, mode: row.mode as SessionMode, guardMode: row.guardMode as GuardMode } : null;
     },
     reserveAttempt: async (id) => {
       const rows = await db
@@ -55,6 +65,7 @@ const summary = (r: typeof sessions.$inferSelect): SessionSummary => ({
   claimed_email: r.claimedEmail,
   verified: r.verifiedPayer !== null,
   state: r.state,
+  mode: r.mode as SessionMode,
   created_at: r.createdAt.toISOString(),
   expires_at: r.expiresAt.toISOString(),
 });
@@ -86,8 +97,13 @@ function guardDetails(payload: unknown): NonNullable<DecisionSummary["guard"]> {
 
 export function createTurnStore(db: Db): TurnStore {
   return {
-    listSessions: async (limit) => {
-      const rows = await db.select().from(sessions).orderBy(desc(sessions.createdAt)).limit(limit);
+    listSessions: async (limit, mode) => {
+      const rows = await db
+        .select()
+        .from(sessions)
+        .where(mode === "all" ? undefined : eq(sessions.mode, mode))
+        .orderBy(desc(sessions.createdAt))
+        .limit(limit);
       return rows.map(summary);
     },
     session: async (id) => {
@@ -135,6 +151,15 @@ export function createTurnStore(db: Db): TurnStore {
   };
 }
 
+const isOrderFacts = (v: unknown): v is NonNullable<TurnDecision["order_facts"]> => {
+  const f = v as Record<string, unknown> | null;
+  return (
+    typeof f === "object" && f !== null &&
+    typeof f.order_id === "string" && typeof f.total === "string" && typeof f.currency === "string" && typeof f.refunded === "string" &&
+    Array.isArray(f.item_prices) && f.item_prices.every((x) => typeof x === "string")
+  );
+};
+
 /** Ledger rows for the given decision ids that belong to this session; ids from other sessions are dropped. */
 export function createTurnDecisions(db: Db): (sessionId: string, ids: string[]) => Promise<TurnDecision[]> {
   return async (sessionId, ids) => {
@@ -144,10 +169,38 @@ export function createTurnDecisions(db: Db): (sessionId: string, ids: string[]) 
       .from(ledgerEntries)
       .where(and(inArray(ledgerEntries.decisionId, ids), eq(ledgerEntries.sessionId, sessionId)));
     return rows.map((r) => {
-      const p = r.payload as { tool: string; args?: Record<string, unknown>; message?: unknown };
+      const p = r.payload as { tool: string; args?: Record<string, unknown>; message?: unknown; order_facts?: unknown };
       const decision: TurnDecision = { tool: p.tool, verdict: r.verdict as TurnDecision["verdict"], args: p.args ?? {} };
       if (typeof p.message === "string") decision.message = p.message;
+      if (isOrderFacts(p.order_facts)) decision.order_facts = p.order_facts;
       return decision;
+    });
+  };
+}
+
+/**
+ * Executed money ALLOWs earlier in this session: refunds COMPLETED or PENDING, discounts ISSUED.
+ * Reviewer-approved rows are not included: the review row carries no args (amount, order_id, percent).
+ */
+export function createSessionDecisions(db: Db): (sessionId: string, excludeIds: string[]) => Promise<TurnDecision[]> {
+  return async (sessionId, excludeIds) => {
+    const tool = sql`${ledgerEntries.payload}->>'tool'`;
+    const status = sql`${ledgerEntries.payload}->'execution'->>'status'`;
+    const rows = await db
+      .select({ payload: ledgerEntries.payload, verdict: ledgerEntries.verdict })
+      .from(ledgerEntries)
+      .where(
+        and(
+          eq(ledgerEntries.sessionId, sessionId),
+          eq(ledgerEntries.verdict, "ALLOW"),
+          sql`((${tool} = 'offer_refund' AND ${status} IN ('COMPLETED', 'PENDING')) OR (${tool} = 'offer_discount' AND ${status} = 'ISSUED'))`,
+          excludeIds.length > 0 ? sql`${ledgerEntries.decisionId} NOT IN (${sql.join(excludeIds.map((i) => sql`${i}`), sql`, `)})` : undefined,
+        ),
+      )
+      .orderBy(asc(ledgerEntries.seq));
+    return rows.map((r) => {
+      const p = r.payload as { tool: string; args?: Record<string, unknown> };
+      return { tool: p.tool, verdict: "ALLOW" as const, args: p.args ?? {} };
     });
   };
 }
