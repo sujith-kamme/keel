@@ -6,11 +6,14 @@ import { type SessionRow, type SessionStore, mountSessions } from "./sessions";
 const merchantKey = "m".repeat(32);
 const signingKey = "s".repeat(32);
 const now = new Date("2026-10-27T12:00:00Z");
+const GAUNTLET = "gauntlet@demo.keel.test";
 
 function setup(demoOtp = true) {
   const rows = new Map<string, SessionRow>();
   const store: SessionStore = {
-    customerOrders: async (ids, email) => (email === "maya@demo.keel.test" ? ids.filter((id) => id.startsWith("ORDER-")) : []),
+    customerOrders: async (ids, email) =>
+      email === "maya@demo.keel.test" ? ids.filter((id) => id.startsWith("ORDER-")) : email === GAUNTLET ? ids.filter((id) => id.startsWith("CTX-")) : [],
+    fixtureOrders: async (ids, email) => (email === GAUNTLET ? ids.filter((id) => id.startsWith("CTX-")) : []),
     create: async (row) => void rows.set(row.id, row),
     get: async (id) => rows.get(id) ?? null,
     reserveAttempt: async (id) => {
@@ -24,7 +27,7 @@ function setup(demoOtp = true) {
     },
   };
   const app = new Hono();
-  mountSessions(app, { merchantKey, signingKey, demoOtp, store, now: () => now, newId: (p) => `${p}_1` });
+  mountSessions(app, { merchantKey, signingKey, demoOtp, gauntletPayer: GAUNTLET, store, now: () => now, newId: (p) => `${p}_1` });
   return { app, rows };
 }
 
@@ -36,6 +39,7 @@ const post = (app: Hono, path: string, body: unknown, key: string | null = merch
   });
 
 const start = { agent_id: "agt_demo", customer_email: "Maya@demo.keel.test", order_ids: ["ORDER-1", "NOPE"] };
+const fixture = { agent_id: "agt_demo", customer_email: "Gauntlet@demo.keel.test", order_ids: ["CTX-1"] };
 
 describe("sessions API", () => {
   it.each([null, "wrong".repeat(8)])("rejects merchant key %j", async (key) => {
@@ -69,13 +73,27 @@ describe("sessions API", () => {
 
   it("stores CONTEXT and SHADOW, and always returns the OTP for CONTEXT", async () => {
     const { app, rows } = setup(false);
-    const res = await post(app, "/v1/sessions", { ...start, mode: "CONTEXT", guard_mode: "SHADOW" });
+    const res = await post(app, "/v1/sessions", { ...fixture, mode: "CONTEXT", guard_mode: "SHADOW" });
     expect(res.status).toBe(201);
-    expect(((await res.json()) as { demo_otp: string }).demo_otp).toMatch(/^\d{6}$/);
-    expect(rows.get("ses_1")).toMatchObject({ mode: "CONTEXT", guardMode: "SHADOW" });
-    const enforce = await post(app, "/v1/sessions", { ...start, mode: "CONTEXT" });
+    const body = (await res.json()) as { demo_otp: string; orders: string[] };
+    expect(body.demo_otp).toMatch(/^\d{6}$/);
+    expect(body.orders).toEqual(["CTX-1"]);
+    expect(rows.get("ses_1")).toMatchObject({ mode: "CONTEXT", guardMode: "SHADOW", claimedEmail: GAUNTLET });
+    const enforce = await post(app, "/v1/sessions", { ...fixture, mode: "CONTEXT" });
     expect(enforce.status).toBe(201);
     expect(rows.get("ses_1")).toMatchObject({ mode: "CONTEXT", guardMode: "ENFORCE" });
+  });
+
+  it.each([
+    ["a real customer's orders", { ...start, mode: "CONTEXT" }],
+    ["the Gauntlet payer with a non-fixture order", { ...fixture, order_ids: ["CTX-1", "ORDER-1"], mode: "CONTEXT" }],
+    ["another email with fixture orders", { ...fixture, customer_email: "maya@demo.keel.test", mode: "CONTEXT" }],
+  ])("rejects a CONTEXT session for %s and returns no OTP", async (_, req) => {
+    const { app, rows } = setup(false);
+    const res = await post(app, "/v1/sessions", req);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "context_requires_fixtures" });
+    expect(rows.size).toBe(0);
   });
 
   it("rejects SHADOW on a LIVE session and unknown modes", async () => {

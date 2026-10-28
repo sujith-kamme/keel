@@ -26,6 +26,8 @@ export interface SessionRow {
 export interface SessionStore {
   /** The requested orders that exist and belong to this customer. */
   customerOrders: (orderIds: string[], email: string) => Promise<string[]>;
+  /** The requested orders that are Gauntlet fixtures (scenario `ctx-*`) belonging to this payer. */
+  fixtureOrders: (orderIds: string[], email: string) => Promise<string[]>;
   create: (row: SessionRow) => Promise<void>;
   get: (id: string) => Promise<SessionRow | null>;
   /**
@@ -41,6 +43,8 @@ export interface SessionOptions {
   signingKey: string;
   /** Return the OTP in the response (demo only: there is no email delivery). */
   demoOtp: boolean;
+  /** The only customer a CONTEXT (Gauntlet) session may be opened for. */
+  gauntletPayer: string;
   store: SessionStore;
   now: () => Date;
   newId: (prefix: string) => string;
@@ -86,6 +90,14 @@ export function mountSessions(app: Hono, opts: SessionOptions): void {
     const now = opts.now();
     const otp = newOtp(now);
     const email = req.customer_email.toLowerCase();
+    // CONTEXT sessions get the OTP back and spend outside the live budget, so
+    // they may only touch the Gauntlet payer's fixture orders.
+    if (req.mode === "CONTEXT") {
+      const fixtures = email === opts.gauntletPayer ? await opts.store.fixtureOrders(req.order_ids, email) : [];
+      if (email !== opts.gauntletPayer || fixtures.length !== req.order_ids.length) {
+        return c.json({ error: "context_requires_fixtures" }, 400);
+      }
+    }
     const row: SessionRow = {
       id: opts.newId("ses"),
       agentId: req.agent_id,

@@ -70,6 +70,7 @@ const app = createApp({
     merchantKey: KEEL_MERCHANT_KEY,
     signingKey: KEEL_SIGNING_KEY,
     demoOtp: process.env.DEMO_OTP === "true",
+    gauntletPayer: (process.env.GAUNTLET_PAYER ?? "gauntlet@demo.keel.test").toLowerCase(),
     store: createSessionStore(db),
     now,
     newId,

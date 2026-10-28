@@ -29,6 +29,15 @@ export function createSessionStore(db: Db): SessionStore {
       const known = new Set(rows.map((r) => r.orderId));
       return orderIds.filter((id) => known.has(id));
     },
+    fixtureOrders: async (orderIds, email) => {
+      if (orderIds.length === 0) return [];
+      const rows = await db
+        .select({ orderId: storeOrders.orderId })
+        .from(storeOrders)
+        .where(and(inArray(storeOrders.orderId, orderIds), eq(storeOrders.payerEmail, email), sql`${storeOrders.scenario} LIKE 'ctx-%'`));
+      const known = new Set(rows.map((r) => r.orderId));
+      return orderIds.filter((id) => known.has(id));
+    },
     create: async (row) => {
       await db.insert(sessions).values(row);
     },

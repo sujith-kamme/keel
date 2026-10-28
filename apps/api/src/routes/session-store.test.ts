@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { appendLedger, createDb, sessions } from "@keel/db";
+import { appendLedger, createDb, inArray, sessions, storeOrders } from "@keel/db";
 import { type LedgerContent, QUARANTINE_TEMPLATE, SAFE_FALLBACK } from "@keel/engine";
 import { describe, expect, it } from "vitest";
-import { createSessionDecisions, createTurnDecisions, createTurnStore } from "./session-store";
+import { createSessionDecisions, createSessionStore, createTurnDecisions, createTurnStore } from "./session-store";
 
 const SUMMARY_KEYS = ["agent_id", "claimed_email", "created_at", "expires_at", "id", "mode", "state", "verified"];
 
@@ -158,5 +158,20 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
       { tool: "offer_refund", verdict: "ALLOW", args: { amount: "2.00" } },
       { tool: "offer_discount", verdict: "ALLOW", args: { percent: 10 } },
     ]);
+  });
+
+  it("fixtureOrders returns only the payer's ctx- scenario orders", async () => {
+    const tag = randomUUID().replaceAll("-", "");
+    const mk = (n: string, scenario: string, payerEmail: string) => ({
+      orderId: `O-test-${tag}-${n}`, captureId: "CAP", scenario: `${scenario}-${tag}`, payerEmail, currency: "USD", total: "1.00", items: [],
+    });
+    const rows = [mk("a", "ctx-fx", "gauntlet@demo.keel.test"), mk("b", "live", "gauntlet@demo.keel.test"), mk("c", "ctx-other", "sam@demo.keel.test")];
+    await db.insert(storeOrders).values(rows);
+    try {
+      const ids = rows.map((r) => r.orderId);
+      expect(await createSessionStore(db).fixtureOrders(ids, "gauntlet@demo.keel.test")).toEqual([ids[0]]);
+    } finally {
+      await db.delete(storeOrders).where(inArray(storeOrders.orderId, rows.map((r) => r.orderId)));
+    }
   });
 });
