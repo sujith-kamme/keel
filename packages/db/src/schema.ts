@@ -1,4 +1,10 @@
-import { bigserial, boolean, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigserial, boolean, customType, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+
+const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
+  dataType: () => "bytea",
+  toDriver: (v) => Buffer.from(v),
+  fromDriver: (v) => new Uint8Array(v),
+});
 
 // Append-only ledger (docs/FSD.md §6). Rows are never updated or deleted;
 // `hash` chains each entry to the previous one for tamper evidence.
@@ -167,3 +173,34 @@ export const gauntletScenarios = pgTable("gauntlet_scenarios", {
   createdBy: text("created_by").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// PayPal disputes (Phase 6). Keel's decision about a dispute is a ledger row;
+// this row tracks PayPal's side (status, stage, outcome) and the evidence sent.
+export const disputes = pgTable(
+  "disputes",
+  {
+    id: text("id").primaryKey(),
+    captureId: text("capture_id"),
+    orderId: text("order_id"),
+    reason: text("reason").notNull(),
+    status: text("status").notNull(),
+    stage: text("stage"),
+    amount: text("amount").notNull(),
+    currency: text("currency").notNull(),
+    classification: text("classification"),
+    reasonCodes: jsonb("reason_codes").$type<string[]>().notNull().default([]),
+    injection: text("injection"),
+    action: text("action"),
+    actionError: text("action_error"),
+    outcome: text("outcome").notNull().default("OPEN"),
+    evidenceType: text("evidence_type"),
+    evidenceNotes: text("evidence_notes"),
+    evidencePdf: bytea("evidence_pdf"),
+    evidenceSha256: text("evidence_sha256"),
+    decisionId: text("decision_id"),
+    paypal: jsonb("paypal").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("disputes_capture_idx").on(t.captureId), index("disputes_updated_idx").on(t.updatedAt)],
+);

@@ -39,6 +39,29 @@ export async function enqueueNotify(event: NotifyEvent): Promise<void> {
   });
 }
 
+// One sync per dispute waiting at a time (the job id dedupes webhook bursts and polls).
+// Retries only repeat reads: a PayPal action is claimed in the DB first and never re-sent.
+export async function enqueueDisputeSync(disputeId: string): Promise<void> {
+  await add("dispute.sync", { dispute_id: disputeId }, {
+    jobId: `dispute-sync-${disputeId}`,
+    attempts: 3,
+    backoff: { type: "exponential", delay: 10_000 },
+    removeOnComplete: true,
+    removeOnFail: true,
+  });
+}
+
+/** A poll now (console "Check PayPal now"); dedupes with a poll already waiting. */
+export async function enqueueDisputePoll(): Promise<void> {
+  await add("dispute.poll", {}, { jobId: "dispute-poll-now", removeOnComplete: true, removeOnFail: true });
+}
+
+/** The polling fallback for missed webhooks (DISPUTE_POLL_SECONDS). */
+export async function scheduleDisputePoll(everySeconds: number): Promise<void> {
+  queue ??= new Queue(QUEUE, { connection: redisConnection() });
+  await queue.upsertJobScheduler("dispute-poll", { every: everySeconds * 1000 }, { name: "dispute.poll", opts: { removeOnComplete: 10, removeOnFail: 50 } });
+}
+
 // One attempt: a half-finished run is marked FAILED, never re-run.
 export async function enqueueGauntlet(runId: string): Promise<void> {
   await add("gauntlet.run", { run_id: runId }, { attempts: 1, removeOnComplete: 100, removeOnFail: 500 });

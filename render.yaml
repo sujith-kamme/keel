@@ -54,6 +54,10 @@ services:
         value: "6"
       - key: GAUNTLET_CUSTOMER_MODEL
         value: claude-haiku-5-5
+      - key: DISPUTE_AUTO_SUBMIT
+        value: "true"
+      - key: DISPUTE_POLL_SECONDS
+        value: "120"
 
   - type: web
     name: keel-web

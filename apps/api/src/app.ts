@@ -3,6 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
 import { type McpOptions, mountMcp } from "./mcp/server";
 import { type AgentOptions, mountAgents } from "./routes/agents";
+import { type DisputesOptions, mountDisputes } from "./routes/disputes";
 import { type GauntletOptions, mountGauntlet } from "./routes/gauntlet";
 import { type GuardOptions, mountGuard } from "./routes/guard";
 import { type ReviewOptions, mountReview } from "./routes/review";
@@ -15,6 +16,7 @@ export type HealthCheck = () => Promise<void>;
 export function createApp(deps: {
   agents?: AgentOptions;
   checks: Record<string, HealthCheck>;
+  disputes?: DisputesOptions;
   gauntlet?: GauntletOptions;
   guard?: GuardOptions;
   mcp?: McpOptions;
@@ -52,6 +54,7 @@ export function createApp(deps: {
   if (deps.review) mountReview(app, deps.review);
   if (deps.agents) mountAgents(app, deps.agents);
   if (deps.gauntlet) mountGauntlet(app, deps.gauntlet);
+  if (deps.disputes) mountDisputes(app, deps.disputes);
 
   return app;
 }

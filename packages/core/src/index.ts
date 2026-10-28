@@ -28,7 +28,9 @@ export const Commitment = z.object({
 });
 export type Commitment = z.infer<typeof Commitment>;
 
-export const Verdict = z.enum(["ALLOW", "REWRITE", "BLOCK", "HOLD"]);
+export type Money = z.infer<typeof Money>;
+
+export const Verdict =z.enum(["ALLOW", "REWRITE", "BLOCK", "HOLD"]);
 export type Verdict = z.infer<typeof Verdict>;
 
 export const ReasonCode = z.enum([
@@ -37,6 +39,7 @@ export const ReasonCode = z.enum([
   "BUDGET_EXCEEDED", "ABOVE_AUTO_APPROVE", "DISCOUNT_EXCEEDS_LIMIT", "PRICE_BELOW_MIN",
   "INJECTION_DETECTED", "RISK_THRESHOLD", "EXTRACTOR_UNAVAILABLE", "VERIFIER_UNAVAILABLE",
   "POLICY_INVALID", "AGENT_FROZEN",
+  "DISPUTE_NO_LEDGER_MATCH", "DISPUTE_UNHONORED_COMMITMENT", "DISPUTE_WITHIN_POLICY", "DISPUTE_UNSUPPORTED_REASON",
 ]);
 export type ReasonCode = z.infer<typeof ReasonCode>;
 
@@ -60,3 +63,5 @@ export const Extraction = z.object({
   pii_mentions: z.array(z.object({ kind: z.enum(["email", "phone", "address", "card", "other"]), quoted_text: z.string().max(200) })).max(20),
 });
 export type Extraction = z.infer<typeof Extraction>;
+
+export * from "./disputes";

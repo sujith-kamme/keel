@@ -32,6 +32,14 @@ describe("sendNotify", () => {
     expect(Object.keys(body).sort()).toEqual(Object.keys(event).sort());
   });
 
+  it("sends a dispute event with only its known keys", async () => {
+    const fetch = okFetch();
+    const dispute = { event: "dispute.classified" as const, dispute_id: "PP-D-1", decision_id: "dec_2", reason_codes: ["DISPUTE_WITHIN_POLICY"], console_url: "https://keel.example/disputes/PP-D-1", at: "2026-01-01T00:00:00.000Z" };
+    await sendNotify({ ...dispute, buyer_text: "secret" } as NotifyEvent, { hookUrl: HOOK, fetch });
+    const body = JSON.parse((fetch.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(body).toEqual(dispute);
+  });
+
   it("omits score when undefined", async () => {
     const fetch = okFetch();
     await sendNotify({ ...event, score: undefined }, { hookUrl: HOOK, fetch });

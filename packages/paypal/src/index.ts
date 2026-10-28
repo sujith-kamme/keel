@@ -29,7 +29,7 @@ export function configFromEnv(env = process.env): PayPalConfig {
 // PayPal resource IDs are alphanumeric with dashes/underscores. Anything else is
 // rejected so caller-supplied IDs (ultimately from an AI agent) can't rewrite the
 // request path and reach other PayPal endpoints with Keel's credentials.
-function resourceId(id: string): string {
+export function resourceId(id: string): string {
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) throw new Error(`Invalid PayPal resource id: ${JSON.stringify(id)}`);
   return id;
 }
@@ -54,18 +54,22 @@ export class PayPalClient {
     return this.token.value;
   }
 
-  async request<T>(method: string, path: string, body?: unknown, requestId?: string): Promise<T> {
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${await this.accessToken()}`,
-      "Content-Type": "application/json",
-    };
+  /** Sandbox-only endpoints (dispute adjudication) refuse to run anywhere else. */
+  get isSandbox(): boolean {
+    return new URL(this.config.baseUrl).hostname === "api-m.sandbox.paypal.com";
+  }
+
+  request<T>(method: string, path: string, body?: unknown, requestId?: string): Promise<T> {
+    return this.send<T>(method, path, body === undefined ? undefined : JSON.stringify(body), requestId);
+  }
+
+  /** A pre-serialised JSON string, or FormData (fetch then sets the multipart boundary). */
+  async send<T>(method: string, path: string, body?: string | FormData, requestId?: string): Promise<T> {
+    const headers: Record<string, string> = { Authorization: `Bearer ${await this.accessToken()}` };
+    if (typeof body === "string") headers["Content-Type"] = "application/json";
     // PayPal-Request-Id makes POSTs idempotent (docs/FSD.md NFR-4).
     if (requestId) headers["PayPal-Request-Id"] = requestId;
-    const res = await fetch(`${this.config.baseUrl}${path}`, {
-      method,
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    const res = await fetch(`${this.config.baseUrl}${path}`, { method, headers, body });
     const text = await res.text();
     const parsed: unknown = text ? JSON.parse(text) : null;
     if (!res.ok) throw new PayPalError(res.status, parsed, res.headers.get("paypal-debug-id"));

@@ -5,6 +5,7 @@ import { QUEUE, redisConnection } from "./queue";
 /** Handlers that need the API process's dependencies (the Gauntlet runner). */
 export interface WorkerHandlers {
   gauntlet?: (runId: string) => Promise<void>;
+  dispute?: { sync: (disputeId: string) => Promise<void>; poll: () => Promise<number> };
 }
 
 export function startWorker(handlers: WorkerHandlers = {}) {
@@ -17,6 +18,11 @@ export function startWorker(handlers: WorkerHandlers = {}) {
       if (job.name === "gauntlet.run") {
         if (!handlers.gauntlet) throw new Error("No gauntlet handler: run the worker inside the API (RUN_WORKER=true)");
         return handlers.gauntlet((job.data as { run_id: string }).run_id);
+      }
+      if (job.name === "dispute.sync" || job.name === "dispute.poll") {
+        if (!handlers.dispute) throw new Error("No dispute handler: run the worker inside the API (RUN_WORKER=true)");
+        if (job.name === "dispute.poll") return handlers.dispute.poll();
+        return handlers.dispute.sync((job.data as { dispute_id: string }).dispute_id);
       }
       throw new Error(`Unknown job: ${job.name}`);
     },
