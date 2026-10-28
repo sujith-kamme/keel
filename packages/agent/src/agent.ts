@@ -83,10 +83,17 @@ ${orders}
 </session>`;
 }
 
-const wrap = (text: string) => `<customer_message>${escape(text)}</customer_message>`;
-
 // The model sometimes copies the history notes into its own reply, anywhere in it.
-const NOTE = /\s*\[Keel decisions:[^\]]*\]/g;
+const NOTE = /\s*\[\s*Keel\s+decisions\s*:[^\]]*\]/gi;
+
+// A customer must not be able to forge a system-recorded note; repeat until none is
+// left, so removing one can't splice the rest into a new one.
+function stripNotes(text: string): string {
+  for (let prev = ""; prev !== text; ) [prev, text] = [text, text.replace(NOTE, "")];
+  return text;
+}
+
+const wrap = (text: string) => `<customer_message>${escape(stripNotes(text))}</customer_message>`;
 
 function withNote(text: string, decisions: HistoryDecision[] = []): string {
   if (decisions.length === 0) return text;
