@@ -23,6 +23,8 @@ export function signals(rows: RiskRow[], sessionOrderIds: string[]): RiskSignal[
   const out: RiskSignal[] = [];
   let seenRefusedMoney = false;
   for (const r of rows.slice(lastRelease + 1)) {
+    // A reviewer's action is never the agent's behaviour.
+    if (r.tool === "review") continue;
     const add = (kind: RiskSignal["kind"]) => out.push({ kind, weight: RISK_WEIGHTS[kind], at: r.created_at });
     if (r.tool === "guard" && r.injection_from_customer) add("INJECTION");
     if (MONEY_TOOLS.includes(r.tool) && refused(r)) {

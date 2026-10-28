@@ -80,7 +80,7 @@ function fakes(overrides: Partial<GatewayDeps> = {}) {
       ledger.push(entry);
     },
     escalate: vi.fn(async () => {}),
-    withOrderLock: (_id, fn) => fn(),
+    withOrderLock: (_session, _order, fn) => fn(),
     control: vi.fn(async () => ({ state: "ACTIVE", agent_frozen: false, score: 0 })),
     assess: vi.fn(async () => ({ score: 0, quarantined: false })),
     notifyHeld: vi.fn(async () => {}),
@@ -183,11 +183,20 @@ describe("handleTool: offer_refund", () => {
     expect(payload.decision.result.verdict).toBe("ALLOW");
   });
 
-  it("runs inside the per-order lock", async () => {
-    const withOrderLock = vi.fn((_id: string, fn: () => Promise<unknown>) => fn()) as GatewayDeps["withOrderLock"];
-    const { deps } = fakes({ withOrderLock });
+  it("runs inside the session and order locks and records the refund before releasing them", async () => {
+    let rowsWhenUnlocked = -1;
+    const holder: { ledger?: LedgerContent[] } = {};
+    const withOrderLock = vi.fn(async (_session: string, _order: string, fn: () => Promise<unknown>) => {
+      const result = await fn();
+      rowsWhenUnlocked = holder.ledger!.length;
+      return result;
+    }) as GatewayDeps["withOrderLock"];
+    const { deps, ledger } = fakes({ withOrderLock });
+    holder.ledger = ledger;
     await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"));
-    expect(withOrderLock).toHaveBeenCalledWith("IN-POLICY", expect.any(Function));
+    expect(withOrderLock).toHaveBeenCalledWith("ses_1", "IN-POLICY", expect.any(Function));
+    expect(rowsWhenUnlocked).toBe(1);
+    expect(ledger).toHaveLength(1);
   });
 });
 

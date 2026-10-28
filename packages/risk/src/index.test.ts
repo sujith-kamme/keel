@@ -47,6 +47,12 @@ describe("signals", () => {
     expect(signals([r], ["O-1"])).toEqual([]);
   });
 
+  it("reviewer actions never raise risk", () => {
+    const review = (o: Partial<RiskRow>) => row({ tool: "review", ...o });
+    const rows = [blocked(), review({ verdict: "BLOCK", reason_codes: ["CAPABILITY_OUT_OF_SCOPE"], order_id: "O-9" }), review({ verdict: "HOLD" })];
+    expect(signals(rows, ["O-1"])).toEqual([]);
+  });
+
   it("rows before the last release are ignored", () => {
     const inj = row({ tool: "guard", injection_from_customer: true });
     expect(signals([inj, row({ tool: "release" })], [])).toEqual([]);

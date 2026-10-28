@@ -30,9 +30,15 @@ export interface ReviewStore {
   entry: (decisionId: string) => Promise<HeldEntry | null>;
   /** A review row with ref = decisionId and resolved = true exists. */
   isResolved: (decisionId: string) => Promise<boolean>;
+  /**
+   * A PayPal refund for this held decision failed without confirmation (on the held
+   * row or an approve attempt), so money may have moved. Only an idempotent re-approve
+   * can settle it.
+   */
+  paymentUnconfirmed: (decisionId: string) => Promise<boolean>;
   session: (id: string) => Promise<{ id: string; agent_id: string; verified_payer: string | null; order_ids: string[] } | null>;
-  /** Sets the session ACTIVE and appends `content` atomically; false when the session doesn't exist. */
-  release: (sessionId: string, content: LedgerContent) => Promise<boolean>;
+  /** Sets a QUARANTINED or ESCALATED session ACTIVE and appends `content` atomically. */
+  release: (sessionId: string, content: LedgerContent) => Promise<"released" | "not_found" | "not_flagged">;
 }
 
 export interface ReviewOptions {
@@ -65,7 +71,7 @@ async function body<T>(c: Context, schema: z.ZodType<T>): Promise<T | null> {
   return parsed.success ? parsed.data : null;
 }
 
-/** 200 executed; 422 a final refusal (hard rule, budget, scope); 502 PayPal failed; 503 facts unavailable. */
+/** 200 executed; 422 refused (hard rule, scope, budget); 502 PayPal failed; 503 facts unavailable. */
 function status(o: Outcome): 200 | 422 | 502 | 503 {
   if (o.verdict === "ALLOW") return 200;
   if ((o.record?.execution as { status?: string } | undefined)?.status === "FAILED") return 502;
@@ -133,7 +139,8 @@ export function mountReview(app: Hono, opts: ReviewOptions): void {
   });
 
   // Serialize with the gateway (same order lock) and with other reviewers.
-  const locked = <T>(held: HeldEntry, fn: () => Promise<T>) => g.withOrderLock(held.order_id ?? held.decision_id, fn);
+  const locked = <T>(held: HeldEntry & { session_id: string }, fn: () => Promise<T>) =>
+    g.withOrderLock(held.session_id, held.order_id ?? held.decision_id, fn);
 
   app.post("/v1/review/:decision_id/deny", async (c) => {
     const r = await pendingHold(c);
@@ -141,6 +148,8 @@ export function mountReview(app: Hono, opts: ReviewOptions): void {
     const { held, reviewer } = r;
     return locked(held, async () => {
       if (await store.isResolved(held.decision_id)) return c.json({ error: "already_resolved" }, 409);
+      // Money may have moved: settle it with an (idempotent) approve instead.
+      if (await store.paymentUnconfirmed(held.decision_id)) return c.json({ error: "payment_unconfirmed" }, 409);
       const row = reviewRow(held, "BLOCK", held.reason_codes, { action: "deny", reviewer, resolved: true });
       await g.appendLedger(row);
       return c.json({ decision_id: row.decision_id });
@@ -161,6 +170,7 @@ export function mountReview(app: Hono, opts: ReviewOptions): void {
       orders: session.order_ids,
       allow: [...TOOLS],
       max_refund_total: MAX_REFUND_TOTAL,
+      // Not checked by checkScope; a reviewer may act after the agent's token expired.
       expires_at: g.now().toISOString(),
     };
 
@@ -179,11 +189,12 @@ export function mountReview(app: Hono, opts: ReviewOptions): void {
           : { verdict: "BLOCK", reason: "CAPABILITY_OUT_OF_SCOPE" };
       }
       const code = status(outcome);
-      const verdict = code === 200 ? "ALLOW" : code === 422 ? "BLOCK" : "HOLD";
+      const verdict = code === 200 ? "ALLOW" : outcome.verdict === "BLOCK" ? "BLOCK" : "HOLD";
+      // A hard BLOCK is final; a HOLD (budget, facts, PayPal) may clear, so it stays queued.
       const row = reviewRow(held, verdict, [outcome.reason], {
         action: "approve",
         reviewer,
-        resolved: code === 200 || code === 422,
+        resolved: code === 200 || verdict === "BLOCK",
         ...outcome.record,
       });
       if (outcome.capture_id) row.capture_id = outcome.capture_id;
@@ -202,9 +213,9 @@ export function mountReview(app: Hono, opts: ReviewOptions): void {
     if (!req) return c.json({ error: "invalid_request" }, 400);
     const id = c.req.param("id");
     const decision_id = g.newId("dec");
-    const released =
-      SESSION_ID.test(id) &&
-      (await store.release(id, {
+    const released = !SESSION_ID.test(id)
+      ? "not_found"
+      : await store.release(id, {
         decision_id,
         session_id: id,
         order_id: null,
@@ -214,8 +225,9 @@ export function mountReview(app: Hono, opts: ReviewOptions): void {
         verdict: "ALLOW",
         reason_codes: ["OK"],
         payload: { tool: "release", reviewer: req.reviewer },
-      }));
-    if (!released) return c.json({ error: "not_found" }, 404);
+      });
+    if (released === "not_found") return c.json({ error: "not_found" }, 404);
+    if (released === "not_flagged") return c.json({ error: "not_flagged" }, 409);
     return c.json({ decision_id, state: "ACTIVE" });
   });
 }

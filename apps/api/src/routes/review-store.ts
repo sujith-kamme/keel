@@ -84,16 +84,32 @@ export function createReviewStore(db: Db): ReviewStore {
       const { rows } = await db.execute<{ resolved: boolean }>(sql`select ${resolved(decisionId)} as resolved`);
       return rows[0]?.resolved === true;
     },
+    paymentUnconfirmed: async (decisionId) => {
+      const { rows } = await db.execute<{ unconfirmed: boolean }>(sql`select exists (
+        select 1 from ledger_entries f
+        where f.payload->'execution'->>'status' = 'FAILED'
+          and (f.decision_id = ${decisionId}
+            or (f.payload->>'tool' = 'review' and f.payload->>'action' = 'approve' and f.payload->>'ref' = ${decisionId}))
+      ) as unconfirmed`);
+      return rows[0]?.unconfirmed === true;
+    },
     session: async (id) => {
       const [row] = await db.select().from(sessions).where(eq(sessions.id, id));
       return row ? { id: row.id, agent_id: row.agentId, verified_payer: row.verifiedPayer, order_ids: row.orderIds } : null;
     },
     release: (sessionId, content) =>
       db.transaction(async (tx) => {
-        const updated = await tx.update(sessions).set({ state: "ACTIVE" }).where(eq(sessions.id, sessionId)).returning({ id: sessions.id });
-        if (updated.length !== 1) return false;
+        const updated = await tx
+          .update(sessions)
+          .set({ state: "ACTIVE" })
+          .where(and(eq(sessions.id, sessionId), inArray(sessions.state, ["QUARANTINED", "ESCALATED"])))
+          .returning({ id: sessions.id });
+        if (updated.length !== 1) {
+          const [exists] = await tx.select({ id: sessions.id }).from(sessions).where(eq(sessions.id, sessionId));
+          return exists ? "not_flagged" : "not_found";
+        }
         await appendLedger(tx, content);
-        return true;
+        return "released";
       }),
   };
 }

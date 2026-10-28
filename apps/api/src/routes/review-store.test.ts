@@ -58,6 +58,19 @@ describe.skipIf(!process.env.DATABASE_URL)("review store (Postgres)", () => {
     expect(await store.entry(`dec_${rid()}`)).toBeNull();
   });
 
+  it("reports an unconfirmed payment from the held row or a failed approve attempt", async () => {
+    const sid = await session("QUARANTINED");
+    const plain = row(sid, "offer_refund", "HOLD", ["RISK_THRESHOLD"], { args: {} });
+    const failedHold = row(sid, "offer_refund", "HOLD", ["VERIFIER_UNAVAILABLE"], { args: {}, execution: { status: "FAILED", amount: "5.00" } });
+    const failedApprove = row(sid, "offer_refund", "HOLD", ["RISK_THRESHOLD"], { args: {} });
+    for (const r of [plain, failedHold, failedApprove]) await appendLedger(db, r);
+    await appendLedger(db, row(sid, "review", "HOLD", ["VERIFIER_UNAVAILABLE"], { action: "approve", ref: failedApprove.decision_id, resolved: false, execution: { status: "FAILED" } }));
+    await appendLedger(db, row(sid, "review", "HOLD", ["VERIFIER_UNAVAILABLE"], { action: "approve", ref: plain.decision_id, resolved: false }));
+    expect(await store.paymentUnconfirmed(plain.decision_id)).toBe(false);
+    expect(await store.paymentUnconfirmed(failedHold.decision_id)).toBe(true);
+    expect(await store.paymentUnconfirmed(failedApprove.decision_id)).toBe(true);
+  });
+
   it("lists flagged sessions without pending holds, with the latest risk reasons", async () => {
     const quiet = await session("ESCALATED");
     const risky = await session("QUARANTINED");
@@ -82,11 +95,14 @@ describe.skipIf(!process.env.DATABASE_URL)("review store (Postgres)", () => {
   it("releases a session and appends the release row together", async () => {
     const sid = await session("QUARANTINED");
     const content = row(sid, "release", "ALLOW", ["OK"], { reviewer: "ops" });
-    expect(await store.release(sid, content)).toBe(true);
+    expect(await store.release(sid, content)).toBe("released");
     const [s] = await db.select().from(sessions).where(eq(sessions.id, sid));
     expect(s!.state).toBe("ACTIVE");
     expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.decisionId, content.decision_id))).toHaveLength(1);
-    expect(await store.release(`ses_test_${rid()}`, row(sid, "release", "ALLOW", ["OK"]))).toBe(false);
+    expect(await store.release(`ses_test_${rid()}`, row(sid, "release", "ALLOW", ["OK"]))).toBe("not_found");
+    const again = row(sid, "release", "ALLOW", ["OK"]);
+    expect(await store.release(sid, again)).toBe("not_flagged");
+    expect(await db.select().from(ledgerEntries).where(eq(ledgerEntries.decisionId, again.decision_id))).toHaveLength(0);
     expect(await store.session(sid)).toEqual({ id: sid, agent_id: "demo", verified_payer: "maya@demo.keel.test", order_ids: ["O-1"] });
   });
 });
