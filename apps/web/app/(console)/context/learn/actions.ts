@@ -18,7 +18,7 @@ export async function draft(sessionId: string): Promise<DraftResult> {
   }
 }
 
-/** The draft passes through unchanged except for the three editable fields; the API re-validates it. */
+/** The draft passes through with the three editable fields applied; the API keeps only id and those fields and rebuilds the rest from the session. */
 export async function save(sessionId: string, scenario: Record<string, unknown>, edits: Edits): Promise<{ ok: false; message: string }> {
   await requireConsole();
   const clean = parseEdits(edits);

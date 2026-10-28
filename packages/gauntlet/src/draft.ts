@@ -73,12 +73,15 @@ export function deriveScenarioFrame(src: DraftSource): Omit<Scenario, "persona" 
   };
 }
 
-const eligible = (src: DraftSource) =>
-  src.session.mode === "LIVE" && (["QUARANTINED", "ESCALATED"].includes(src.session.state) || src.rows.some((r) => REFUSED.includes(r.verdict)));
+/** Throws NotEligible unless this is a flagged LIVE session with customer turns to learn from. */
+export function assertEligible(src: DraftSource): void {
+  const flagged = ["QUARANTINED", "ESCALATED"].includes(src.session.state) || src.rows.some((r) => REFUSED.includes(r.verdict));
+  if (src.session.mode !== "LIVE" || !flagged || src.customer_turns.length === 0) throw new NotEligible();
+}
 
 /** Throws NotEligible, or on timeout, refusal, max_tokens or invalid output. */
 export async function draftScenario(deps: DraftDeps, src: DraftSource, now: Date): Promise<Scenario> {
-  if (!eligible(src)) throw new NotEligible();
+  assertEligible(src);
   const content = src.customer_turns
     .slice(0, MAX_TURNS)
     .map((t) => `<customer_turn>${escape(t.slice(0, MAX_TURN_CHARS))}</customer_turn>`)

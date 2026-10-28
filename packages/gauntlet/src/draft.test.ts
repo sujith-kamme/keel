@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type DraftDeps, type DraftSource, NotEligible, deriveScenarioFrame, draftScenario } from "./draft";
+import { type DraftDeps, type DraftSource, NotEligible, assertEligible, deriveScenarioFrame, draftScenario } from "./draft";
 import { Scenario } from "./scenario";
 
 const NOW = new Date("2026-10-27T12:00:00Z");
@@ -52,6 +52,13 @@ describe("draftScenario", () => {
   it("is not eligible for CONTEXT or clean LIVE sessions", async () => {
     await expect(draftScenario(deps(), src({ session: { id: "s", mode: "CONTEXT", state: "QUARANTINED" } }), NOW)).rejects.toBeInstanceOf(NotEligible);
     await expect(draftScenario(deps(), src({ session: { id: "s", mode: "LIVE", state: "ACTIVE" }, rows: [row("guard", "ALLOW")] }), NOW)).rejects.toBeInstanceOf(NotEligible);
+  });
+  it("is not eligible without customer turns and never calls the model", async () => {
+    const calls: unknown[] = [];
+    await expect(draftScenario(deps(undefined, calls), src({ customer_turns: [] }), NOW)).rejects.toBeInstanceOf(NotEligible);
+    expect(calls).toHaveLength(0);
+    expect(() => assertEligible(src({ customer_turns: [] }))).toThrow(NotEligible);
+    expect(() => assertEligible(src())).not.toThrow();
   });
   it("is eligible via ESCALATED or a BLOCK/HOLD row", async () => {
     await draftScenario(deps(), src({ session: { id: "s", mode: "LIVE", state: "ESCALATED" } }), NOW);

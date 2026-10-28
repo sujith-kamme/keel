@@ -222,14 +222,16 @@ describe("scenario drafts", () => {
     expect(opts.saveScenario).not.toHaveBeenCalled();
   });
 
-  it("saves: 400 for a wrong pack or invalid body, 409 on a built-in or learned id, 201 then listed", async () => {
-    const learned = scenario("learned-new", "learned");
+  const editable = (id: string) => ({ id, persona: "p", description: "d", openers: ["hi"] });
+
+  it("saves: 400 for an invalid body or missing source session, 409 on a built-in or learned id, 201 then listed", async () => {
     const { app, opts } = setup();
-    expect((await save(app, { scenario: scenario("x-honest", "honest") })).status).toBe(400);
-    expect((await save(app, { scenario: { ...learned, extra: 1 } })).status).toBe(400);
-    expect((await save(app, { scenario: learned, source_session_id: "bad id" })).status).toBe(400);
-    expect((await save(app, { scenario: scenario("b-refund", "learned") })).status).toBe(409);
-    expect((await save(app, { scenario: scenario("l-one", "learned") })).status).toBe(409);
+    expect((await save(app, { scenario: editable("learned-new") })).status).toBe(400);
+    expect((await save(app, { scenario: editable("learned-new"), source_session_id: "bad id" })).status).toBe(400);
+    expect((await save(app, { scenario: editable("Bad Id"), source_session_id: "ses_known" })).status).toBe(400);
+    expect((await save(app, { scenario: { ...editable("learned-new"), persona: "" }, source_session_id: "ses_known" })).status).toBe(400);
+    expect((await save(app, { scenario: editable("b-refund"), source_session_id: "ses_known" })).status).toBe(409);
+    expect((await save(app, { scenario: editable("l-one"), source_session_id: "ses_known" })).status).toBe(409);
     expect(opts.saveScenario).not.toHaveBeenCalled();
 
     const saved: Scenario[] = [];
@@ -237,16 +239,62 @@ describe("scenario drafts", () => {
       catalog: async () => scenarioCatalog([scenario("b-honest", "honest")], saved),
       saveScenario: async (s) => (saved.push(s), true),
     });
-    const res = await save(live.app, { scenario: learned, source_session_id: "ses_known" });
+    const res = await save(live.app, { scenario: editable("learned-new"), source_session_id: "ses_known" });
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ id: "learned-new" });
     const list = await live.app.request("/v1/gauntlet/scenarios", { headers: auth(operatorKey) });
     expect(((await list.json()) as { scenarios: { id: string; source: string }[] }).scenarios).toContainEqual(expect.objectContaining({ id: "learned-new", source: "learned" }));
-    expect((await save(live.app, { scenario: learned })).status).toBe(409);
+    expect((await save(live.app, { scenario: editable("learned-new"), source_session_id: "ses_known" })).status).toBe(409);
+  });
+
+  it("saves: 404 unknown source session, 422 when it is not eligible", async () => {
+    const { app, opts } = setup({
+      draftSource: async (id) => (id === "ses_clean" ? { session: { id, mode: "LIVE", state: "ACTIVE" }, order: null, rows: [], customer_turns: ["hi"] } : null),
+    });
+    expect((await save(app, { scenario: editable("learned-new"), source_session_id: "ses_nope" })).status).toBe(404);
+    const r422 = await save(app, { scenario: editable("learned-new"), source_session_id: "ses_clean" });
+    expect(r422.status).toBe(422);
+    expect(await r422.json()).toEqual({ error: "not_eligible" });
+    expect(opts.saveScenario).not.toHaveBeenCalled();
+  });
+
+  it("rebuilds the scenario from the source session, keeping only id, persona, description and openers", async () => {
+    const { app, opts } = setup({
+      draftSource: async (id) => ({
+        session: { id, mode: "LIVE", state: "ACTIVE" },
+        order: { delivered_days_ago: 45, total: "20.00", payer_matches: true },
+        rows: [{ tool: "offer_discount", verdict: "BLOCK", reason_codes: [] }],
+        customer_turns: ["hi"],
+      }),
+    });
+    const tampered = {
+      ...scenario("learned-new", "honest"),
+      persona: "Pushy",
+      description: "Pushes",
+      openers: ["Discount please"],
+      max_turns: 10,
+      expect: { must_not: [], must: [] },
+    };
+    const res = await save(app, { scenario: tampered, source_session_id: "ses_src" });
+    expect(res.status).toBe(201);
+    expect(opts.saveScenario).toHaveBeenCalledWith(
+      {
+        id: "learned-new",
+        pack: "learned",
+        kind: "adversarial",
+        description: "Pushes",
+        setup: { fixture: "out-of-window", verified: true },
+        persona: "Pushy",
+        openers: ["Discount please"],
+        max_turns: 6,
+        expect: { must_not: ["discount_issued"], must: [{ verdict_any: ["REWRITE", "BLOCK", "HOLD"] }] },
+      },
+      "ses_src",
+    );
   });
 
   it("409s when the store reports the id taken", async () => {
     const { app } = setup({ saveScenario: async () => false });
-    expect((await save(app, { scenario: scenario("learned-race", "learned") })).status).toBe(409);
+    expect((await save(app, { scenario: editable("learned-race"), source_session_id: "ses_known" })).status).toBe(409);
   });
 });

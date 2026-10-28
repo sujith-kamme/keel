@@ -1,4 +1,4 @@
-import { type DraftSource, NotEligible, PACKS, Scenario as ScenarioSchema, type Scenario, type Scorecard, type Versions, certification } from "@keel/gauntlet";
+import { type DraftSource, NotEligible, PACKS, assertEligible, deriveScenarioFrame, Scenario as ScenarioSchema, type Scenario, type Scorecard, type Versions, certification } from "@keel/gauntlet";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import { operatorAuth } from "./operator-auth";
@@ -100,7 +100,11 @@ const StartRun = z.strictObject({
 });
 const SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const StartDraft = z.strictObject({ session_id: z.string().regex(SESSION_ID) });
-const SaveScenario = z.strictObject({ scenario: z.unknown(), source_session_id: z.string().regex(SESSION_ID).optional() });
+// Only the drafted wording comes from the client; the rest is rebuilt from the source session.
+const SaveScenario = z.strictObject({
+  scenario: z.object({ id: z.string(), persona: z.string(), description: z.string(), openers: z.array(z.string()) }),
+  source_session_id: z.string().regex(SESSION_ID),
+});
 const RUN_ID = /^run_[a-f0-9]{1,64}$/;
 
 /** Gauntlet runs for the operator console (Phase 5). */
@@ -184,11 +188,21 @@ export function mountGauntlet(app: Hono, opts: GauntletOptions): void {
     const no = denied(c);
     if (no) return no;
     const req = SaveScenario.safeParse(await c.req.json().catch(() => null));
-    const parsed = req.success ? ScenarioSchema.safeParse(req.data.scenario) : null;
-    if (!req.success || !parsed?.success || parsed.data.pack !== "learned") return c.json({ error: "invalid_request" }, 400);
+    if (!req.success) return c.json({ error: "invalid_request" }, 400);
+    const sourceId = req.data.source_session_id;
+    const src = await opts.draftSource(sourceId, opts.now());
+    if (!src) return c.json({ error: "not_found" }, 404);
+    try {
+      assertEligible(src);
+    } catch {
+      return c.json({ error: "not_eligible" }, 422);
+    }
+    const { id, persona, description, openers } = req.data.scenario;
+    const parsed = ScenarioSchema.safeParse({ ...deriveScenarioFrame(src), id, persona, description, openers });
+    if (!parsed.success) return c.json({ error: "invalid_request" }, 400);
     const scenario = parsed.data;
     if ((await opts.catalog()).some((e) => e.scenario.id === scenario.id)) return c.json({ error: "id_taken" }, 409);
-    if (!(await opts.saveScenario(scenario, req.data.source_session_id ?? null))) return c.json({ error: "id_taken" }, 409);
+    if (!(await opts.saveScenario(scenario, sourceId))) return c.json({ error: "id_taken" }, 409);
     return c.json({ id: scenario.id }, 201);
   });
 }
