@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
@@ -16,6 +17,9 @@ import { type StoreOptions, mountStore } from "./routes/store";
 import { type TurnOptions, mountTurns } from "./routes/turns";
 
 export type HealthCheck = () => Promise<void>;
+
+// Hand-written spec (apps/api/openapi.yaml); src/openapi.test.ts keeps it in step with the routes.
+const OPENAPI = readFileSync(new URL("../openapi.yaml", import.meta.url), "utf8");
 
 export function createApp(deps: {
   agents?: AgentOptions;
@@ -55,6 +59,8 @@ export function createApp(deps: {
     const healthy = results.every(([, state]) => state === "ok");
     return c.json({ status: healthy ? "ok" : "degraded", checks: Object.fromEntries(results) }, healthy ? 200 : 503);
   });
+
+  app.get("/openapi.yaml", (c) => c.body(OPENAPI, 200, { "content-type": "application/yaml" }));
 
   if (deps.sessions) mountSessions(app, deps.sessions);
   if (deps.store) mountStore(app, deps.store);
