@@ -3,12 +3,15 @@
 // personal account through a normal approval, unlike the card-funded store orders.
 //
 //   npm run dispute:orders -- create                       # prints an approval link per missing order
+//     Pay with the account's PayPal balance or card, not its bank: a bank (eCheck)
+//     capture stays PENDING for days and Keel's order check won't vouch for it.
 //   npm run dispute:orders -- capture <scenario> <orderId>  # after approving as the personal account
 //   npm run dispute:orders -- create --fresh dispute-defend # a new order for a spent scenario
 //
 // Demo prep, once both are captured:
 //   1. In the store, as maya@demo.keel.test, ask for a refund on each order. The $35.00
-//      one is refused (outside the 30-day window); the $120.00 one is held for approval.
+//      one is refused (outside the 30-day window); the $80.00 one is held for approval
+//      (above the $50 auto-approve limit, under the $100 a session may refund at all).
 //      Leave the hold in the review queue.
 //   2. As the sandbox personal account, open a dispute on each payment from the
 //      Resolution Center ("I didn't receive an item", full amount).
@@ -21,7 +24,7 @@ import { PayPalClient, configFromEnv } from "@keel/paypal";
 const DAY_MS = 86_400_000;
 const SCENARIOS = {
   "dispute-defend": { total: "35.00", deliveredDaysAgo: 45 },
-  "dispute-concede": { total: "120.00", deliveredDaysAgo: 3 },
+  "dispute-concede": { total: "80.00", deliveredDaysAgo: 3 },
 } as const;
 type Scenario = keyof typeof SCENARIOS;
 const PAYER = "maya@demo.keel.test";
@@ -63,11 +66,12 @@ if (cmd === "create") {
   const scenario = rest[0];
   const spec = SCENARIOS[scenario];
   const orderId = rest[1];
-  const captured = await paypal.request<{ status: string; purchase_units: { payments?: { captures?: { id: string; amount: { value: string } }[] } }[] }>(
+  const captured = await paypal.request<{ status: string; purchase_units: { payments?: { captures?: { id: string; status: string; amount: { value: string } }[] } }[] }>(
     "POST", `/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {}, `dispute-capture-${orderId}`,
   );
   const capture = captured.purchase_units[0]?.payments?.captures?.[0];
   if (captured.status !== "COMPLETED" || !capture) throw new Error(`${scenario}: order ${orderId} did not capture`);
+  if (capture.status !== "COMPLETED") throw new Error(`${scenario}: capture ${capture.id} is ${capture.status} (paid by bank?); approve a fresh order with balance or card`);
   if (toCents(capture.amount.value) !== toCents(spec.total)) throw new Error(`${scenario}: captured ${capture.amount.value}`);
   const { sku, title } = await item();
   // A re-created scenario keeps its name; the older row is renamed out of the way.
