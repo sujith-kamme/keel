@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Commitment, Extraction } from "./index";
+import { Commitment, Extraction, ReasonCode } from "./index";
 
 describe("Commitment", () => {
   it("accepts a tool-call refund", () => {
@@ -44,5 +44,11 @@ describe("Extraction", () => {
   it("rejects a negative percent", () => {
     const bad = { ...valid, reply_commitments: [{ type: "DISCOUNT", quoted_text: "x", percent: -1 }] };
     expect(() => Extraction.parse(bad)).toThrow();
+  });
+});
+
+describe("ReasonCode", () => {
+  it("accepts AGENT_FROZEN", () => {
+    expect(ReasonCode.parse("AGENT_FROZEN")).toBe("AGENT_FROZEN");
   });
 });

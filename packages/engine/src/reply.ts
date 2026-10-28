@@ -30,6 +30,7 @@ export interface ReplyResult {
 
 export const SAFE_FALLBACK = "I'm sorry, I can't help with that right now. A member of our team can follow up with you.";
 export const FREE_TEXT_FALLBACK = "I can't promise that here, but I can submit a request for you or pass this to a member of our team.";
+export const QUARANTINE_TEMPLATE = "Your request has been passed to our team for review. You'll hear back within 24 hours.";
 export const policyRewrite = (t: string) => `Our policy is: ${t} If you'd like, I can pass this to a member of our team for review.`;
 
 type Commitment = Extraction["reply_commitments"][number];
