@@ -15,7 +15,10 @@ const items = [
 export function Nav() {
   return (
     <nav className="flex flex-col gap-1 p-4">
-      <span className="mb-4 text-lg font-semibold">Keel</span>
+      <div className="mb-4">
+        <img src="/keel-logo-on-light-transparent.svg" alt="Keel" className="h-7 w-auto dark:hidden" />
+        <img src="/keel-logo-on-dark-transparent.svg" alt="Keel" className="hidden h-7 w-auto dark:block" />
+      </div>
       {items.map((item) => (
         <Link key={item.href} href={item.href} className="rounded px-3 py-2 text-sm hover:bg-black/5 dark:hover:bg-white/10">
           {item.label}
