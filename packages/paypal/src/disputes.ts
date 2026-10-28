@@ -1,4 +1,4 @@
-import { type PayPalAmount, type PayPalClient, resourceId } from "./index";
+import { type PayPalAmount, type PayPalClient, PayPalError, resourceId } from "./index";
 
 // Customer Disputes v1 (FSD §10) and webhook verification (FR-SEC-3).
 // Behaviour checked against the sandbox in Phase 6 Task 1: see the Phase 6 plan.
@@ -39,8 +39,8 @@ const WEBHOOK_HEADERS = {
 } as const;
 
 /**
- * Asks PayPal whether a webhook delivery is genuine. False for missing headers or
- * a body that isn't a JSON object; throws if PayPal's verification call itself fails.
+ * Asks PayPal whether a webhook delivery is genuine. False for missing or malformed
+ * headers or a body that isn't a JSON object; throws if PayPal's verification call itself fails.
  */
 export async function verifyWebhook(
   client: PayPalClient,
@@ -64,8 +64,15 @@ export async function verifyWebhook(
   }
   const prefix = JSON.stringify({ ...fields, webhook_id: webhookId }).slice(0, -1);
   const body = `${prefix},"webhook_event":${rawBody}}`;
-  const res = await client.send<{ verification_status?: string }>("POST", "/v1/notifications/verify-webhook-signature", body);
-  return res.verification_status === "SUCCESS";
+  try {
+    const res = await client.send<{ verification_status?: string }>("POST", "/v1/notifications/verify-webhook-signature", body);
+    return res.verification_status === "SUCCESS";
+  } catch (e) {
+    // PayPal rejecting the headers themselves (400/422) means they weren't PayPal's;
+    // anything else (auth, rate limit, outage) is ours to retry.
+    if (e instanceof PayPalError && (e.status === 400 || e.status === 422)) return false;
+    throw e;
+  }
 }
 
 export async function getDispute(client: PayPalClient, id: string) {

@@ -63,6 +63,11 @@ describe("verifyWebhook", () => {
     expect(apiCalls(m)).toHaveLength(0);
   });
 
+  it("rejects headers PayPal says are malformed", async () => {
+    stub(() => json(400, { name: "INVALID_REQUEST", details: [{ field: "/transmission_id", issue: "must match" }] }));
+    expect(await verifyWebhook(new PayPalClient(sandbox), headers, "{}", "WEBHOOK-1")).toBe(false);
+  });
+
   it("throws when PayPal's verification call fails, so the caller can ask for a retry", async () => {
     stub(() => json(500, { name: "INTERNAL_SERVICE_ERROR" }));
     await expect(verifyWebhook(new PayPalClient(sandbox), headers, "{}", "WEBHOOK-1")).rejects.toBeInstanceOf(PayPalError);
