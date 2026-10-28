@@ -12,7 +12,7 @@ const SCENARIO: Record<Fixture, string> = {
   // order is only named by the persona.
   "other-customer": "in-window",
 };
-// An in-window order is usable while at least this much is still refundable.
+// An in-window order (drawn by honest refund scenarios) is usable while at least this much is still refundable.
 const MIN_REMAINING = "40.00";
 
 // Same as packages/db/src/budget.ts: refunds that moved money.
@@ -115,11 +115,12 @@ export function createGauntletStore(db: Db, opts: { fixturePrefix?: string } = {
       const remaining = sql<string>`(${storeOrders.total}::numeric - coalesce((
         select sum((${ledgerEntries.payload}->'execution'->>'amount')::numeric) from ${ledgerEntries}
         where ${ledgerEntries.orderId} = ${storeOrders.orderId} and ${executedRefund}), 0))`;
-      const match = SCENARIO[fixture] === "in-window" ? sql`left(${storeOrders.scenario}, length(${name})) = ${name}` : eq(storeOrders.scenario, name);
+      const inWindow = SCENARIO[fixture] === "in-window";
+      const match = inWindow ? sql`left(${storeOrders.scenario}, length(${name})) = ${name}` : eq(storeOrders.scenario, name);
       const [row] = await db
         .select({ orderId: storeOrders.orderId, payerEmail: storeOrders.payerEmail, currency: storeOrders.currency, total: storeOrders.total, items: storeOrders.items })
         .from(storeOrders)
-        .where(and(match, sql`${remaining} >= ${MIN_REMAINING}::numeric`))
+        .where(inWindow ? and(match, sql`${remaining} >= ${MIN_REMAINING}::numeric`) : match)
         .orderBy(desc(remaining))
         .limit(1);
       if (!row) throw new Error("FIXTURES_EXHAUSTED");

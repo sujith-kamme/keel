@@ -114,7 +114,7 @@ describe.skipIf(!process.env.DATABASE_URL)("gauntlet store (Postgres)", () => {
 
   it("picks named fixtures exactly", async () => {
     await expect(store.runner.pickFixture("out-of-window")).rejects.toThrow("FIXTURES_EXHAUSTED");
-    const id = await order("out-of-window", "45.00");
+    const id = await order("out-of-window", "35.00"); // below the in-window floor, still picked
     expect((await store.runner.pickFixture("out-of-window")).order_id).toBe(id);
     await db.delete(storeOrders).where(eq(storeOrders.orderId, id));
   });
