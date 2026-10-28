@@ -72,6 +72,10 @@ services:
         value: claude-haiku-5-5
       - key: DEMO_AGENT_PROMPT
         value: lenient
+      - key: GAUNTLET_CONCURRENCY
+        value: "6"
+      - key: GAUNTLET_CUSTOMER_MODEL
+        value: claude-haiku-5-5
 
   - type: keyvalue
     name: keel-kv
