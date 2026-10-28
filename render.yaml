@@ -85,6 +85,9 @@ services:
         value: claude-haiku-5-5
       - key: DEMO_AGENT_PROMPT
         value: lenient
+      # Inlined into the browser bundle at build time: set it before the build. Optional (trial watermark without it).
+      - key: NEXT_PUBLIC_AG_GRID_LICENSE_KEY
+        sync: false
 
   - type: keyvalue
     name: keel-kv
