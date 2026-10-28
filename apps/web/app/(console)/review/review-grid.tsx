@@ -1,6 +1,6 @@
 "use client";
 
-import { AllCommunityModule, ModuleRegistry, colorSchemeVariable, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
+import { colorSchemeVariable, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,7 +11,7 @@ import { relativeTime } from "@/lib/sessions-view";
 import type { ReviewRow } from "@/lib/review-view";
 import { approve, deny } from "./actions";
 
-ModuleRegistry.registerModules([AllCommunityModule]);
+import "@/lib/ag-grid";
 
 const theme = themeQuartz
   .withPart(colorSchemeVariable)

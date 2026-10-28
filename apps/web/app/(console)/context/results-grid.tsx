@@ -1,12 +1,12 @@
 "use client";
 
-import { AllCommunityModule, ModuleRegistry, colorSchemeVariable, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
+import { colorSchemeVariable, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { outcomeStyle, type RunResult } from "@/lib/context-view";
 
-ModuleRegistry.registerModules([AllCommunityModule]);
+import "@/lib/ag-grid";
 
 const theme = themeQuartz
   .withPart(colorSchemeVariable)
