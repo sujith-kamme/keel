@@ -63,6 +63,7 @@ export interface SessionDetail {
   session: SessionSummary;
   turns: Turn[];
   decisions: DecisionSummary[];
+  risk: { score: number; threshold: number; signals: { kind: string; weight: number; at: string }[] } | null;
 }
 
 async function keel<T>(path: string, init?: RequestInit): Promise<T> {
@@ -100,7 +101,7 @@ export const appendTurn = (id: string, turn: { role: "customer" | "agent"; text:
   keel<unknown>(`/v1/sessions/${encodeURIComponent(id)}/turns`, post(turn));
 
 export interface GuardResult {
-  verdict: "ALLOW" | "REWRITE" | "BLOCK";
+  verdict: "ALLOW" | "REWRITE" | "BLOCK" | "HOLD";
   reason_codes: string[];
   final_reply: string;
   decision_id: string;

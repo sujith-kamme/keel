@@ -28,11 +28,24 @@ describe.skipIf(!process.env.DATABASE_URL)("refundTotals (Postgres)", () => {
     await appendLedger(db, refund(sessionId, "99.00", "FAILED"));
     await appendLedger(db, { ...refund(sessionId, "7.00", "COMPLETED"), payload: { tool: "get_order" } });
     await appendLedger(db, refund(`ses_${randomUUID()}`, "1.00", "COMPLETED"));
+    // A reviewer-approved refund counts; a denial or an issued discount code doesn't.
+    await appendLedger(db, { ...refund(sessionId, "3.00", "COMPLETED"), payload: { tool: "review", action: "approve", execution: { status: "COMPLETED", amount: "3.00" } } });
+    await appendLedger(db, { ...refund(sessionId, "8.00", "COMPLETED"), payload: { tool: "review", action: "deny", execution: { status: "COMPLETED", amount: "8.00" } } });
+    await appendLedger(db, { ...refund(sessionId, "9.00", "COMPLETED"), payload: { tool: "review", action: "approve", execution: { status: "ISSUED", code: "KEEL-X" } } });
 
     const after = await refundTotals(db, sessionId, new Date());
     expect(before.session_refunded).toBe("0.00");
-    expect(after.session_refunded).toBe("14.75");
-    expect(toCents(after.daily_refunded) - toCents(before.daily_refunded)).toBe(1575);
+    expect(after.session_refunded).toBe("17.75");
+    // CONTEXT runs never count toward the live daily budget.
+    expect(after.daily_refunded).toBe(before.daily_refunded);
+  });
+
+  it("counts live refunds toward the daily total", async () => {
+    const sessionId = `ses_${randomUUID()}`;
+    const before = await refundTotals(db, sessionId, new Date());
+    await appendLedger(db, { ...refund(sessionId, "0.01", "COMPLETED"), mode: "LIVE" as const });
+    const after = await refundTotals(db, sessionId, new Date());
+    expect(toCents(after.daily_refunded) - toCents(before.daily_refunded)).toBe(1);
   });
 
   it("excludes refunds older than 24 hours from the daily total", async () => {

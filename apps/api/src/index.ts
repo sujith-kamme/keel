@@ -4,20 +4,31 @@ import { serve } from "@hono/node-server";
 import { activePolicy, appendLedger, createDb, sql } from "@keel/db";
 import { PROMPT_VERSION, extract, extractorModel } from "@keel/extractor";
 import { PayPalClient, configFromEnv } from "@keel/paypal";
+import { riskConfig } from "@keel/risk";
+import { enqueueNotify } from "@keel/worker/queue";
 import { Redis } from "ioredis";
 import { createApp } from "./app";
+import { createRisk } from "./risk";
 import { createGatewayDeps } from "./gateway/deps";
 import { handleTool } from "./gateway/handle";
+import { createAgentStore } from "./routes/agent-store";
+import { createReviewStore } from "./routes/review-store";
 import { createOrdersFor, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
 
-const { KEEL_SIGNING_KEY, KEEL_MERCHANT_KEY } = process.env;
-if (!KEEL_SIGNING_KEY || !KEEL_MERCHANT_KEY) throw new Error("KEEL_SIGNING_KEY and KEEL_MERCHANT_KEY must be set");
+const { KEEL_SIGNING_KEY, KEEL_MERCHANT_KEY, KEEL_OPERATOR_KEY } = process.env;
+if (!KEEL_SIGNING_KEY || !KEEL_MERCHANT_KEY || !KEEL_OPERATOR_KEY) {
+  throw new Error("KEEL_SIGNING_KEY, KEEL_MERCHANT_KEY and KEEL_OPERATOR_KEY must be set");
+}
 
 const db = createDb();
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true, maxRetriesPerRequest: 1 });
-const gateway = createGatewayDeps(db, new PayPalClient(configFromEnv()));
 const now = () => new Date();
 const newId = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "")}`;
+const consoleUrl = process.env.CONSOLE_URL ?? "http://localhost:3000";
+const risk = createRisk(db, { cfg: riskConfig(process.env), enqueue: enqueueNotify, consoleUrl, now, newId });
+const notifyHeld = (e: { session_id: string; decision_id: string; reason_codes: string[] }) =>
+  enqueueNotify({ event: "action.held", ...e, console_url: `${consoleUrl}/review`, at: now().toISOString() });
+const gateway = createGatewayDeps(db, new PayPalClient(configFromEnv()), risk, notifyHeld);
 const anthropic = new Anthropic();
 const model = extractorModel(process.env.EXTRACTOR_MODEL);
 const timeoutMs = Number(process.env.EXTRACTOR_TIMEOUT_MS ?? 4000);
@@ -41,12 +52,14 @@ const app = createApp({
     newId,
   },
   store: { merchantKey: KEEL_MERCHANT_KEY, ordersFor: createOrdersFor(db) },
-  turns: { merchantKey: KEEL_MERCHANT_KEY, store: turnStore, now },
+  turns: { merchantKey: KEEL_MERCHANT_KEY, store: turnStore, now, riskDetail: risk.detail },
   guard: {
     merchantKey: KEEL_MERCHANT_KEY,
     session: turnStore.session,
     turnDecisions: createTurnDecisions(db),
     policy: (id) => activePolicy(db, id),
+    control: risk.control,
+    assess: risk.assess,
     extract: (input) => extract({ parse: (p, o) => anthropic.messages.parse(p, o), model, timeoutMs }, input),
     appendLedger: (c) => appendLedger(db, c),
     extractor: { model, prompt_version: PROMPT_VERSION },
@@ -54,6 +67,8 @@ const app = createApp({
     newId,
   },
   mcp: { signingKey: KEEL_SIGNING_KEY, now, handle: (cap, call) => handleTool(gateway, cap, call) },
+  review: { operatorKey: KEEL_OPERATOR_KEY, merchantKey: KEEL_MERCHANT_KEY, store: createReviewStore(db), gateway, detail: risk.detail },
+  agents: { operatorKey: KEEL_OPERATOR_KEY, merchantKey: KEEL_MERCHANT_KEY, store: createAgentStore(db), newId },
 });
 
 // On Render's free tier there is no background-worker service, so the API

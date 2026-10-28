@@ -8,7 +8,10 @@ import { ledgerEntries } from "./schema";
 // lock, so two writers can never chain onto the same previous hash.
 const LEDGER_LOCK_KEY = 4_242_001;
 
-export async function appendLedger(db: Db, content: LedgerContent): Promise<LedgerRecord> {
+// Accepts a transaction too: a nested drizzle transaction becomes a savepoint.
+export type DbOrTx = Db | Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+export async function appendLedger(db: DbOrTx, content: LedgerContent): Promise<LedgerRecord> {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(${LEDGER_LOCK_KEY})`);
     const [last] = await tx

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attachDecisions } from "./sessions-view";
+import { attachDecisions, relativeTime, riskLevel, riskWidth, signalLabel } from "./sessions-view";
 import type { DecisionSummary, Turn } from "./keel";
 
 const turn = (role: Turn["role"], text: string, decision_ids: string[] = []): Turn => ({
@@ -41,5 +41,27 @@ describe("attachDecisions", () => {
   it("gives customer turns without ids an empty list", () => {
     const { turns } = attachDecisions([turn("customer", "a")], [dec("d1")]);
     expect(turns[0].decisions).toEqual([]);
+  });
+});
+
+describe("risk helpers", () => {
+  it("picks level by score and threshold", () => {
+    expect(riskLevel(29, 50)).toBe("low");
+    expect(riskLevel(30, 50)).toBe("medium");
+    expect(riskLevel(49, 50)).toBe("medium");
+    expect(riskLevel(50, 50)).toBe("high");
+  });
+
+  it("caps bar width", () => {
+    expect(riskWidth(25, 50)).toBe(50);
+    expect(riskWidth(80, 50)).toBe(100);
+    expect(riskWidth(-5, 50)).toBe(0);
+  });
+
+  it("formats relative time and signals", () => {
+    const now = new Date("2026-01-01T00:10:00Z");
+    expect(relativeTime("2026-01-01T00:09:30Z", now)).toBe("just now");
+    expect(relativeTime("2026-01-01T00:08:00Z", now)).toBe("2 min ago");
+    expect(signalLabel({ kind: "INJECTION", weight: 40, at: "2026-01-01T00:08:00Z" }, now)).toBe("INJECTION +40 · 2 min ago");
   });
 });

@@ -1,6 +1,6 @@
 import type { Extraction } from "@keel/core";
 import { describe, expect, it } from "vitest";
-import { FREE_TEXT_FALLBACK, SAFE_FALLBACK, type ReplyInput, decideReply, policyRewrite, replayReply } from "./reply";
+import { FREE_TEXT_FALLBACK, QUARANTINE_TEMPLATE, SAFE_FALLBACK, type ReplyInput, decideReply, policyRewrite, replayReply } from "./reply";
 
 const BEREAVEMENT = "We don't offer special bereavement refunds; our standard refund policy applies to every order.";
 const policies = { "policy-bereavement": { approved_text: BEREAVEMENT } };
@@ -169,4 +169,13 @@ describe("replayReply", () => {
     expect(replayReply({ input: i, result }).same).toBe(true);
     expect(replayReply({ input: i, result: { ...result, verdict: "ALLOW" } }).same).toBe(false);
   });
+});
+
+describe("honest templates (DP-7)", () => {
+  it.each([["QUARANTINE_TEMPLATE", QUARANTINE_TEMPLATE], ["SAFE_FALLBACK", SAFE_FALLBACK], ["FREE_TEXT_FALLBACK", FREE_TEXT_FALLBACK]])(
+    "%s never claims an action succeeded",
+    (_name, text) => {
+      expect(text).not.toMatch(/\b(refunded|issued|approved|processed|completed|done)\b/i);
+    },
+  );
 });

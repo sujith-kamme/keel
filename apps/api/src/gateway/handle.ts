@@ -33,7 +33,11 @@ export interface GatewayDeps {
   policy: (policyId: string) => Promise<unknown>;
   appendLedger: (content: LedgerContent) => Promise<unknown>;
   escalate: (sessionId: string) => Promise<void>;
-  withOrderLock: <T>(orderId: string, fn: () => Promise<T>) => Promise<T>;
+  /** Serializes money decisions: session lock, then order lock (fixed order), held until `fn` resolves. */
+  withOrderLock: <T>(sessionId: string, orderId: string, fn: () => Promise<T>) => Promise<T>;
+  control: (sessionId: string) => Promise<{ state: string; agent_frozen: boolean; score: number }>;
+  assess: (sessionId: string) => Promise<unknown>;
+  notifyHeld: (e: { session_id: string; decision_id: string; reason_codes: string[] }) => Promise<void>;
   now: () => Date;
   newId: (prefix: string) => string;
 }
@@ -46,7 +50,7 @@ export interface ToolResult {
   data?: Record<string, unknown>;
 }
 
-interface Outcome {
+export interface Outcome {
   verdict: Verdict;
   reason: ReasonCode;
   message?: string;
@@ -69,29 +73,74 @@ export async function handleTool(deps: GatewayDeps, cap: Capability, call: ToolC
   const orderId = "order_id" in call.args ? call.args.order_id : undefined;
   const amount = call.tool === "offer_refund" ? call.args.amount : undefined;
 
+  const isMoney = call.tool === "offer_refund" || call.tool === "offer_discount";
+  let ctl = await deps.control(cap.session_id).catch(() => null);
+
+  // Exactly one ledger row per call.
+  const record = async (outcome: Outcome): Promise<string> => {
+    if (orderId !== undefined) outcome.order_id ??= orderId;
+    const message = outcome.message ?? refusalMessage(outcome.verdict as "BLOCK" | "HOLD", outcome.reason);
+    await deps.appendLedger({
+      decision_id: decisionId,
+      session_id: cap.session_id,
+      order_id: outcome.order_id ?? null,
+      capture_id: outcome.capture_id ?? null,
+      dispute_id: null,
+      mode: ctl?.state === "QUARANTINED" ? "QUARANTINE" : "LIVE",
+      verdict: outcome.verdict,
+      reason_codes: [outcome.reason],
+      payload: { tool: call.tool, args: call.args, message, risk_score: ctl?.score ?? null, ...outcome.record },
+    });
+    return message;
+  };
+
+  // Money tools fail closed: an unreadable, frozen or quarantined session holds
+  // before scope, facts or PayPal are touched.
   let outcome: Outcome;
-  if (!checkScope(cap, { tool: call.tool, order_id: orderId, amount }, "0.00")) {
+  let message: string | undefined;
+  if (isMoney && !ctl) {
+    outcome = refuse("HOLD", "VERIFIER_UNAVAILABLE");
+  } else if (isMoney && ctl?.agent_frozen) {
+    outcome = refuse("HOLD", "AGENT_FROZEN");
+  } else if (isMoney && ctl?.state === "QUARANTINED") {
+    outcome = refuse("HOLD", "RISK_THRESHOLD");
+  } else if (!checkScope(cap, { tool: call.tool, order_id: orderId, amount }, "0.00")) {
     outcome = refuse("BLOCK", "CAPABILITY_OUT_OF_SCOPE");
   } else if (call.tool === "offer_refund") {
-    outcome = await deps.withOrderLock(call.args.order_id, () => offerRefund(deps, cap, call.args, decisionId, now));
+    // Record before the lock is released, so the next refund's budget facts include this one.
+    const locked = await deps.withOrderLock(cap.session_id, call.args.order_id, async () => {
+      // A concurrent assess may have quarantined or frozen the session since the gate above.
+      ctl = await deps.control(cap.session_id).catch(() => null);
+      const o = !ctl
+        ? refuse("HOLD", "VERIFIER_UNAVAILABLE")
+        : ctl.agent_frozen
+          ? refuse("HOLD", "AGENT_FROZEN")
+          : ctl.state === "QUARANTINED"
+            ? refuse("HOLD", "RISK_THRESHOLD")
+            : await offerRefund(deps, cap, call.args, decisionId, now);
+      return { outcome: o, message: await record(o) };
+    });
+    outcome = locked.outcome;
+    message = locked.message;
   } else {
     outcome = await run(deps, cap, call, now);
   }
-  if (orderId !== undefined) outcome.order_id ??= orderId;
+  message ??= await record(outcome);
+  const reply = message;
 
-  const message = outcome.message ?? refusalMessage(outcome.verdict as "BLOCK" | "HOLD", outcome.reason);
-  await deps.appendLedger({
-    decision_id: decisionId,
-    session_id: cap.session_id,
-    order_id: outcome.order_id ?? null,
-    capture_id: outcome.capture_id ?? null,
-    dispute_id: null,
-    mode: "LIVE",
-    verdict: outcome.verdict,
-    reason_codes: [outcome.reason],
-    payload: { tool: call.tool, args: call.args, message, ...outcome.record },
-  });
-  return { decision: outcome.verdict, reason_code: outcome.reason, decision_id: decisionId, message, data: outcome.data };
+  try {
+    await deps.assess(cap.session_id);
+  } catch {
+    console.error(`risk assess failed for session ${cap.session_id}`);
+  }
+  if (isMoney && outcome.verdict === "HOLD") {
+    try {
+      await deps.notifyHeld({ session_id: cap.session_id, decision_id: decisionId, reason_codes: [outcome.reason] });
+    } catch {
+      console.error(`held-action notify failed for session ${cap.session_id}`);
+    }
+  }
+  return { decision: outcome.verdict, reason_code: outcome.reason, decision_id: decisionId, message: reply, data: outcome.data };
 }
 
 async function run(deps: GatewayDeps, cap: Capability, call: Exclude<ToolCall, { tool: "offer_refund" }>, now: Date) {
@@ -151,12 +200,18 @@ async function getOrder(deps: GatewayDeps, cap: Capability, orderId: string, now
   };
 }
 
-async function offerRefund(
+/**
+ * Facts → decide → refund. `decisionId` is also the PayPal request id, so a retry
+ * with the same id can't refund twice. `approved` (a human reviewer) also executes
+ * an ABOVE_AUTO_APPROVE hold; that rule is the last stage, so every hard rule passed.
+ */
+export async function offerRefund(
   deps: GatewayDeps,
   cap: Capability,
   args: Extract<ToolCall, { tool: "offer_refund" }>["args"],
   decisionId: string,
   now: Date,
+  approved = false,
 ): Promise<Outcome> {
   const [{ facts, verifier_errors }, store, policy] = await Promise.all([
     gatherFacts(verifierDeps(deps), {
@@ -191,7 +246,8 @@ async function offerRefund(
   const verdict = result.verdict;
   const reason = result.reason_codes[0] ?? "POLICY_INVALID";
   const record = { decision: { input, result }, verifier_errors };
-  if (verdict !== "ALLOW") return { verdict, reason, capture_id: store.captureId, record };
+  const execute = verdict === "ALLOW" || (approved && verdict === "HOLD" && reason === "ABOVE_AUTO_APPROVE");
+  if (!execute) return { verdict, reason, capture_id: store.captureId, record };
 
   try {
     const refund = await deps.refundCapture(store.captureId, money, decisionId);
@@ -215,7 +271,7 @@ async function offerRefund(
   }
 }
 
-async function offerDiscount(
+export async function offerDiscount(
   deps: GatewayDeps,
   cap: Capability,
   args: Extract<ToolCall, { tool: "offer_discount" }>["args"],

@@ -4,6 +4,7 @@ import { agentModel, promptMode, type AgentModel, type PromptMode } from "./agen
 export interface Env {
   keelApiUrl: string;
   merchantKey: string;
+  operatorKey: string;
   anthropicKey: string;
   webSecret: string;
   consoleUser: string;
@@ -28,6 +29,7 @@ export function env(): Env {
   cached = {
     keelApiUrl: required("KEEL_API_URL"),
     merchantKey: required("KEEL_MERCHANT_KEY"),
+    operatorKey: required("KEEL_OPERATOR_KEY"),
     anthropicKey: required("ANTHROPIC_API_KEY"),
     webSecret,
     consoleUser: required("CONSOLE_USER"),

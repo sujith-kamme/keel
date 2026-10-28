@@ -1,6 +1,7 @@
 import { type Capability, type DecisionPayload, type LedgerContent, replay } from "@keel/engine";
 import type { OrderDetails } from "@keel/paypal";
 import { describe, expect, it, vi } from "vitest";
+import { HOLD_MESSAGE } from "./messages";
 import { type GatewayDeps, type StoreOrder, handleTool } from "./handle";
 
 const NOW = new Date("2026-10-27T12:00:00Z");
@@ -79,7 +80,10 @@ function fakes(overrides: Partial<GatewayDeps> = {}) {
       ledger.push(entry);
     },
     escalate: vi.fn(async () => {}),
-    withOrderLock: (_id, fn) => fn(),
+    withOrderLock: (_session, _order, fn) => fn(),
+    control: vi.fn(async () => ({ state: "ACTIVE", agent_frozen: false, score: 0 })),
+    assess: vi.fn(async () => ({ score: 0, quarantined: false })),
+    notifyHeld: vi.fn(async () => {}),
     now: () => NOW,
     newId: (prefix) => `${prefix}_${++n}abcdefgh`,
     ...overrides,
@@ -179,11 +183,20 @@ describe("handleTool: offer_refund", () => {
     expect(payload.decision.result.verdict).toBe("ALLOW");
   });
 
-  it("runs inside the per-order lock", async () => {
-    const withOrderLock = vi.fn((_id: string, fn: () => Promise<unknown>) => fn()) as GatewayDeps["withOrderLock"];
-    const { deps } = fakes({ withOrderLock });
+  it("runs inside the session and order locks and records the refund before releasing them", async () => {
+    let rowsWhenUnlocked = -1;
+    const holder: { ledger?: LedgerContent[] } = {};
+    const withOrderLock = vi.fn(async (_session: string, _order: string, fn: () => Promise<unknown>) => {
+      const result = await fn();
+      rowsWhenUnlocked = holder.ledger!.length;
+      return result;
+    }) as GatewayDeps["withOrderLock"];
+    const { deps, ledger } = fakes({ withOrderLock });
+    holder.ledger = ledger;
     await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"));
-    expect(withOrderLock).toHaveBeenCalledWith("IN-POLICY", expect.any(Function));
+    expect(withOrderLock).toHaveBeenCalledWith("ses_1", "IN-POLICY", expect.any(Function));
+    expect(rowsWhenUnlocked).toBe(1);
+    expect(ledger).toHaveLength(1);
   });
 });
 
@@ -230,5 +243,87 @@ describe("handleTool: other tools", () => {
     expect(result.decision).toBe("ALLOW");
     expect(deps.escalate).toHaveBeenCalledWith("ses_1");
     expect(ledger).toHaveLength(1);
+  });
+});
+
+describe("handleTool: risk gate", () => {
+  const quarantined = { state: "QUARANTINED", agent_frozen: false, score: 90 };
+  const discountCall = { tool: "offer_discount", args: { percent: 5, policy_id: "discount-goodwill" } } as const;
+  const orderCall = { tool: "get_order", args: { order_id: "IN-POLICY" } } as const;
+
+  it("holds a quarantined session's refund without touching PayPal, and records it", async () => {
+    const { deps, ledger } = fakes({ control: async () => quarantined });
+    const r = await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"));
+    expect(r).toMatchObject({ decision: "HOLD", reason_code: "RISK_THRESHOLD", message: HOLD_MESSAGE });
+    expect(deps.getOrderDetails).not.toHaveBeenCalled();
+    expect(deps.refundCapture).not.toHaveBeenCalled();
+    expect(ledger[0]).toMatchObject({ mode: "QUARANTINE", verdict: "HOLD" });
+    expect(ledger[0]!.payload).toMatchObject({ args: refundCall("IN-POLICY", "10.00").args, message: HOLD_MESSAGE });
+  });
+
+  it("holds a quarantined session's discount", async () => {
+    const { deps } = fakes({ control: async () => quarantined });
+    expect(await handleTool(deps, cap(), discountCall)).toMatchObject({ decision: "HOLD", reason_code: "RISK_THRESHOLD" });
+  });
+
+  it("holds for a frozen agent, ahead of quarantine", async () => {
+    const { deps } = fakes({ control: async () => ({ ...quarantined, agent_frozen: true }) });
+    expect(await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"))).toMatchObject({ decision: "HOLD", reason_code: "AGENT_FROZEN" });
+  });
+
+  it("re-checks quarantine inside the refund lock, without PayPal, with one ledger row", async () => {
+    const control = vi
+      .fn()
+      .mockResolvedValueOnce({ state: "ACTIVE", agent_frozen: false, score: 0 })
+      .mockResolvedValue(quarantined);
+    const { deps, ledger } = fakes({ control });
+    const r = await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"));
+    expect(r).toMatchObject({ decision: "HOLD", reason_code: "RISK_THRESHOLD" });
+    expect(deps.refundCapture).not.toHaveBeenCalled();
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0]).toMatchObject({ mode: "QUARANTINE", verdict: "HOLD", reason_codes: ["RISK_THRESHOLD"] });
+  });
+
+  it("fails closed for money when control throws, but reads still work", async () => {
+    const { deps, ledger } = fakes({ control: async () => { throw new Error("db"); } });
+    expect(await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"))).toMatchObject({ decision: "HOLD", reason_code: "VERIFIER_UNAVAILABLE" });
+    expect(await handleTool(deps, cap(), orderCall)).toMatchObject({ decision: "ALLOW" });
+    expect(ledger[0]!.payload).toMatchObject({ risk_score: null });
+  });
+
+  it("lets get_order through while quarantined", async () => {
+    const { deps } = fakes({ control: async () => quarantined });
+    expect(await handleTool(deps, cap(), orderCall)).toMatchObject({ decision: "ALLOW" });
+  });
+
+  it("records the pre-decision risk score", async () => {
+    const { deps, ledger } = fakes({ control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 42 }) });
+    await handleTool(deps, cap(), orderCall);
+    expect(ledger[0]).toMatchObject({ mode: "LIVE", payload: { risk_score: 42 } });
+  });
+
+  it("assesses after every call, and an assess failure changes nothing", async () => {
+    const { deps } = fakes();
+    await handleTool(deps, cap(), orderCall);
+    expect(deps.assess).toHaveBeenCalledTimes(1);
+    expect(deps.assess).toHaveBeenCalledWith("ses_1");
+    const failing = fakes({ assess: async () => { throw new Error("boom"); } });
+    expect(await handleTool(failing.deps, cap(), orderCall)).toMatchObject({ decision: "ALLOW" });
+  });
+
+  it("notifies once on a money HOLD only; notify failure changes nothing", async () => {
+    const held = fakes({ control: async () => quarantined });
+    const r = await handleTool(held.deps, cap(), refundCall("IN-POLICY", "10.00"));
+    expect(held.deps.notifyHeld).toHaveBeenCalledTimes(1);
+    expect(held.deps.notifyHeld).toHaveBeenCalledWith({ session_id: "ses_1", decision_id: r.decision_id, reason_codes: ["RISK_THRESHOLD"] });
+
+    const { deps } = fakes();
+    await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"));
+    await handleTool(deps, cap(), refundCall("OLD", "10.00"));
+    await handleTool(deps, cap({ orders: [] }), refundCall("IN-POLICY", "10.00"));
+    expect(deps.notifyHeld).not.toHaveBeenCalled();
+
+    const failing = fakes({ control: async () => quarantined, notifyHeld: async () => { throw new Error("q"); } });
+    expect(await handleTool(failing.deps, cap(), refundCall("IN-POLICY", "10.00"))).toMatchObject({ decision: "HOLD" });
   });
 });

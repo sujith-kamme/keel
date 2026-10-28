@@ -15,6 +15,7 @@
     "@keel/engine": "*",
     "@keel/extractor": "*",
     "@keel/paypal": "*",
+    "@keel/risk": "*",
     "@keel/verifiers": "*",
     "@keel/worker": "*",
     "@modelcontextprotocol/sdk": "1.32.1",

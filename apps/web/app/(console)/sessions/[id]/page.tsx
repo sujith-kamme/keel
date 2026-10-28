@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { KeelError, sessionDetail, type DecisionSummary } from "@/lib/keel";
-import { attachDecisions } from "@/lib/sessions-view";
+import { ReleaseButton } from "@/components/release-button";
+import { KeelError, sessionDetail, type DecisionSummary, type SessionDetail } from "@/lib/keel";
+import { canRelease } from "@/lib/review-view";
+import { attachDecisions, riskLevel, riskWidth, signalLabel } from "@/lib/sessions-view";
 
 const VERDICT_STYLE: Record<string, string> = {
   ALLOW: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
@@ -51,6 +53,33 @@ function GuardChip({ d }: { d: DecisionSummary & { guard: NonNullable<DecisionSu
 
 const DecisionChip = ({ d }: { d: DecisionSummary }) => (d.guard ? <GuardChip d={{ ...d, guard: d.guard }} /> : <Chip d={d} />);
 
+const RISK_BAR = { low: "bg-green-500", medium: "bg-amber-500", high: "bg-red-500" };
+
+function RiskMeter({ risk }: { risk: SessionDetail["risk"] }) {
+  if (!risk) return <p className="mt-4 text-sm opacity-70">Risk unavailable</p>;
+  const now = new Date();
+  return (
+    <div className="mt-4 max-w-md">
+      <div className="flex justify-between text-xs">
+        <span>Risk</span>
+        <span>
+          {risk.score} / {risk.threshold}
+        </span>
+      </div>
+      <div className="mt-1 h-2 rounded bg-black/10 dark:bg-white/10">
+        <div className={`h-2 rounded ${RISK_BAR[riskLevel(risk.score, risk.threshold)]}`} style={{ width: `${riskWidth(risk.score, risk.threshold)}%` }} />
+      </div>
+      {risk.signals.length > 0 && (
+        <ul className="mt-2 text-xs opacity-80">
+          {risk.signals.map((s, i) => (
+            <li key={i}>{signalLabel(s, now)}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 async function Detail({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
@@ -65,7 +94,16 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
       <h1 className="text-2xl font-semibold">{session.claimed_email}</h1>
       <p className="mt-1 text-sm opacity-70">
         {session.verified ? "Verified" : "Not verified"} · {session.state} · agent {session.agent_id}
+        {session.state === "QUARANTINED" && (
+          <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs text-red-800 dark:bg-red-900/40 dark:text-red-200">QUARANTINED</span>
+        )}
+        {canRelease(session.state) && (
+          <span className="ml-2">
+            <ReleaseButton sessionId={session.id} />
+          </span>
+        )}
       </p>
+      <RiskMeter risk={detail.risk} />
       <ol className="mt-6 flex max-w-2xl flex-col gap-3">
         {turns.map((t, i) => (
           <li key={i} className={`flex flex-col gap-1 ${t.role === "customer" ? "items-end" : "items-start"}`}>
