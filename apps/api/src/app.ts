@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
@@ -9,12 +10,16 @@ import { type GridQueryOptions, mountGridQuery } from "./routes/grid-query";
 import { type GuardOptions, mountGuard } from "./routes/guard";
 import { type LedgerOptions, mountLedger } from "./routes/ledger";
 import { type OverviewOptions, mountOverview } from "./routes/overview";
+import { type PoliciesOptions, mountPolicies } from "./routes/policies";
 import { type ReviewOptions, mountReview } from "./routes/review";
 import { type SessionOptions, mountSessions } from "./routes/sessions";
 import { type StoreOptions, mountStore } from "./routes/store";
 import { type TurnOptions, mountTurns } from "./routes/turns";
 
 export type HealthCheck = () => Promise<void>;
+
+// Hand-written spec (apps/api/openapi.yaml); src/openapi.test.ts keeps it in step with the routes.
+const OPENAPI = readFileSync(new URL("../openapi.yaml", import.meta.url), "utf8");
 
 export function createApp(deps: {
   agents?: AgentOptions;
@@ -26,6 +31,7 @@ export function createApp(deps: {
   ledger?: LedgerOptions;
   mcp?: McpOptions;
   overview?: OverviewOptions;
+  policies?: PoliciesOptions;
   review?: ReviewOptions;
   sessions?: SessionOptions;
   store?: StoreOptions;
@@ -54,6 +60,8 @@ export function createApp(deps: {
     return c.json({ status: healthy ? "ok" : "degraded", checks: Object.fromEntries(results) }, healthy ? 200 : 503);
   });
 
+  app.get("/openapi.yaml", (c) => c.body(OPENAPI, 200, { "content-type": "application/yaml" }));
+
   if (deps.sessions) mountSessions(app, deps.sessions);
   if (deps.store) mountStore(app, deps.store);
   if (deps.turns) mountTurns(app, deps.turns);
@@ -66,6 +74,7 @@ export function createApp(deps: {
   if (deps.ledger) mountLedger(app, deps.ledger);
   if (deps.overview) mountOverview(app, deps.overview);
   if (deps.gridQuery) mountGridQuery(app, deps.gridQuery);
+  if (deps.policies) mountPolicies(app, deps.policies);
 
   return app;
 }

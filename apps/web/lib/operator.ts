@@ -7,6 +7,7 @@ import type { Certification, Run, RunResult, ScenarioEntry, StartInput } from ".
 import type { DisputeDetail, DisputeItem } from "./disputes-view";
 import type { ChainResult, LedgerPage } from "./ledger-view";
 import type { Overview } from "./overview-view";
+import type { PolicyRow, PolicySummary, PolicyVersion, Rule } from "./policies-view";
 import { errorMessage, type ReviewItem } from "./review-view";
 
 export class OperatorError extends Error {
@@ -120,6 +121,17 @@ export const overview = () => operator<Overview>("/v1/overview");
 /** Natural language → AG Grid state ("Ask the ledger"). Only the query and the grid's schema are sent, never rows. */
 export const gridQuery = async (query: string, schema: Record<string, unknown>) =>
   (await operator<{ state: Record<string, unknown> }>("/v1/grid-query", post({ query, schema }))).state;
+
+export const policies = async () => (await operator<{ policies: PolicySummary[] }>("/v1/policies")).policies;
+
+export const policyVersions = async (id: string) => (await operator<{ versions: PolicyVersion[] }>(`/v1/policies/${encodeURIComponent(id)}`)).versions;
+
+/** Claude drafts a new version from the document; it is saved as a DRAFT. */
+export const draftPolicy = (id: string, document: string) =>
+  operator<{ version: number; policy: PolicyRow }>("/v1/policies/draft", post({ policy_id: id, document }));
+
+export const approvePolicy = (id: string, version: number, edits: { reviewer: string; approved_text: string; rules: Rule[] }) =>
+  operator<unknown>(`/v1/policies/${encodeURIComponent(id)}/versions/${version}/approve`, post(edits));
 
 /** The ledger JSON export as a stream. */
 export async function ledgerExport(): Promise<ReadableStream<Uint8Array>> {

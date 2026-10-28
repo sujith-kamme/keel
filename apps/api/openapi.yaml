@@ -1,0 +1,1281 @@
+openapi: 3.1.0
+info:
+  title: Keel API
+  version: 0.1.0
+  description: |
+    Keel sits between a merchant's AI support agent and PayPal. The agent's money
+    actions go through MCP tools, its free-text replies through `/v1/guard`, and every
+    decision lands in a hash-chained ledger.
+
+    Three bearer credentials:
+    - `merchantKey`: the merchant backend that runs the agent (sessions, guard, store).
+    - `capabilityToken`: the session-scoped token returned by `POST /v1/sessions`; the only credential MCP accepts.
+    - `operatorKey`: the operator console (review queue, Gauntlet, disputes, ledger, policies). The merchant key gets 403 here.
+
+    Errors are JSON `{ "error": "<code>" }`. Request bodies over 64 KB get 413.
+    `POST /webhooks/paypal` is not listed: PayPal calls it, signed with PayPal's
+    webhook signature headers (no bearer token).
+servers:
+  - url: https://keel-api-y0wq.onrender.com
+    description: Hosted demo (PayPal Sandbox)
+tags:
+  - name: Health
+  - name: Sessions
+    description: Merchant backend. Open a session, verify the customer, record turns.
+  - name: Guard
+    description: Check an agent's draft reply before the customer sees it.
+  - name: MCP
+    description: The agent's money tools over MCP (streamable HTTP).
+  - name: Store
+    description: The demo merchant's order list.
+  - name: Review
+    description: Held actions and quarantined sessions (operator).
+  - name: Agents
+    description: Kill switch (operator).
+  - name: Gauntlet
+    description: Context Mode test runs and certification (operator).
+  - name: Disputes
+    description: PayPal disputes, evidence and operator actions (operator).
+  - name: Ledger
+    description: The append-only decision ledger (operator).
+  - name: Overview
+  - name: Policies
+    description: Policy drafting and approval (operator).
+  - name: Ask the ledger
+    description: Natural language to AG Grid state (operator).
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: health
+      summary: Liveness and dependency checks
+      security: []
+      responses:
+        "200":
+          description: Every dependency is up
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+        "503":
+          description: A dependency is down
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /v1/sessions:
+    post:
+      tags: [Sessions]
+      operationId: startSession
+      summary: Open a session for a customer and get a capability token
+      description: |
+        The token is scoped to the customer's own orders. Money tools stay blocked until
+        the OTP is verified. `demo_otp` is returned only in demo mode or for CONTEXT sessions.
+      security: [{ merchantKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [agent_id, customer_email, order_ids]
+              properties:
+                agent_id: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$", example: agt_store }
+                customer_email: { type: string, format: email, maxLength: 254 }
+                order_ids:
+                  type: array
+                  maxItems: 20
+                  items: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$" }
+                mode: { type: string, enum: [LIVE, CONTEXT], default: LIVE }
+                guard_mode:
+                  type: string
+                  enum: [ENFORCE, SHADOW]
+                  default: ENFORCE
+                  description: SHADOW is only allowed with mode CONTEXT.
+      responses:
+        "201":
+          description: Session opened
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_id: { type: string }
+                  capability_token: { type: string }
+                  orders: { type: array, items: { type: string } }
+                  expires_at: { type: string, format: date-time }
+                  demo_otp: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    get:
+      tags: [Sessions]
+      operationId: listSessions
+      summary: List recent sessions, newest first
+      security: [{ merchantKey: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: mode, in: query, schema: { type: string, enum: [LIVE, CONTEXT, all], default: LIVE } }
+      responses:
+        "200":
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions: { type: array, items: { $ref: "#/components/schemas/SessionSummary" } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/sessions/{id}:
+    get:
+      tags: [Sessions]
+      operationId: getSession
+      summary: A session with its turns, ledger decisions and risk score
+      security: [{ merchantKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/SessionId" }]
+      responses:
+        "200":
+          description: Session detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { $ref: "#/components/schemas/SessionSummary" }
+                  turns: { type: array, items: { $ref: "#/components/schemas/Turn" } }
+                  decisions: { type: array, items: { type: object, additionalProperties: true } }
+                  risk:
+                    oneOf:
+                      - type: "null"
+                      - type: object
+                        properties:
+                          score: { type: number }
+                          threshold: { type: number }
+                          signals: { type: array, items: { type: object, additionalProperties: true } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/sessions/{id}/verify:
+    post:
+      tags: [Sessions]
+      operationId: verifySession
+      summary: Verify the customer's OTP and get a token with a verified payer
+      security: [{ merchantKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/SessionId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, pattern: "^\\d{6}$" }
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_id: { type: string }
+                  capability_token: { type: string }
+        "400":
+          description: Bad request, wrong or expired code, or no attempts left (`locked`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/sessions/{id}/turns:
+    post:
+      tags: [Sessions]
+      operationId: appendTurn
+      summary: Record a conversation turn
+      security: [{ merchantKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/SessionId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role, text, decision_ids]
+              properties:
+                role: { type: string, enum: [customer, agent] }
+                text: { type: string, minLength: 1, maxLength: 4000 }
+                decision_ids:
+                  type: array
+                  maxItems: 10
+                  items: { $ref: "#/components/schemas/DecisionId" }
+      responses:
+        "201": { description: Recorded }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429":
+          description: The session reached its customer turn limit (`turn_limit`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/sessions/{id}/release:
+    post:
+      tags: [Review]
+      operationId: releaseSession
+      summary: Release a quarantined or escalated LIVE session
+      security: [{ operatorKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/SessionId" }]
+      requestBody: { $ref: "#/components/requestBodies/Reviewer" }
+      responses:
+        "200":
+          description: Released
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  decision_id: { type: string }
+                  state: { type: string, const: ACTIVE }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/guard:
+    post:
+      tags: [Guard]
+      operationId: guardReply
+      summary: Check a draft reply; returns the reply the customer should see
+      description: |
+        An LLM extractor finds commitments in the draft; deterministic code checks each
+        against this turn's tool decisions and the approved policies. ALLOW passes the
+        draft, REWRITE replaces it with approved wording, BLOCK replaces it with a safe
+        fallback, HOLD means the session is quarantined. Fails closed.
+      security: [{ merchantKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session_id, draft_reply, conversation, tool_calls_this_turn]
+              additionalProperties: false
+              properties:
+                session_id: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$" }
+                draft_reply: { type: string, minLength: 1, maxLength: 4000 }
+                conversation:
+                  type: array
+                  maxItems: 50
+                  items:
+                    type: object
+                    required: [role, text]
+                    properties:
+                      role: { type: string, enum: [customer, agent] }
+                      text: { type: string, maxLength: 4000 }
+                tool_calls_this_turn:
+                  type: array
+                  maxItems: 10
+                  description: Decision ids returned by this turn's MCP tool calls.
+                  items: { $ref: "#/components/schemas/DecisionId" }
+      responses:
+        "200":
+          description: Decision
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  verdict: { $ref: "#/components/schemas/Verdict" }
+                  reason_codes: { type: array, items: { type: string }, example: [FREE_TEXT_COMMITMENT] }
+                  final_reply: { type: string }
+                  decision_id: { type: string }
+                  session_state: { type: string }
+                  shadow: { type: boolean }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/mcp:
+    post:
+      tags: [MCP]
+      operationId: mcp
+      summary: MCP JSON-RPC (stateless streamable HTTP)
+      description: |
+        Tools: `get_order`, `offer_refund`, `offer_discount`, `state_policy`,
+        `escalate_to_human`. Each tool result carries a verdict, reason code, decision id
+        and a `message` the agent must quote. Send `Accept: application/json, text/event-stream`.
+      security: [{ capabilityToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method]
+              properties:
+                jsonrpc: { type: string, const: "2.0" }
+                id: { type: [string, integer] }
+                method: { type: string, example: tools/call }
+                params: { type: object, additionalProperties: true }
+            example:
+              jsonrpc: "2.0"
+              id: 1
+              method: tools/call
+              params: { name: get_order, arguments: { order_id: ORDER_ID } }
+      responses:
+        "200":
+          description: JSON-RPC response
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401":
+          description: Missing, invalid or expired capability token (`invalid_token`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/store/orders:
+    get:
+      tags: [Store]
+      operationId: storeOrders
+      summary: A demo-store customer's orders
+      security: [{ merchantKey: [] }]
+      parameters:
+        - { name: customer_email, in: query, required: true, schema: { type: string, format: email } }
+      responses:
+        "200":
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orders:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        order_id: { type: string }
+                        scenario: { type: string }
+                        total: { $ref: "#/components/schemas/Money" }
+                        items:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              sku: { type: string }
+                              title: { type: string }
+                              price: { type: string }
+                        delivered_at: { type: [string, "null"], format: date-time }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/review:
+    get:
+      tags: [Review]
+      operationId: reviewQueue
+      summary: Held money actions and flagged sessions, newest first
+      security: [{ operatorKey: [] }]
+      responses:
+        "200":
+          description: Review items
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind: { type: string, enum: [held_action, session] }
+                        decision_id: { type: string }
+                        session_id: { type: string }
+                        tool: { type: string }
+                        args: { type: object, additionalProperties: true }
+                        reason_codes: { type: array, items: { type: string } }
+                        score: { type: [number, "null"] }
+                        session_state: { type: string }
+                        created_at: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/review/{decision_id}/approve:
+    post:
+      tags: [Review]
+      operationId: approveHeld
+      summary: Approve a held refund or discount; executes it through the gateway
+      security: [{ operatorKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/DecisionIdParam" }]
+      requestBody: { $ref: "#/components/requestBodies/Reviewer" }
+      responses:
+        "200":
+          description: Executed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  decision_id: { type: string }
+                  execution: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422":
+          description: Refused by a hard rule, scope or budget (`blocked`, with `reason_code`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "502": { description: PayPal failed (`paypal_failed`) }
+        "503": { description: Facts unavailable (`verifier_unavailable`) }
+
+  /v1/review/{decision_id}/deny:
+    post:
+      tags: [Review]
+      operationId: denyHeld
+      summary: Deny a held refund or discount
+      security: [{ operatorKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/DecisionIdParam" }]
+      requestBody: { $ref: "#/components/requestBodies/Reviewer" }
+      responses:
+        "200":
+          description: Denied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  decision_id: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/agents/{id}:
+    get:
+      tags: [Agents]
+      operationId: getAgent
+      summary: An agent's kill-switch state (`*` is the global switch)
+      security: [{ operatorKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/AgentId" }]
+      responses:
+        "200":
+          description: Agent control
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentControl" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/agents/{id}/freeze:
+    post:
+      tags: [Agents]
+      operationId: freezeAgent
+      summary: Freeze an agent; its money tools are held
+      security: [{ operatorKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/AgentId" }]
+      requestBody: { $ref: "#/components/requestBodies/Operator" }
+      responses:
+        "200":
+          description: Frozen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentControl" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/agents/{id}/unfreeze:
+    post:
+      tags: [Agents]
+      operationId: unfreezeAgent
+      summary: Unfreeze an agent
+      security: [{ operatorKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/AgentId" }]
+      requestBody: { $ref: "#/components/requestBodies/Operator" }
+      responses:
+        "200":
+          description: Unfrozen
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AgentControl" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/gauntlet/runs:
+    post:
+      tags: [Gauntlet]
+      operationId: startRun
+      summary: Start a Gauntlet run in Context Mode
+      security: [{ operatorKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [packs, repeats, guarded]
+              additionalProperties: false
+              properties:
+                packs:
+                  type: array
+                  minItems: 1
+                  maxItems: 6
+                  uniqueItems: true
+                  items: { type: string, description: "A scenario pack id, or `learned`" }
+                repeats: { type: integer, minimum: 1, maximum: 5 }
+                guarded: { type: boolean, description: "false runs the agent without Keel (the baseline)" }
+      responses:
+        "202":
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run_id: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { description: A run is already queued or running (`run_in_progress`) }
+        "503": { description: Queue unavailable }
+    get:
+      tags: [Gauntlet]
+      operationId: listRuns
+      summary: The 20 most recent runs
+      security: [{ operatorKey: [] }]
+      responses:
+        "200":
+          description: Runs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  runs: { type: array, items: { $ref: "#/components/schemas/Run" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/gauntlet/runs/{id}:
+    get:
+      tags: [Gauntlet]
+      operationId: getRun
+      summary: A run and its per-scenario results
+      security: [{ operatorKey: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, pattern: "^run_[a-f0-9]{1,64}$" } }
+      responses:
+        "200":
+          description: Run detail
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run: { $ref: "#/components/schemas/Run" }
+                  results: { type: array, items: { type: object, additionalProperties: true } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /v1/gauntlet/certification:
+    get:
+      tags: [Gauntlet]
+      operationId: certification
+      summary: Certification of the latest guarded run against the versions running now
+      security: [{ operatorKey: [] }]
+      responses:
+        "200":
+          description: Certification (stale when a policy, prompt or model changed since the run)
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/gauntlet/scenarios:
+    get:
+      tags: [Gauntlet]
+      operationId: listScenarios
+      summary: Built-in and learned scenarios
+      security: [{ operatorKey: [] }]
+      responses:
+        "200":
+          description: Scenarios
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scenarios:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        pack: { type: string }
+                        kind: { type: string }
+                        description: { type: string }
+                        source: { type: string, enum: [builtin, learned] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Gauntlet]
+      operationId: saveScenario
+      summary: Save a drafted scenario ("Add to Gauntlet")
+      description: Only the wording comes from the client; the rest is rebuilt from the source session.
+      security: [{ operatorKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scenario, source_session_id]
+              additionalProperties: false
+              properties:
+                scenario:
+                  type: object
+                  required: [id, persona, description, openers]
+                  properties:
+                    id: { type: string }
+                    persona: { type: string }
+                    description: { type: string }
+                    openers: { type: array, items: { type: string } }
+                source_session_id: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$" }
+      responses:
+        "201":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Scenario id taken (`id_taken`) }
+        "422": { description: Session not eligible (`not_eligible`) }
+  /v1/gauntlet/drafts:
+    post:
+      tags: [Gauntlet]
+      operationId: draftScenario
+      summary: Draft a Gauntlet scenario from a real session (Claude)
+      security: [{ operatorKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [session_id]
+              additionalProperties: false
+              properties:
+                session_id: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$" }
+      responses:
+        "200":
+          description: Drafted scenario (not saved)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scenario: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { description: Session not eligible (`not_eligible`) }
+        "502": { description: Draft failed }
+
+  /v1/disputes:
+    get:
+      tags: [Disputes]
+      operationId: listDisputes
+      summary: The 50 most recent disputes
+      security: [{ operatorKey: [] }]
+      responses:
+        "200":
+          description: Disputes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/Dispute" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/disputes/sync:
+    post:
+      tags: [Disputes]
+      operationId: syncDisputes
+      summary: Poll PayPal for disputes now
+      security: [{ operatorKey: [] }]
+      responses:
+        "202": { $ref: "#/components/responses/Queued" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/disputes/lookup:
+    post:
+      tags: [Disputes]
+      operationId: lookupDispute
+      summary: Fetch one dispute by PayPal case id
+      security: [{ operatorKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [dispute_id]
+              additionalProperties: false
+              properties:
+                dispute_id: { type: string, pattern: "^[A-Za-z0-9-]{1,64}$" }
+      responses:
+        "202": { $ref: "#/components/responses/Queued" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/disputes/{id}:
+    get:
+      tags: [Disputes]
+      operationId: getDispute
+      summary: A dispute with its classification, evidence rows and offered actions
+      security: [{ operatorKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/DisputeId" }]
+      responses:
+        "200":
+          description: Dispute detail
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Dispute"
+                  - type: object
+                    additionalProperties: true
+                    properties:
+                      capture_id: { type: [string, "null"] }
+                      order_id: { type: [string, "null"] }
+                      has_evidence: { type: boolean }
+                      offered: { type: array, items: { type: string } }
+                      decisions: { type: array, items: { type: object, additionalProperties: true } }
+                      evidence: { type: array, items: { type: object, additionalProperties: true } }
+                      sandbox: { type: boolean, description: Whether the sandbox-only routes are available }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /v1/disputes/{id}/evidence.pdf:
+    get:
+      tags: [Disputes]
+      operationId: disputeEvidencePdf
+      summary: The evidence PDF built from the ledger
+      security: [{ operatorKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/DisputeId" }]
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /v1/disputes/{id}/submit-evidence:
+    post:
+      tags: [Disputes]
+      operationId: submitEvidence
+      summary: Defend the dispute with the evidence PDF
+      security: [{ operatorKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/DisputeId" }]
+      requestBody: { $ref: "#/components/requestBodies/Reviewer" }
+      responses:
+        "200": { $ref: "#/components/responses/DisputeAction" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502": { description: PayPal unavailable or the action failed }
+  /v1/disputes/{id}/accept-claim:
+    post:
+      tags: [Disputes]
+      operationId: acceptClaim
+      summary: Concede the dispute
+      security: [{ operatorKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/DisputeId" }]
+      requestBody: { $ref: "#/components/requestBodies/Reviewer" }
+      responses:
+        "200": { $ref: "#/components/responses/DisputeAction" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "502": { description: PayPal unavailable or the action failed }
+  /v1/disputes/{id}/sandbox/escalate:
+    post:
+      tags: [Disputes]
+      operationId: sandboxEscalate
+      summary: "Sandbox only: escalate the dispute to a PayPal claim"
+      description: Returns 404 when the API is connected to live PayPal.
+      security: [{ operatorKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/DisputeId" }]
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /v1/disputes/{id}/sandbox/adjudicate:
+    post:
+      tags: [Disputes]
+      operationId: sandboxAdjudicate
+      summary: "Sandbox only: have PayPal Sandbox decide the dispute"
+      description: Returns 404 when the API is connected to live PayPal.
+      security: [{ operatorKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/DisputeId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [outcome]
+              additionalProperties: false
+              properties:
+                outcome: { type: string, enum: [SELLER_FAVOR, BUYER_FAVOR] }
+      responses:
+        "200": { $ref: "#/components/responses/Ok" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  /v1/ledger:
+    get:
+      tags: [Ledger]
+      operationId: ledgerPage
+      summary: Ledger rows, newest first
+      security: [{ operatorKey: [] }]
+      parameters:
+        - { name: before_seq, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 2000, default: 500 } }
+      responses:
+        "200":
+          description: A page of rows
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rows: { type: array, items: { $ref: "#/components/schemas/LedgerRow" } }
+                  next_before_seq: { type: [integer, "null"] }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/ledger/verify:
+    get:
+      tags: [Ledger]
+      operationId: verifyLedger
+      summary: Recompute the hash chain
+      security: [{ operatorKey: [] }]
+      responses:
+        "200":
+          description: Chain check
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  count: { type: integer }
+                  broken_at_seq: { type: integer }
+                  problem: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/ledger/export.json:
+    get:
+      tags: [Ledger]
+      operationId: exportLedger
+      summary: Download up to 10,000 newest rows as JSON
+      security: [{ operatorKey: [] }]
+      responses:
+        "200":
+          description: Ledger export
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/LedgerRow" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/overview:
+    get:
+      tags: [Overview]
+      operationId: overview
+      summary: Certification, sessions, violations, dollars protected and disputes in one call
+      security: [{ operatorKey: [] }]
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  certification: { type: [object, "null"], additionalProperties: true }
+                  sessions:
+                    type: object
+                    properties:
+                      active: { type: integer }
+                      quarantined: { type: integer }
+                  violations: { type: object, additionalProperties: true }
+                  dollars_protected: { type: object, additionalProperties: true }
+                  decisions_by_day: { type: array, items: { type: object, additionalProperties: true } }
+                  disputes: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/grid-query:
+    post:
+      tags: [Ask the ledger]
+      operationId: gridQuery
+      summary: Turn a question into AG Grid state (Claude structured output)
+      description: Only the question and the grid's state schema are sent; row data never is. Body limit 68 KB.
+      security: [{ operatorKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query, schema]
+              additionalProperties: false
+              properties:
+                query: { type: string, minLength: 1, maxLength: 500, example: held refunds over $50 this week grouped by reason code }
+                schema: { type: object, additionalProperties: true, description: "AG Grid's structured state schema (max 64 KB)" }
+      responses:
+        "200":
+          description: Grid state to apply with setState
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  state: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { description: Not understood }
+        "502": { description: Model unavailable }
+        "504": { description: Timeout }
+
+  /v1/policies:
+    get:
+      tags: [Policies]
+      operationId: listPolicies
+      summary: Each policy's active version and any newer draft
+      security: [{ operatorKey: [] }]
+      responses:
+        "200":
+          description: Policies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policies: { type: array, items: { type: object, additionalProperties: true } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/policies/{id}:
+    get:
+      tags: [Policies]
+      operationId: getPolicy
+      summary: Every version of a policy, newest first
+      security: [{ operatorKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/PolicyId" }]
+      responses:
+        "200":
+          description: Versions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policy_id: { type: string }
+                  versions: { type: array, items: { type: object, additionalProperties: true } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /v1/policies/draft:
+    post:
+      tags: [Policies]
+      operationId: draftPolicy
+      summary: Draft a new version of an existing policy from a pasted document (Claude)
+      description: The draft does nothing until an operator approves it.
+      security: [{ operatorKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [policy_id, document]
+              additionalProperties: false
+              properties:
+                policy_id: { type: string, pattern: "^[a-z0-9-]{1,64}$", example: refund-standard }
+                document: { type: string, maxLength: 50000 }
+      responses:
+        "200":
+          description: Saved as DRAFT
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version: { type: integer }
+                  policy: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { description: Document not understood }
+        "502": { description: Model unavailable }
+        "504": { description: Timeout }
+  /v1/policies/{id}/versions/{version}/approve:
+    post:
+      tags: [Policies]
+      operationId: approvePolicy
+      summary: Approve a DRAFT version, with the operator's edits
+      security: [{ operatorKey: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PolicyId"
+        - { name: version, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reviewer, approved_text, rules]
+              additionalProperties: false
+              properties:
+                reviewer: { type: string, minLength: 1, maxLength: 64 }
+                approved_text: { type: string }
+                rules: { type: object, additionalProperties: true, description: Validated by the engine's policy schema }
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policy_id: { type: string }
+                  version: { type: integer }
+                  status: { type: string, const: APPROVED }
+                  decision_id: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { description: That version is not a DRAFT (`not_draft`) }
+
+components:
+  securitySchemes:
+    merchantKey:
+      type: http
+      scheme: bearer
+      description: KEEL_MERCHANT_KEY, held by the merchant backend that runs the agent.
+    capabilityToken:
+      type: http
+      scheme: bearer
+      description: The `capability_token` from POST /v1/sessions (or /verify). Session-scoped, expires in 30 minutes.
+    operatorKey:
+      type: http
+      scheme: bearer
+      description: KEEL_OPERATOR_KEY, held by the operator console.
+
+  parameters:
+    SessionId:
+      { name: id, in: path, required: true, schema: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$" } }
+    DecisionIdParam:
+      { name: decision_id, in: path, required: true, schema: { $ref: "#/components/schemas/DecisionId" } }
+    AgentId:
+      { name: id, in: path, required: true, schema: { type: string, pattern: "^(agt_[A-Za-z0-9_]{1,64}|\\*)$" } }
+    DisputeId:
+      { name: id, in: path, required: true, schema: { type: string, pattern: "^[A-Za-z0-9-]{1,64}$" } }
+    PolicyId:
+      { name: id, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9-]{1,64}$" } }
+
+  requestBodies:
+    Reviewer:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [reviewer]
+            additionalProperties: false
+            properties:
+              reviewer: { type: string, minLength: 1, maxLength: 64 }
+    Operator:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [operator]
+            additionalProperties: false
+            properties:
+              operator: { type: string, minLength: 1, maxLength: 64 }
+
+  responses:
+    Ok:
+      description: Done
+      content:
+        application/json:
+          schema: { type: object, properties: { ok: { type: boolean } } }
+    Queued:
+      description: Queued
+      content:
+        application/json:
+          schema: { type: object, properties: { queued: { type: boolean } } }
+    DisputeAction:
+      description: Action taken
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              decision_id: { type: string }
+              action: { type: [string, "null"] }
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing or wrong bearer token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: The merchant key can't call operator routes
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Conflicts with the current state (already resolved, already acted, not offered…)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }
+      additionalProperties: true
+    Health:
+      type: object
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        checks: { type: object, additionalProperties: { type: string, enum: [ok, down] } }
+    DecisionId:
+      type: string
+      pattern: "^dec_[A-Za-z0-9]{1,64}$"
+    Verdict:
+      type: string
+      enum: [ALLOW, REWRITE, BLOCK, HOLD]
+    Money:
+      type: object
+      properties:
+        value: { type: string, example: "25.00" }
+        currency: { type: string, example: USD }
+    SessionSummary:
+      type: object
+      properties:
+        id: { type: string }
+        agent_id: { type: string }
+        claimed_email: { type: string }
+        verified: { type: boolean }
+        state: { type: string }
+        mode: { type: string }
+        created_at: { type: string, format: date-time }
+        expires_at: { type: string, format: date-time }
+    Turn:
+      type: object
+      properties:
+        role: { type: string, enum: [customer, agent] }
+        text: { type: string }
+        decision_ids: { type: array, items: { type: string } }
+        created_at: { type: string, format: date-time }
+    AgentControl:
+      type: object
+      properties:
+        agent_id: { type: string }
+        frozen: { type: boolean }
+        updated_at: { type: [string, "null"], format: date-time }
+        updated_by: { type: [string, "null"] }
+    Run:
+      type: object
+      additionalProperties: true
+      properties:
+        id: { type: string }
+        status: { type: string }
+        guarded: { type: boolean }
+        packs: { type: array, items: { type: string } }
+        repeats: { type: integer }
+        progress:
+          type: object
+          properties:
+            total: { type: integer }
+            done: { type: integer }
+        scorecard: { type: [object, "null"], additionalProperties: true }
+        created_at: { type: string, format: date-time }
+    Dispute:
+      type: object
+      additionalProperties: true
+      properties:
+        id: { type: string }
+        reason: { type: string }
+        amount: { type: string }
+        currency: { type: string }
+        status: { type: string }
+        classification: { type: [string, "null"], description: DEFEND or CONCEDE }
+        reason_codes: { type: array, items: { type: string } }
+        action: { type: [string, "null"] }
+        outcome: { type: string }
+        created_at: { type: string, format: date-time }
+    LedgerRow:
+      type: object
+      properties:
+        seq: { type: integer }
+        decision_id: { type: string }
+        created_at: { type: string, format: date-time }
+        session_id: { type: [string, "null"] }
+        order_id: { type: [string, "null"] }
+        capture_id: { type: [string, "null"] }
+        dispute_id: { type: [string, "null"] }
+        mode: { type: string }
+        verdict: { $ref: "#/components/schemas/Verdict" }
+        reason_codes: { type: array, items: { type: string } }
+        tool: { type: [string, "null"] }
+        amount: { type: [string, "null"] }
+        hash: { type: string }
+        prev_hash: { type: [string, "null"] }
+        payload: { type: object, additionalProperties: true }

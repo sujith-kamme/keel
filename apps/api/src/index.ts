@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
 import { agentModel, connectAgentTools, promptMode, runTurn } from "@keel/agent";
-import { activePolicy, appendLedger, createDb, decisionsByDay, disputeOutcomes, dollarsProtected, liveSessions, readChain, readLedgerPage, sql, violations } from "@keel/db";
-import { PROMPT_VERSION, extract, extractorModel } from "@keel/extractor";
+import { activePolicy, appendLedger, approveVersion, createDb, decisionsByDay, disputeOutcomes, dollarsProtected, insertDraft, listPolicies, liveSessions, policyVersions, readChain, readLedgerPage, sql, violations } from "@keel/db";
+import { PROMPT_VERSION, draftPolicy, extract, extractorModel } from "@keel/extractor";
 import { type Versions, customerModel, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
 import { PayPalClient, configFromEnv } from "@keel/paypal";
 import { acceptClaim, adjudicate, escalate, getDispute, listDisputes, provideEvidence, verifyWebhook } from "@keel/paypal/disputes";
@@ -52,7 +52,8 @@ const catalog = async () => scenarioCatalog(builtinScenarios, await gauntletStor
 const demoAgent = { model: agentModel(process.env.DEMO_AGENT_MODEL), mode: promptMode(process.env.DEMO_AGENT_PROMPT) };
 const currentVersions = async (): Promise<Versions> => {
   const policies: Record<string, number> = {};
-  for (const id of KNOWN_POLICY_IDS) {
+  // price-catalog isn't a policy the guard checks claims against, but an approved change to it still makes certification stale.
+  for (const id of [...KNOWN_POLICY_IDS, "price-catalog"]) {
     const version = ((await activePolicy(db, id)) as { version?: unknown } | null)?.version;
     if (typeof version === "number") policies[id] = version;
   }
@@ -185,6 +186,17 @@ const app = createApp({
     model,
     timeoutMs: 20_000,
     now,
+  },
+  policies: {
+    operatorKey: KEEL_OPERATOR_KEY,
+    merchantKey: KEEL_MERCHANT_KEY,
+    list: () => listPolicies(db),
+    versions: (id) => policyVersions(db, id),
+    active: (id) => activePolicy(db, id),
+    draft: (input) => draftPolicy({ parse: (p, o) => anthropic.messages.parse(p, o), model, timeoutMs: 45_000 }, input),
+    insertDraft: (id, policy) => insertDraft(db, id, policy),
+    approve: (id, version, edits, entry) => approveVersion(db, id, version, edits, entry),
+    newId,
   },
 });
 
