@@ -27,6 +27,9 @@
     "smoke:mcp": "tsx scripts/mcp-smoke.ts",
     "smoke:guard": "tsx scripts/guard-smoke.ts",
     "smoke:risk": "tsx scripts/risk-smoke.ts",
+    "dispute:orders": "tsx --env-file=.env scripts/dispute-orders.ts",
+    "dispute:sandbox": "tsx --env-file=.env scripts/dispute-sandbox.ts",
+    "smoke:dispute": "tsx scripts/dispute-smoke.ts",
     "smoke:gauntlet": "tsx scripts/gauntlet-smoke.ts"
   },
   "devDependencies": {
