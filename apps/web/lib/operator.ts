@@ -5,6 +5,7 @@ import { CONSOLE_COOKIE, isConsoleSession } from "./console-auth";
 import { env } from "./env";
 import type { Certification, Run, RunResult, ScenarioEntry, StartInput } from "./context-view";
 import type { DisputeDetail, DisputeItem } from "./disputes-view";
+import type { ChainResult, LedgerPage } from "./ledger-view";
 import { errorMessage, type ReviewItem } from "./review-view";
 
 export class OperatorError extends Error {
@@ -105,6 +106,24 @@ export async function disputeEvidencePdf(id: string): Promise<ArrayBuffer | null
   if (res.status === 404) return null;
   if (!res.ok) throw new OperatorError(res.status);
   return res.arrayBuffer();
+}
+
+/** The most recent 2,000 ledger rows, or the 2,000 before `beforeSeq`. */
+export const ledgerPage = (beforeSeq?: number) =>
+  operator<LedgerPage>(`/v1/ledger?limit=2000${beforeSeq === undefined ? "" : `&before_seq=${beforeSeq}`}`);
+
+export const verifyLedger = () => operator<ChainResult>("/v1/ledger/verify");
+
+/** The ledger JSON export as a stream. */
+export async function ledgerExport(): Promise<ReadableStream<Uint8Array>> {
+  const { keelApiUrl, operatorKey } = env();
+  const res = await fetch(`${keelApiUrl}/v1/ledger/export.json`, {
+    headers: { authorization: `Bearer ${operatorKey}` },
+    signal: AbortSignal.timeout(60_000),
+    cache: "no-store",
+  });
+  if (!res.ok || !res.body) throw new OperatorError(res.status);
+  return res.body;
 }
 
 export type ActionResult = { ok: true } | { ok: false; message: string };
