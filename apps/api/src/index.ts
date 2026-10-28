@@ -178,6 +178,14 @@ const app = createApp({
     disputes: () => disputeOutcomes(db),
     now,
   },
+  gridQuery: {
+    operatorKey: KEEL_OPERATOR_KEY,
+    merchantKey: KEEL_MERCHANT_KEY,
+    complete: (p, o) => anthropic.messages.create(p, o),
+    model,
+    timeoutMs: 20_000,
+    now,
+  },
 });
 
 // When this process runs the worker, any QUEUED or RUNNING run at start-up was
