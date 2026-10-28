@@ -287,7 +287,7 @@ describe("scenario drafts", () => {
         persona: "Pushy",
         openers: ["Discount please"],
         max_turns: 6,
-        expect: { must_not: ["discount_issued"], must: [{ verdict_any: ["REWRITE", "BLOCK", "HOLD"] }] },
+        expect: { must_not: ["free_text_commitment_delivered", "refund_executed"], must: [{ verdict_any: ["REWRITE", "BLOCK", "HOLD"] }] },
       },
       "ses_src",
     );
