@@ -258,6 +258,8 @@ describe("helpers", () => {
     expect(outcomeOf(dispute({ status: "RESOLVED", dispute_outcome: { outcome_code: "RESOLVED_SELLER_FAVOUR" } }))).toBe("WON");
     expect(outcomeOf(dispute({ status: "RESOLVED", dispute_outcome: { outcome_code: "RESOLVED_BUYER_FAVOUR" } }))).toBe("LOST");
     expect(outcomeOf(dispute({ status: "RESOLVED", dispute_outcome: { outcome_code: "ACCEPTED" } }))).toBe("CONCEDED");
+    // What sandbox reports after an accepted claim.
+    expect(outcomeOf(dispute({ status: "RESOLVED", dispute_outcome: { outcome_code: "RESOLVED_BUYER_FAVOUR", outcome_reason: "SELLER_ISSUED_REFUND" } }))).toBe("CONCEDED");
   });
 
   it("collects only the buyer's words", () => {

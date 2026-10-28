@@ -122,7 +122,7 @@ export function outcomeOf(d: Dispute): DisputeOutcome {
   if (d.status !== "RESOLVED") return "OPEN";
   const code = d.dispute_outcome?.outcome_code ?? "";
   if (code === "RESOLVED_SELLER_FAVOUR" || code === "CANCELED_BY_BUYER" || code === "DENIED") return "WON";
-  if (code === "ACCEPTED") return "CONCEDED";
+  if (code === "ACCEPTED" || d.dispute_outcome?.outcome_reason === "SELLER_ISSUED_REFUND") return "CONCEDED";
   return "LOST";
 }
 
