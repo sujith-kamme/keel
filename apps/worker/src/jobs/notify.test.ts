@@ -21,6 +21,7 @@ describe("sendNotify", () => {
     expect(url).toBe(HOOK);
     expect(init.method).toBe("POST");
     expect(init.headers).toEqual({ "content-type": "application/json" });
+    expect(init.redirect).toBe("error");
     expect(JSON.parse(init.body as string)).toEqual(event);
   });
 

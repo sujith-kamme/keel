@@ -44,6 +44,8 @@ export async function sendNotify(
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(pick(event)),
+    // Never follow a redirect off the allowlisted Zapier host.
+    redirect: "error",
     signal: AbortSignal.timeout(5000),
   });
   if (!res.ok) throw new Error(`zapier responded ${res.status}`);
