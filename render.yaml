@@ -39,6 +39,12 @@ services:
         value: claude-haiku-5-5
       - key: EXTRACTOR_TIMEOUT_MS
         value: "4000"
+      - key: RISK_THRESHOLD
+        value: "60"
+      - key: RISK_HALF_LIFE_MIN
+        value: "30"
+      - key: CONSOLE_URL
+        value: https://keel-web-fm57.onrender.com
 
   - type: web
     name: keel-web
@@ -51,6 +57,8 @@ services:
       - key: KEEL_API_URL
         value: https://keel-api-y0wq.onrender.com
       - key: KEEL_MERCHANT_KEY
+        sync: false
+      - key: KEEL_OPERATOR_KEY
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
