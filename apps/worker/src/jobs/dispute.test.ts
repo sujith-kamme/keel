@@ -131,6 +131,16 @@ describe("syncDispute", () => {
     expect(t.rows.get("PP-D-1")!.classification).toBe("DEFEND");
   });
 
+  it("ignores refund attempts on the session's other orders", async () => {
+    const other = row({ decision_id: "dec-o", verdict: "HOLD", reason_codes: ["ABOVE_AUTO_APPROVE"], payload: { tool: "offer_refund", args: { order_id: "O-2", amount: "80.00" } } });
+    const t = setup({ ctx: { rows: [row({}), other] } });
+    await syncDispute(t.deps, "PP-D-1");
+    const r = t.rows.get("PP-D-1")!;
+    expect(r.classification).toBe("DEFEND");
+    expect(r.evidence_notes).not.toContain("O-2");
+    expect(t.ledger[0]?.payload).toMatchObject({ matched_rows: ["dec-r"] });
+  });
+
   it("waits for PayPal when it doesn't offer the action yet, then acts on a later sync", async () => {
     const t = setup({ d: dispute({ status: "OPEN", links: links() }) });
     await syncDispute(t.deps, "PP-D-1");
