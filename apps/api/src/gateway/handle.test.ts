@@ -212,6 +212,22 @@ describe("handleTool: other tools", () => {
     expect(ledger).toHaveLength(3);
   });
 
+  it("get_order records order_facts without PII for the owner only", async () => {
+    const { deps, ledger } = fakes();
+    await handleTool(deps, cap(), { tool: "get_order", args: { order_id: "IN-POLICY" } });
+    await handleTool(deps, cap({ verified_payer: "sam@demo.keel.test" }), { tool: "get_order", args: { order_id: "IN-POLICY" } });
+    const [owner, other] = ledger.map((l) => l.payload as Record<string, unknown>);
+    expect(owner!.order_facts).toEqual({
+      order_id: "IN-POLICY",
+      total: expect.any(String),
+      currency: expect.any(String),
+      refunded: "0.00",
+      item_prices: expect.any(Array),
+    });
+    expect(JSON.stringify(owner!.order_facts)).not.toContain("@");
+    expect(other).not.toHaveProperty("order_facts");
+  });
+
   it("get_order blocks an order outside the session", async () => {
     const { deps } = fakes();
     const result = await handleTool(deps, cap({ orders: [] }), { tool: "get_order", args: { order_id: "IN-POLICY" } });

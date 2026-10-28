@@ -1,6 +1,6 @@
 import type { Extraction } from "@keel/core";
 import { describe, expect, it } from "vitest";
-import { FREE_TEXT_FALLBACK, QUARANTINE_TEMPLATE, SAFE_FALLBACK, type ReplyInput, decideReply, policyRewrite, replayReply } from "./reply";
+import { FREE_TEXT_FALLBACK, QUARANTINE_TEMPLATE, SAFE_FALLBACK, type ReplyInput, type TurnDecision, decideReply, policyRewrite, replayReply } from "./reply";
 
 const BEREAVEMENT = "We don't offer special bereavement refunds; our standard refund policy applies to every order.";
 const policies = { "policy-bereavement": { approved_text: BEREAVEMENT } };
@@ -206,5 +206,53 @@ describe("honest templates (DP-7)", () => {
       expect(result.verdict).toBe("BLOCK");
       expect(replayReply({ input: i, result }).same).toBe(true);
     });
+  });
+});
+
+describe("decideReply: figures from this turn's order lookup", () => {
+  const price = (value?: string, order_id?: string, currency = "USD"): C => ({
+    type: "PRICE",
+    quoted_text: "Total paid",
+    ...(value ? { amount: { value, currency } } : {}),
+    ...(order_id ? { order_id } : {}),
+  });
+  const lookup = (over: Partial<NonNullable<TurnDecision["order_facts"]>> = {}, verdict: "ALLOW" | "BLOCK" = "ALLOW"): TurnDecision => ({
+    tool: "get_order",
+    verdict,
+    args: { order_id: "O-1" },
+    order_facts: { order_id: "O-1", total: "500.00", currency: "USD", refunded: "35.00", item_prices: ["300.00", "200.00"], ...over },
+  });
+  const run = (c: C, ...turn_decisions: TurnDecision[]) => decideReply(input({ extraction: ext(c), turn_decisions })).verdict;
+
+  it("backs a PRICE equal to the total or an item price", () => {
+    expect(run(price("500.0"), lookup())).toBe("ALLOW");
+    expect(run(price("200.00", "O-1"), lookup())).toBe("ALLOW");
+  });
+  it("blocks a PRICE that differs, lacks a lookup, lacks an amount, or mismatches order or currency", () => {
+    expect(run(price("499.00"), lookup())).toBe("BLOCK");
+    expect(run(price("500.00"))).toBe("BLOCK");
+    expect(run(price("500.00"), lookup({}, "BLOCK"))).toBe("BLOCK");
+    expect(run(price(), lookup())).toBe("BLOCK");
+    expect(run(price("500.00", "O-2"), lookup())).toBe("BLOCK");
+    expect(run(price("500.00", "O-1", "EUR"), lookup())).toBe("BLOCK");
+  });
+  it("does not let earlier-turn lookups back a PRICE", () => {
+    expect(decideReply(input({ extraction: ext(price("500.00")), session_decisions: [lookup()] })).verdict).toBe("BLOCK");
+  });
+  it("backs a REFUND equal to the refunded-to-date figure", () => {
+    expect(run(refund("35.00"), lookup())).toBe("ALLOW");
+    expect(run(refund("35.00", "O-1"), lookup())).toBe("ALLOW");
+  });
+  it("never backs a REFUND from a zero refunded figure, a different amount or another order", () => {
+    expect(run(refund("0.00"), lookup({ refunded: "0.00" }))).toBe("BLOCK");
+    expect(run(refund("34.00"), lookup())).toBe("BLOCK");
+    expect(run(refund("35.00", "O-2"), lookup())).toBe("BLOCK");
+    expect(run(refund(), lookup())).toBe("BLOCK");
+  });
+  it("replays old rows without order_facts unchanged", () => {
+    const i = input({ extraction: ext(price("500.00")), turn_decisions: [{ tool: "get_order", verdict: "ALLOW", args: {} }] });
+    const result = decideReply(i);
+    expect(result.verdict).toBe("BLOCK");
+    expect(replayReply({ input: i, result }).same).toBe(true);
   });
 });

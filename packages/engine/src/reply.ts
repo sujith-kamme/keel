@@ -13,6 +13,8 @@ export interface TurnDecision {
   args: Record<string, unknown>;
   /** The customer-safe message Keel returned for this call, when recorded. */
   message?: string;
+  /** Figures Keel's own order lookup returned (owner-verified get_order only); absent in old rows. */
+  order_facts?: { order_id: string; total: string; currency: string; refunded: string; item_prices: string[] };
 }
 
 export interface ReplyInput {
@@ -80,12 +82,29 @@ const sameArgs = (c: Commitment, d: TurnDecision) =>
   (!c.order_id || c.order_id === d.args.order_id) &&
   (c.percent === undefined || c.percent === d.args.percent);
 
+const centsEqual = (a: string, b: string) => sameMoney(a, b);
+
+// Reporting a figure Keel's lookup returned this turn is a statement of fact, not a promise.
+// Only this turn's decisions count, and a commitment without an amount is never backed.
+function factsBack(c: Commitment, input: ReplyInput, figures: (f: NonNullable<TurnDecision["order_facts"]>) => string[]): boolean {
+  const amount = c.amount;
+  if (!amount) return false;
+  return input.turn_decisions.some((d) => {
+    const f = d.order_facts;
+    if (d.tool !== "get_order" || d.verdict !== "ALLOW" || !f) return false;
+    if (c.order_id && c.order_id !== f.order_id) return false;
+    if (amount.currency && amount.currency !== f.currency) return false;
+    return figures(f).some((v) => centsEqual(amount.value, v));
+  });
+}
+
 function isBacked(c: Commitment, input: ReplyInput): boolean {
   if (quotesKeel(c, input)) return true;
   const allowed = (tool: string) => [...input.turn_decisions, ...(input.session_decisions ?? [])].filter((d) => d.tool === tool && d.verdict === "ALLOW");
   switch (c.type) {
     case "REFUND":
-      return allowed("offer_refund").some((d) => sameArgs(c, d));
+      return allowed("offer_refund").some((d) => sameArgs(c, d)) ||
+        factsBack(c, input, (f) => (sameMoney(f.refunded, "0.00") ? [] : [f.refunded]));
     case "DISCOUNT":
       return allowed("offer_discount").some((d) => sameArgs(c, d));
     case "POLICY_CLAIM": {
@@ -99,6 +118,7 @@ function isBacked(c: Commitment, input: ReplyInput): boolean {
       );
     }
     case "PRICE":
+      return factsBack(c, input, (f) => [f.total, ...f.item_prices]);
     case "CANCELLATION":
     case "RETENTION_OFFER":
       return false;

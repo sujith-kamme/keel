@@ -100,6 +100,19 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     expect(await createTurnDecisions(db)(a, [])).toEqual([]);
   });
 
+  it("turnDecisions maps well-formed order_facts and ignores malformed ones", async () => {
+    const sid = `ses_test_${randomUUID().replaceAll("-", "")}`;
+    const mk = async (order_facts: unknown) => {
+      const decision_id = `dec_${randomUUID().replaceAll("-", "")}`;
+      await appendLedger(db, { decision_id, session_id: sid, order_id: null, capture_id: null, dispute_id: null, mode: "LIVE", verdict: "ALLOW", reason_codes: ["OK"], payload: { tool: "get_order", args: {}, order_facts } });
+      return decision_id;
+    };
+    const facts = { order_id: "O-1", total: "500.00", currency: "USD", refunded: "35.00", item_prices: ["500.00"] };
+    const rows = await createTurnDecisions(db)(sid, [await mk(facts), await mk({ ...facts, total: 500 }), await mk(undefined)]);
+    expect(rows.filter((r) => r.order_facts)).toEqual([{ tool: "get_order", verdict: "ALLOW", args: {}, order_facts: facts }]);
+    expect(rows).toHaveLength(3);
+  });
+
   it("sessionDecisions returns only executed ALLOW refunds and discounts of the asked session", async () => {
     const mk = async (sid: string, tool: string, verdict: "ALLOW" | "HOLD", execution: unknown, args: unknown = { amount: "5.00" }) => {
       const decision_id = `dec_${randomUUID().replaceAll("-", "")}`;

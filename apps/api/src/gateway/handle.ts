@@ -198,6 +198,15 @@ async function getOrder(deps: GatewayDeps, cap: Capability, orderId: string, now
       delivered_at: facts.order.delivered_at ?? null,
       payer_email: store.payerEmail,
     },
+    record: {
+      order_facts: {
+        order_id: orderId,
+        total: store.total,
+        currency: store.currency,
+        refunded: facts.order.refunded ?? "0.00",
+        item_prices: store.items.map((i) => i.price),
+      },
+    },
   };
 }
 

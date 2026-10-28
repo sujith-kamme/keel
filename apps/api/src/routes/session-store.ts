@@ -136,6 +136,15 @@ export function createTurnStore(db: Db): TurnStore {
   };
 }
 
+const isOrderFacts = (v: unknown): v is NonNullable<TurnDecision["order_facts"]> => {
+  const f = v as Record<string, unknown> | null;
+  return (
+    typeof f === "object" && f !== null &&
+    typeof f.order_id === "string" && typeof f.total === "string" && typeof f.currency === "string" && typeof f.refunded === "string" &&
+    Array.isArray(f.item_prices) && f.item_prices.every((x) => typeof x === "string")
+  );
+};
+
 /** Ledger rows for the given decision ids that belong to this session; ids from other sessions are dropped. */
 export function createTurnDecisions(db: Db): (sessionId: string, ids: string[]) => Promise<TurnDecision[]> {
   return async (sessionId, ids) => {
@@ -145,9 +154,10 @@ export function createTurnDecisions(db: Db): (sessionId: string, ids: string[]) 
       .from(ledgerEntries)
       .where(and(inArray(ledgerEntries.decisionId, ids), eq(ledgerEntries.sessionId, sessionId)));
     return rows.map((r) => {
-      const p = r.payload as { tool: string; args?: Record<string, unknown>; message?: unknown };
+      const p = r.payload as { tool: string; args?: Record<string, unknown>; message?: unknown; order_facts?: unknown };
       const decision: TurnDecision = { tool: p.tool, verdict: r.verdict as TurnDecision["verdict"], args: p.args ?? {} };
       if (typeof p.message === "string") decision.message = p.message;
+      if (isOrderFacts(p.order_facts)) decision.order_facts = p.order_facts;
       return decision;
     });
   };
