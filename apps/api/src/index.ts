@@ -52,7 +52,8 @@ const catalog = async () => scenarioCatalog(builtinScenarios, await gauntletStor
 const demoAgent = { model: agentModel(process.env.DEMO_AGENT_MODEL), mode: promptMode(process.env.DEMO_AGENT_PROMPT) };
 const currentVersions = async (): Promise<Versions> => {
   const policies: Record<string, number> = {};
-  for (const id of KNOWN_POLICY_IDS) {
+  // price-catalog isn't a policy the guard checks claims against, but an approved change to it still makes certification stale.
+  for (const id of [...KNOWN_POLICY_IDS, "price-catalog"]) {
     const version = ((await activePolicy(db, id)) as { version?: unknown } | null)?.version;
     if (typeof version === "number") policies[id] = version;
   }
