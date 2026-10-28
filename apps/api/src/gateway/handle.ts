@@ -34,6 +34,9 @@ export interface GatewayDeps {
   appendLedger: (content: LedgerContent) => Promise<unknown>;
   escalate: (sessionId: string) => Promise<void>;
   withOrderLock: <T>(orderId: string, fn: () => Promise<T>) => Promise<T>;
+  control: (sessionId: string) => Promise<{ state: string; agent_frozen: boolean; score: number }>;
+  assess: (sessionId: string) => Promise<unknown>;
+  notifyHeld: (e: { session_id: string; decision_id: string; reason_codes: string[] }) => Promise<void>;
   now: () => Date;
   newId: (prefix: string) => string;
 }
@@ -69,8 +72,19 @@ export async function handleTool(deps: GatewayDeps, cap: Capability, call: ToolC
   const orderId = "order_id" in call.args ? call.args.order_id : undefined;
   const amount = call.tool === "offer_refund" ? call.args.amount : undefined;
 
+  const isMoney = call.tool === "offer_refund" || call.tool === "offer_discount";
+  const ctl = await deps.control(cap.session_id).catch(() => null);
+
+  // Money tools fail closed: an unreadable, frozen or quarantined session holds
+  // before scope, facts or PayPal are touched.
   let outcome: Outcome;
-  if (!checkScope(cap, { tool: call.tool, order_id: orderId, amount }, "0.00")) {
+  if (isMoney && !ctl) {
+    outcome = refuse("HOLD", "VERIFIER_UNAVAILABLE");
+  } else if (isMoney && ctl?.agent_frozen) {
+    outcome = refuse("HOLD", "AGENT_FROZEN");
+  } else if (isMoney && ctl?.state === "QUARANTINED") {
+    outcome = refuse("HOLD", "RISK_THRESHOLD");
+  } else if (!checkScope(cap, { tool: call.tool, order_id: orderId, amount }, "0.00")) {
     outcome = refuse("BLOCK", "CAPABILITY_OUT_OF_SCOPE");
   } else if (call.tool === "offer_refund") {
     outcome = await deps.withOrderLock(call.args.order_id, () => offerRefund(deps, cap, call.args, decisionId, now));
@@ -86,11 +100,23 @@ export async function handleTool(deps: GatewayDeps, cap: Capability, call: ToolC
     order_id: outcome.order_id ?? null,
     capture_id: outcome.capture_id ?? null,
     dispute_id: null,
-    mode: "LIVE",
+    mode: ctl?.state === "QUARANTINED" ? "QUARANTINE" : "LIVE",
     verdict: outcome.verdict,
     reason_codes: [outcome.reason],
-    payload: { tool: call.tool, args: call.args, message, ...outcome.record },
+    payload: { tool: call.tool, args: call.args, message, risk_score: ctl?.score ?? null, ...outcome.record },
   });
+  try {
+    await deps.assess(cap.session_id);
+  } catch {
+    console.error(`risk assess failed for session ${cap.session_id}`);
+  }
+  if (isMoney && outcome.verdict === "HOLD") {
+    try {
+      await deps.notifyHeld({ session_id: cap.session_id, decision_id: decisionId, reason_codes: [outcome.reason] });
+    } catch {
+      console.error(`held-action notify failed for session ${cap.session_id}`);
+    }
+  }
   return { decision: outcome.verdict, reason_code: outcome.reason, decision_id: decisionId, message, data: outcome.data };
 }
 

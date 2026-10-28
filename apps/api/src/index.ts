@@ -4,8 +4,11 @@ import { serve } from "@hono/node-server";
 import { activePolicy, appendLedger, createDb, sql } from "@keel/db";
 import { PROMPT_VERSION, extract, extractorModel } from "@keel/extractor";
 import { PayPalClient, configFromEnv } from "@keel/paypal";
+import { riskConfig } from "@keel/risk";
+import { enqueueNotify } from "@keel/worker/queue";
 import { Redis } from "ioredis";
 import { createApp } from "./app";
+import { createRisk } from "./risk";
 import { createGatewayDeps } from "./gateway/deps";
 import { handleTool } from "./gateway/handle";
 import { createOrdersFor, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
@@ -15,9 +18,13 @@ if (!KEEL_SIGNING_KEY || !KEEL_MERCHANT_KEY) throw new Error("KEEL_SIGNING_KEY a
 
 const db = createDb();
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true, maxRetriesPerRequest: 1 });
-const gateway = createGatewayDeps(db, new PayPalClient(configFromEnv()));
 const now = () => new Date();
 const newId = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "")}`;
+const consoleUrl = process.env.CONSOLE_URL ?? "http://localhost:3000";
+const risk = createRisk(db, { cfg: riskConfig(process.env), enqueue: enqueueNotify, consoleUrl, now, newId });
+const notifyHeld = (e: { session_id: string; decision_id: string; reason_codes: string[] }) =>
+  enqueueNotify({ event: "action.held", ...e, console_url: `${consoleUrl}/review`, at: now().toISOString() });
+const gateway = createGatewayDeps(db, new PayPalClient(configFromEnv()), risk, notifyHeld);
 const anthropic = new Anthropic();
 const model = extractorModel(process.env.EXTRACTOR_MODEL);
 const timeoutMs = Number(process.env.EXTRACTOR_TIMEOUT_MS ?? 4000);
