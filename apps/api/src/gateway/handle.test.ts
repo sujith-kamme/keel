@@ -271,6 +271,19 @@ describe("handleTool: risk gate", () => {
     expect(await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"))).toMatchObject({ decision: "HOLD", reason_code: "AGENT_FROZEN" });
   });
 
+  it("re-checks quarantine inside the refund lock, without PayPal, with one ledger row", async () => {
+    const control = vi
+      .fn()
+      .mockResolvedValueOnce({ state: "ACTIVE", agent_frozen: false, score: 0 })
+      .mockResolvedValue(quarantined);
+    const { deps, ledger } = fakes({ control });
+    const r = await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"));
+    expect(r).toMatchObject({ decision: "HOLD", reason_code: "RISK_THRESHOLD" });
+    expect(deps.refundCapture).not.toHaveBeenCalled();
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0]).toMatchObject({ mode: "QUARANTINE", verdict: "HOLD", reason_codes: ["RISK_THRESHOLD"] });
+  });
+
   it("fails closed for money when control throws, but reads still work", async () => {
     const { deps, ledger } = fakes({ control: async () => { throw new Error("db"); } });
     expect(await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"))).toMatchObject({ decision: "HOLD", reason_code: "VERIFIER_UNAVAILABLE" });

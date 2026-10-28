@@ -74,7 +74,7 @@ export async function handleTool(deps: GatewayDeps, cap: Capability, call: ToolC
   const amount = call.tool === "offer_refund" ? call.args.amount : undefined;
 
   const isMoney = call.tool === "offer_refund" || call.tool === "offer_discount";
-  const ctl = await deps.control(cap.session_id).catch(() => null);
+  let ctl = await deps.control(cap.session_id).catch(() => null);
 
   // Exactly one ledger row per call.
   const record = async (outcome: Outcome): Promise<string> => {
@@ -109,7 +109,15 @@ export async function handleTool(deps: GatewayDeps, cap: Capability, call: ToolC
   } else if (call.tool === "offer_refund") {
     // Record before the lock is released, so the next refund's budget facts include this one.
     const locked = await deps.withOrderLock(cap.session_id, call.args.order_id, async () => {
-      const o = await offerRefund(deps, cap, call.args, decisionId, now);
+      // A concurrent assess may have quarantined or frozen the session since the gate above.
+      ctl = await deps.control(cap.session_id).catch(() => null);
+      const o = !ctl
+        ? refuse("HOLD", "VERIFIER_UNAVAILABLE")
+        : ctl.agent_frozen
+          ? refuse("HOLD", "AGENT_FROZEN")
+          : ctl.state === "QUARANTINED"
+            ? refuse("HOLD", "RISK_THRESHOLD")
+            : await offerRefund(deps, cap, call.args, decisionId, now);
       return { outcome: o, message: await record(o) };
     });
     outcome = locked.outcome;
