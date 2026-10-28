@@ -1,4 +1,4 @@
-import { type Db, and, appendLedger, agentControls, asc, eq, inArray, ledgerEntries, sessions } from "@keel/db";
+import { type DbOrTx, and, appendLedger, agentControls, asc, eq, inArray, ledgerEntries, sessions } from "@keel/db";
 import { type RiskConfig, type RiskRow, type RiskSignal, score, shouldQuarantine, signals } from "@keel/risk";
 import type { NotifyEvent } from "@keel/worker/queue";
 
@@ -19,7 +19,7 @@ function customerInjection(payload: Record<string, unknown>): boolean {
 }
 
 export function createRisk(
-  db: Db,
+  db: DbOrTx,
   opts: {
     cfg: RiskConfig;
     enqueue: (e: NotifyEvent) => Promise<void>;

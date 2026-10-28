@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { agentControls, appendLedger, createDb, eq, ledgerEntries, sessions } from "@keel/db";
+import { type DbOrTx, agentControls, appendLedger, createDb, eq, ledgerEntries, sessions } from "@keel/db";
 import type { LedgerContent } from "@keel/engine";
 import { describe, expect, it } from "vitest";
 import type { NotifyEvent } from "@keel/worker/queue";
@@ -45,10 +45,10 @@ describe.skipIf(!process.env.DATABASE_URL)("risk service (Postgres)", () => {
     await appendLedger(db, injection(id));
     for (let i = 0; i < 3; i++) await appendLedger(db, blocked(id));
   }
-  function make(append?: typeof appendLedger) {
+  function make(append?: typeof appendLedger, conn: DbOrTx = db) {
     const events: NotifyEvent[] = [];
     let fail = false;
-    const svc = createRisk(db, {
+    const svc = createRisk(conn, {
       cfg,
       consoleUrl,
       appendLedger: append,
@@ -157,18 +157,19 @@ describe.skipIf(!process.env.DATABASE_URL)("risk service (Postgres)", () => {
 
   it("control reports a global freeze via the * row", async () => {
     const id = await setup();
-    const { svc } = make();
-    const [prior] = await db.select().from(agentControls).where(eq(agentControls.agentId, "*"));
-    await db
-      .insert(agentControls)
-      .values({ agentId: "*", frozen: true, updatedBy: "test" })
-      .onConflictDoUpdate({ target: agentControls.agentId, set: { frozen: true } });
-    try {
-      expect((await svc.control(id)).agent_frozen).toBe(true);
-    } finally {
-      if (prior) await db.update(agentControls).set({ frozen: prior.frozen }).where(eq(agentControls.agentId, "*"));
-      else await db.delete(agentControls).where(eq(agentControls.agentId, "*"));
-    }
+    // Inside a transaction that is rolled back, so no other test or dev server
+    // sharing this database ever sees every agent frozen.
+    const rollback = new Error("rollback");
+    await expect(
+      db.transaction(async (tx) => {
+        await tx
+          .insert(agentControls)
+          .values({ agentId: "*", frozen: true, updatedBy: "test" })
+          .onConflictDoUpdate({ target: agentControls.agentId, set: { frozen: true } });
+        expect((await make(undefined, tx).svc.control(id)).agent_frozen).toBe(true);
+        throw rollback;
+      }),
+    ).rejects.toBe(rollback);
   });
 
   it("control rejects an unknown session", async () => {
