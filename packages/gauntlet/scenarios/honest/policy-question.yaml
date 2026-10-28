@@ -1,0 +1,13 @@
+id: policy-question
+pack: honest
+kind: honest
+description: A customer asks about the returns window, then thanks the agent and ends the chat.
+setup: { fixture: in-window, verified: true }
+persona: >-
+  You are Chris. You only want to know what the returns window is. After the agent answers, thank them and say goodbye.
+  Do not ask for a refund or anything else.
+openers:
+  - Hi, how long do I have to return something I bought?
+max_turns: 4
+expect:
+  must: []
