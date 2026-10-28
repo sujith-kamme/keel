@@ -14,6 +14,8 @@ export interface GuardOptions {
   session: (id: string) => Promise<{ id: string; state: string; expires_at: string } | null>;
   /** Only ledger rows belonging to this session. */
   turnDecisions: (sessionId: string, ids: string[]) => Promise<TurnDecision[]>;
+  /** Executed refund/discount ALLOWs from this session, which may back a restated commitment. */
+  sessionDecisions: (sessionId: string, excludeIds: string[]) => Promise<TurnDecision[]>;
   /** The active approved policy JSON, or null. */
   policy: (policyId: string) => Promise<unknown>;
   control: (sessionId: string) => Promise<{ state: string; agent_frozen: boolean; score: number; mode: string; guard_mode: string }>;
@@ -107,6 +109,13 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
     if (ctl.state === "QUARANTINED") return hold(ctl.score);
 
     const turn_decisions = await opts.turnDecisions(req.session_id, req.tool_calls_this_turn);
+    // Fail closed: a failed lookup means fewer backings, so more blocking.
+    let session_decisions: TurnDecision[] = [];
+    try {
+      session_decisions = await opts.sessionDecisions(req.session_id, req.tool_calls_this_turn);
+    } catch {
+      console.error("session decisions lookup failed", req.session_id);
+    }
     const customer_message = req.conversation.findLast((t) => t.role === "customer")?.text ?? null;
 
     let extraction: Extraction | null = null;
@@ -129,7 +138,7 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
       policies[id] = await lookup(opts, id);
     }
 
-    const input: ReplyInput = { draft: req.draft_reply, extraction, turn_decisions, policies };
+    const input: ReplyInput = { draft: req.draft_reply, extraction, turn_decisions, session_decisions, policies };
     const result = decideReply(input);
     const decision_id = opts.newId("dec");
     await opts.appendLedger({

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { appendLedger, createDb, sessions } from "@keel/db";
 import { type LedgerContent, QUARANTINE_TEMPLATE, SAFE_FALLBACK } from "@keel/engine";
 import { describe, expect, it } from "vitest";
-import { createTurnDecisions, createTurnStore } from "./session-store";
+import { createSessionDecisions, createTurnDecisions, createTurnStore } from "./session-store";
 
 const SUMMARY_KEYS = ["agent_id", "claimed_email", "created_at", "expires_at", "id", "state", "verified"];
 
@@ -98,5 +98,29 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
       { tool: "offer_discount", verdict: "BLOCK", args: {}, message: "I can't offer a discount that large." },
     ]));
     expect(await createTurnDecisions(db)(a, [])).toEqual([]);
+  });
+
+  it("sessionDecisions returns only executed ALLOW refunds and discounts of the asked session", async () => {
+    const mk = async (sid: string, tool: string, verdict: "ALLOW" | "HOLD", execution: unknown, args: unknown = { amount: "5.00" }) => {
+      const decision_id = `dec_${randomUUID().replaceAll("-", "")}`;
+      await appendLedger(db, { decision_id, session_id: sid, order_id: null, capture_id: null, dispute_id: null, mode: "CONTEXT", verdict, reason_codes: ["OK"], payload: { tool, args, ...(execution ? { execution } : {}) } });
+      return decision_id;
+    };
+    const a = `ses_test_${randomUUID().replaceAll("-", "")}`;
+    const b = `ses_test_${randomUUID().replaceAll("-", "")}`;
+    await mk(a, "offer_refund", "ALLOW", { status: "COMPLETED" }, { amount: "1.00" });
+    await mk(a, "offer_refund", "ALLOW", { status: "PENDING" }, { amount: "2.00" });
+    const excluded = await mk(a, "offer_refund", "ALLOW", { status: "COMPLETED" }, { amount: "3.00" });
+    await mk(a, "offer_refund", "ALLOW", { status: "FAILED" });
+    await mk(a, "offer_refund", "HOLD", undefined);
+    await mk(a, "get_order", "ALLOW", undefined);
+    await mk(a, "offer_discount", "ALLOW", { status: "ISSUED" }, { percent: 10 });
+    await mk(b, "offer_refund", "ALLOW", { status: "COMPLETED" }, { amount: "9.00" });
+    const rows = await createSessionDecisions(db)(a, [excluded]);
+    expect(rows).toEqual([
+      { tool: "offer_refund", verdict: "ALLOW", args: { amount: "1.00" } },
+      { tool: "offer_refund", verdict: "ALLOW", args: { amount: "2.00" } },
+      { tool: "offer_discount", verdict: "ALLOW", args: { percent: 10 } },
+    ]);
   });
 });

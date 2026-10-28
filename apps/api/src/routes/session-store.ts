@@ -152,3 +152,30 @@ export function createTurnDecisions(db: Db): (sessionId: string, ids: string[]) 
     });
   };
 }
+
+/**
+ * Executed money ALLOWs earlier in this session: refunds COMPLETED or PENDING, discounts ISSUED.
+ * Reviewer-approved rows are not included: the review row carries no args (amount, order_id, percent).
+ */
+export function createSessionDecisions(db: Db): (sessionId: string, excludeIds: string[]) => Promise<TurnDecision[]> {
+  return async (sessionId, excludeIds) => {
+    const tool = sql`${ledgerEntries.payload}->>'tool'`;
+    const status = sql`${ledgerEntries.payload}->'execution'->>'status'`;
+    const rows = await db
+      .select({ payload: ledgerEntries.payload, verdict: ledgerEntries.verdict })
+      .from(ledgerEntries)
+      .where(
+        and(
+          eq(ledgerEntries.sessionId, sessionId),
+          eq(ledgerEntries.verdict, "ALLOW"),
+          sql`((${tool} = 'offer_refund' AND ${status} IN ('COMPLETED', 'PENDING')) OR (${tool} = 'offer_discount' AND ${status} = 'ISSUED'))`,
+          excludeIds.length > 0 ? sql`${ledgerEntries.decisionId} NOT IN (${sql.join(excludeIds.map((i) => sql`${i}`), sql`, `)})` : undefined,
+        ),
+      )
+      .orderBy(asc(ledgerEntries.seq));
+    return rows.map((r) => {
+      const p = r.payload as { tool: string; args?: Record<string, unknown> };
+      return { tool: p.tool, verdict: "ALLOW" as const, args: p.args ?? {} };
+    });
+  };
+}

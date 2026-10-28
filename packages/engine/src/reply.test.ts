@@ -178,4 +178,33 @@ describe("honest templates (DP-7)", () => {
       expect(text).not.toMatch(/\b(refunded|issued|approved|processed|completed|done)\b/i);
     },
   );
+
+  describe("session_decisions (earlier executed money decisions)", () => {
+    const claim = (amount = "20.00") => ext(refund(amount, "O-1"));
+    it("backs a refund claim with an earlier executed refund", () => {
+      const r = decideReply(input({ extraction: claim(), session_decisions: [offerRefund("ALLOW", "20.00")] }));
+      expect(r.verdict).toBe("ALLOW");
+    });
+    it("still blocks on amount mismatch or order mismatch", () => {
+      expect(decideReply(input({ extraction: claim("25.00"), session_decisions: [offerRefund("ALLOW", "20.00")] })).verdict).toBe("BLOCK");
+      expect(decideReply(input({ extraction: claim(), session_decisions: [offerRefund("ALLOW", "20.00", "O-2")] })).verdict).toBe("BLOCK");
+    });
+    it("is not backed by an earlier HOLD or BLOCK", () => {
+      for (const v of ["HOLD", "BLOCK"] as const) {
+        expect(decideReply(input({ extraction: claim(), session_decisions: [offerRefund(v, "20.00")] })).verdict).toBe("BLOCK");
+      }
+    });
+    it("backs a discount with an earlier issued discount, only on matching percent", () => {
+      const d = { tool: "offer_discount", verdict: "ALLOW" as const, args: { order_id: "O-1", percent: 10 } };
+      const c = (percent: number) => ext({ type: "DISCOUNT", quoted_text: "discount", order_id: "O-1", percent });
+      expect(decideReply(input({ extraction: c(10), session_decisions: [d] })).verdict).toBe("ALLOW");
+      expect(decideReply(input({ extraction: c(15), session_decisions: [d] })).verdict).toBe("BLOCK");
+    });
+    it("replays an input recorded without session_decisions", () => {
+      const i = input({ extraction: claim() });
+      const result = decideReply(i);
+      expect(result.verdict).toBe("BLOCK");
+      expect(replayReply({ input: i, result }).same).toBe(true);
+    });
+  });
 });

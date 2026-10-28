@@ -19,7 +19,7 @@ import { scenarioCatalog, scenariosFor } from "./routes/gauntlet";
 import { createGauntletStore } from "./routes/gauntlet-store";
 import { KNOWN_POLICY_IDS } from "./routes/guard";
 import { createReviewStore } from "./routes/review-store";
-import { createOrdersFor, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
+import { createOrdersFor, createSessionDecisions, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
 
 const { KEEL_SIGNING_KEY, KEEL_MERCHANT_KEY, KEEL_OPERATOR_KEY } = process.env;
 if (!KEEL_SIGNING_KEY || !KEEL_MERCHANT_KEY || !KEEL_OPERATOR_KEY) {
@@ -79,6 +79,7 @@ const app = createApp({
     merchantKey: KEEL_MERCHANT_KEY,
     session: turnStore.session,
     turnDecisions: createTurnDecisions(db),
+    sessionDecisions: createSessionDecisions(db),
     policy: (id) => activePolicy(db, id),
     control: risk.control,
     assess: risk.assess,

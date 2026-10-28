@@ -28,6 +28,7 @@ function setup(over: Partial<GuardOptions> = {}) {
       calls.turnDecisions.push([sid, ids]);
       return [];
     },
+    sessionDecisions: async () => [],
     policy: async (id) => {
       calls.policy.push(id);
       return id === "policy-bereavement" ? { id, approved_text: APPROVED } : null;
@@ -118,6 +119,37 @@ describe("POST /v1/guard", () => {
     const out = (await (await post(app, { ...valid, draft_reply: "I refunded $10.", tool_calls_this_turn: ids })).json()) as Record<string, unknown>;
     expect(out).toMatchObject({ verdict: "ALLOW", final_reply: "I refunded $10." });
     expect(calls.turnDecisions).toEqual([["ses_live", ids]]);
+  });
+
+  it("passes session decisions to decideReply and records them for replay", async () => {
+    const earlier: TurnDecision = { tool: "offer_refund", verdict: "ALLOW", args: { order_id: "O-1", amount: "20.00" } };
+    const asked: unknown[] = [];
+    const { app, ledger } = setup({
+      sessionDecisions: async (sid, ids) => {
+        asked.push([sid, ids]);
+        return [earlier];
+      },
+      extract: async () => extraction([{ type: "REFUND", quoted_text: "refund", order_id: "O-1", amount: { value: "20.00", currency: "USD" } }]),
+    });
+    const out = (await (await post(app, { ...valid, draft_reply: "Your $20.00 refund is on its way", tool_calls_this_turn: ["dec_x"] })).json()) as Record<string, unknown>;
+    expect(out).toMatchObject({ verdict: "ALLOW" });
+    expect(asked).toEqual([["ses_live", ["dec_x"]]]);
+    const p = ledger[0]!.payload as { input: { session_decisions: unknown }; result: never };
+    expect(p.input.session_decisions).toEqual([earlier]);
+    expect(replayReply({ input: p.input as never, result: p.result }).same).toBe(true);
+  });
+
+  it("answers with an empty session_decisions when the lookup throws", async () => {
+    const { app, ledger } = setup({
+      sessionDecisions: async () => {
+        throw new Error("db down");
+      },
+      extract: async () => extraction([{ type: "REFUND", quoted_text: "refund" }]),
+    });
+    const res = await post(app, valid);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ verdict: "BLOCK", reason_codes: ["FREE_TEXT_COMMITMENT"] });
+    expect((ledger[0]!.payload as { input: { session_decisions: unknown } }).input.session_decisions).toEqual([]);
   });
 
   it("fails closed when the extractor throws", async () => {

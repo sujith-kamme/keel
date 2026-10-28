@@ -19,6 +19,8 @@ export interface ReplyInput {
   draft: string;
   extraction: Extraction | null; // null = extractor failed or timed out
   turn_decisions: TurnDecision[];
+  /** Executed money ALLOWs from earlier in the same session; restating one is truthful. Absent in old rows. */
+  session_decisions?: TurnDecision[];
   policies: Record<string, { approved_text: string } | null>;
 }
 
@@ -80,7 +82,7 @@ const sameArgs = (c: Commitment, d: TurnDecision) =>
 
 function isBacked(c: Commitment, input: ReplyInput): boolean {
   if (quotesKeel(c, input)) return true;
-  const allowed = (tool: string) => input.turn_decisions.filter((d) => d.tool === tool && d.verdict === "ALLOW");
+  const allowed = (tool: string) => [...input.turn_decisions, ...(input.session_decisions ?? [])].filter((d) => d.tool === tool && d.verdict === "ALLOW");
   switch (c.type) {
     case "REFUND":
       return allowed("offer_refund").some((d) => sameArgs(c, d));
