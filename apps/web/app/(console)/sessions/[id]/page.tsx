@@ -3,8 +3,10 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { AutoRefresh } from "@/components/auto-refresh";
+import { AddToGauntlet } from "@/components/add-to-gauntlet";
 import { ReleaseButton } from "@/components/release-button";
 import { KeelError, sessionDetail, type DecisionSummary, type SessionDetail } from "@/lib/keel";
+import { canLearn } from "@/lib/context-view";
 import { canRelease } from "@/lib/review-view";
 import { attachDecisions, riskLevel, riskWidth, signalLabel } from "@/lib/sessions-view";
 
@@ -100,6 +102,11 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         {canRelease(session.state) && (
           <span className="ml-2">
             <ReleaseButton sessionId={session.id} />
+          </span>
+        )}
+        {canLearn(session.state, detail.decisions.map((d) => d.verdict)) && (
+          <span className="ml-2">
+            <AddToGauntlet sessionId={session.id} />
           </span>
         )}
       </p>

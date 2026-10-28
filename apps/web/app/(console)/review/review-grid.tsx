@@ -5,6 +5,7 @@ import { AgGridReact } from "ag-grid-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { AddToGauntlet } from "@/components/add-to-gauntlet";
 import { ReleaseButton } from "@/components/release-button";
 import { relativeTime } from "@/lib/sessions-view";
 import type { ReviewRow } from "@/lib/review-view";
@@ -47,7 +48,12 @@ function HeldActions({ row }: { row: ReviewRow }) {
 function Actions({ data }: ICellRendererParams<ReviewRow>) {
   if (!data) return null;
   if (data.kind === "held_action") return <HeldActions row={data} />;
-  return data.canRelease ? <ReleaseButton sessionId={data.sessionId} /> : null;
+  return (
+    <span className="inline-flex items-center gap-2">
+      {data.canRelease && <ReleaseButton sessionId={data.sessionId} />}
+      <AddToGauntlet sessionId={data.sessionId} />
+    </span>
+  );
 }
 
 const columns: ColDef<ReviewRow>[] = [
