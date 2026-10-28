@@ -10,6 +10,8 @@ export function LoginForm() {
   const field = "rounded border border-black/20 bg-transparent px-3 py-2 text-sm dark:border-white/20";
   return (
     <form action={action} className="flex w-72 flex-col gap-3">
+      <img src="/keel-logo-on-light-transparent.svg" alt="Keel" className="h-10 w-auto self-start dark:hidden" />
+      <img src="/keel-logo-on-dark-transparent.svg" alt="Keel" className="hidden h-10 w-auto self-start dark:block" />
       <h1 className="text-lg font-semibold">Keel console</h1>
       <input type="hidden" name="next" value={next} />
       <input name="username" placeholder="Username" autoComplete="username" required className={field} />
