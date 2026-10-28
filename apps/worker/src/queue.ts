@@ -13,12 +13,27 @@ export function redisConnection() {
 
 let queue: Queue | undefined;
 
+const ENQUEUE_TIMEOUT_MS = 2000;
+
+// BullMQ waits for Redis indefinitely, so callers get a hard timeout instead:
+// notifications never block decisions (FR-NTF-2).
 export async function enqueueNotify(event: NotifyEvent): Promise<void> {
   queue ??= new Queue(QUEUE, { connection: redisConnection() });
-  await queue.add("notify", event, {
-    attempts: 5,
-    backoff: { type: "exponential", delay: 5000 },
-    removeOnComplete: 100,
-    removeOnFail: 500,
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("enqueue timed out")), ENQUEUE_TIMEOUT_MS);
   });
+  try {
+    await Promise.race([
+      queue.add("notify", event, {
+        attempts: 5,
+        backoff: { type: "exponential", delay: 5000 },
+        removeOnComplete: 100,
+        removeOnFail: 500,
+      }),
+      timeout,
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
