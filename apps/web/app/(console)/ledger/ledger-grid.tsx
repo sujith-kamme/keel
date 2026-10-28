@@ -1,8 +1,9 @@
 "use client";
 
-import { colorSchemeVariable, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
+import { colorSchemeVariable, themeQuartz, type ColDef, type GridApi, type ICellRendererParams, type StructuredSchemaParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import Link from "next/link";
+import { AskGrid } from "@/components/ask-grid";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { VERDICT_STYLE, amountValue, chainMessage, type ChainResult, type LedgerPage, type LedgerRow } from "@/lib/ledger-view";
 import { loadOlder, verify } from "./actions";
@@ -52,7 +53,7 @@ const columns: ColDef<LedgerRow>[] = [
     headerName: "Reason codes",
     field: "reason_codes",
     valueFormatter: (p) => (Array.isArray(p.value) ? p.value.join(", ") : String(p.value ?? "")),
-    filter: "agSetColumnFilter",
+    ...set,
     flex: 1,
     minWidth: 180,
   },
@@ -72,6 +73,18 @@ const columns: ColDef<LedgerRow>[] = [
   { headerName: "Hash", field: "hash", valueFormatter: (p) => (p.value ? `${String(p.value).slice(0, 12)}…` : ""), width: 140 },
 ];
 
+const ASK_EXAMPLES = ["held refunds over $50 grouped by reason code", "blocked decisions this week, newest first", "dispute decisions only"];
+const ASK_SCHEMA: StructuredSchemaParams = {
+  columns: {
+    verdict: { includeSetValues: true },
+    tool: { includeSetValues: true, description: "dispute_action is an operator's dispute decision (ALLOW conceded, BLOCK defended)" },
+    reason_codes: { includeSetValues: true },
+    mode: { includeSetValues: true },
+    amount: { description: "Refund amount in dollars" },
+  },
+};
+const ASK_FILTERS = ["created_at", "verdict", "tool", "reason_codes", "amount", "mode"];
+
 const btn = "rounded border border-black/20 px-3 py-1 text-sm hover:bg-black/5 disabled:opacity-50 dark:border-white/20 dark:hover:bg-white/10";
 
 export function LedgerGrid({ initial }: { initial: LedgerPage }) {
@@ -84,6 +97,7 @@ export function LedgerGrid({ initial }: { initial: LedgerPage }) {
     return () => mq.removeEventListener("change", apply);
   }, []);
   const gridRef = useRef<AgGridReact<LedgerRow>>(null);
+  const [api, setApi] = useState<GridApi<LedgerRow> | null>(null);
   const [rows, setRows] = useState(initial.rows);
   const [next, setNext] = useState(initial.next_before_seq);
   const [chain, setChain] = useState<ChainResult | null>(null);
@@ -112,7 +126,8 @@ export function LedgerGrid({ initial }: { initial: LedgerPage }) {
 
   return (
     <div className="mt-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <AskGrid api={api} examples={ASK_EXAMPLES} schemaParams={ASK_SCHEMA} filterColumns={ASK_FILTERS} />
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <button className={btn} onClick={() => gridRef.current?.api.exportDataAsCsv({ fileName: "keel-ledger.csv" })}>
           Export CSV
         </button>
@@ -143,6 +158,7 @@ export function LedgerGrid({ initial }: { initial: LedgerPage }) {
           columnDefs={columns}
           defaultColDef={defaultColDef}
           getRowId={(p) => String(p.data.seq)}
+          onGridReady={(e) => setApi(e.api)}
           rowGroupPanelShow="always"
           masterDetail
           detailCellRenderer={Payload}

@@ -117,6 +117,10 @@ export const verifyLedger = () => operator<ChainResult>("/v1/ledger/verify");
 
 export const overview = () => operator<Overview>("/v1/overview");
 
+/** Natural language → AG Grid state ("Ask the ledger"). Only the query and the grid's schema are sent, never rows. */
+export const gridQuery = async (query: string, schema: Record<string, unknown>) =>
+  (await operator<{ state: Record<string, unknown> }>("/v1/grid-query", post({ query, schema }))).state;
+
 /** The ledger JSON export as a stream. */
 export async function ledgerExport(): Promise<ReadableStream<Uint8Array>> {
   const { keelApiUrl, operatorKey } = env();
