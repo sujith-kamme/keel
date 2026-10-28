@@ -6,15 +6,18 @@ import { activePolicy, appendLedger, createDb, sql } from "@keel/db";
 import { PROMPT_VERSION, extract, extractorModel } from "@keel/extractor";
 import { type Versions, customerModel, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
 import { PayPalClient, configFromEnv } from "@keel/paypal";
+import { acceptClaim, adjudicate, escalate, getDispute, listDisputes, provideEvidence, verifyWebhook } from "@keel/paypal/disputes";
 import { riskConfig } from "@keel/risk";
 import { type KeelClient, KeelHttpError, gauntletConcurrency, runGauntlet } from "@keel/worker/gauntlet";
-import { enqueueGauntlet, enqueueNotify } from "@keel/worker/queue";
+import { type DisputeDeps, pollDisputes, syncDispute } from "@keel/worker/dispute";
+import { enqueueDisputePoll, enqueueDisputeSync, enqueueGauntlet, enqueueNotify, scheduleDisputePoll } from "@keel/worker/queue";
 import { Redis } from "ioredis";
 import { createApp } from "./app";
 import { createRisk } from "./risk";
 import { createGatewayDeps } from "./gateway/deps";
 import { handleTool } from "./gateway/handle";
 import { createAgentStore } from "./routes/agent-store";
+import { createDisputeStore } from "./routes/dispute-store";
 import { scenarioCatalog, scenariosFor } from "./routes/gauntlet";
 import { createGauntletStore } from "./routes/gauntlet-store";
 import { KNOWN_POLICY_IDS } from "./routes/guard";
@@ -34,7 +37,8 @@ const consoleUrl = process.env.CONSOLE_URL ?? "http://localhost:3000";
 const risk = createRisk(db, { cfg: riskConfig(process.env), enqueue: enqueueNotify, consoleUrl, now, newId });
 const notifyHeld = (e: { session_id: string; decision_id: string; reason_codes: string[] }) =>
   enqueueNotify({ event: "action.held", ...e, console_url: `${consoleUrl}/review`, at: now().toISOString() });
-const gateway = createGatewayDeps(db, new PayPalClient(configFromEnv()), risk, notifyHeld);
+const paypal = new PayPalClient(configFromEnv());
+const gateway = createGatewayDeps(db, paypal, risk, notifyHeld);
 const anthropic = new Anthropic();
 const model = extractorModel(process.env.EXTRACTOR_MODEL);
 const timeoutMs = Number(process.env.EXTRACTOR_TIMEOUT_MS ?? 4000);
@@ -53,6 +57,40 @@ const currentVersions = async (): Promise<Versions> => {
     if (typeof version === "number") policies[id] = version;
   }
   return { agent_model: demoAgent.model, agent_prompt: demoAgent.mode, extractor_model: model, extractor_prompt_version: PROMPT_VERSION, policies };
+};
+// Disputes (Phase 6). DISPUTE_AUTO_SUBMIT=true acts on DEFEND/CONCEDE without an operator (demo).
+const disputePollSeconds = Number(process.env.DISPUTE_POLL_SECONDS ?? 120);
+if (!Number.isInteger(disputePollSeconds) || disputePollSeconds < 30 || disputePollSeconds > 3600) {
+  throw new Error("DISPUTE_POLL_SECONDS must be an integer from 30 to 3600");
+}
+const webhookId = process.env.PAYPAL_WEBHOOK_ID?.trim() || null;
+const disputeStore = createDisputeStore(db);
+const disputeDeps: DisputeDeps = {
+  store: disputeStore,
+  paypal: {
+    get: (id) => getDispute(paypal, id),
+    list: (after) => listDisputes(paypal, after),
+    refunds: async (orderId) =>
+      (await paypal.getOrderDetails(orderId)).purchase_units
+        .flatMap((u) => u.payments?.refunds ?? [])
+        .map((r) => ({ id: r.id, status: r.status, amount: r.amount.value })),
+    capture: async (id) => {
+      const c = await paypal.getCapture(id);
+      return { id: c.id, status: c.status, amount: c.amount.value };
+    },
+    provideEvidence: (id, e, requestId) => provideEvidence(paypal, id, e, requestId),
+    acceptClaim: (id, note, requestId) => acceptClaim(paypal, id, note, requestId),
+  },
+  // The buyer's dispute text goes to the extractor as customer data, never as instructions (FR-SEC-5).
+  scan: async (text) =>
+    (await extract({ parse: (p, o) => anthropic.messages.parse(p, o), model, timeoutMs: 15_000 }, { draft: "", customer_message: text, policy_ids: [] }))
+      .injection_signals.some((s) => s.source === "customer"),
+  notify: enqueueNotify,
+  enqueueSync: enqueueDisputeSync,
+  autoSubmit: process.env.DISPUTE_AUTO_SUBMIT === "true",
+  consoleUrl,
+  newId,
+  now,
 };
 // Render injects PORT; API_PORT is the local default.
 const port = Number(process.env.PORT ?? process.env.API_PORT ?? 8787);
@@ -108,6 +146,21 @@ const app = createApp({
       draftScenario({ parse: (p, o) => anthropic.messages.parse(p, o), model: draftModel, timeoutMs: 20_000 }, src, at),
     saveScenario: gauntletStore.saveLearned,
   },
+  disputes: {
+    operatorKey: KEEL_OPERATOR_KEY,
+    merchantKey: KEEL_MERCHANT_KEY,
+    store: disputeStore,
+    deps: disputeDeps,
+    appendLedger: (c) => appendLedger(db, c),
+    enqueueSync: enqueueDisputeSync,
+    enqueuePoll: enqueueDisputePoll,
+    sandbox: paypal.isSandbox
+      ? { escalate: (id) => escalate(paypal, id, "Requesting PayPal review."), adjudicate: (id, outcome) => adjudicate(paypal, id, outcome) }
+      : undefined,
+    webhook: webhookId ? (headers, raw) => verifyWebhook(paypal, headers, raw, webhookId) : null,
+    now,
+    newId,
+  },
 });
 
 // When this process runs the worker, any QUEUED or RUNNING run at start-up was
@@ -149,7 +202,9 @@ if (process.env.RUN_WORKER === "true") {
     guard: (body) => keel("/v1/guard", body),
   };
   const createMessage = (p: Anthropic.MessageCreateParamsNonStreaming) => anthropic.messages.create(p);
+  await scheduleDisputePoll(disputePollSeconds);
   startWorker({
+    dispute: { sync: (id) => syncDispute(disputeDeps, id), poll: () => pollDisputes(disputeDeps) },
     gauntlet: (runId) =>
       runGauntlet(
         {

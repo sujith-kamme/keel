@@ -51,6 +51,11 @@ export async function enqueueDisputeSync(disputeId: string): Promise<void> {
   });
 }
 
+/** A poll now (console "Check PayPal now"); dedupes with a poll already waiting. */
+export async function enqueueDisputePoll(): Promise<void> {
+  await add("dispute.poll", {}, { jobId: "dispute-poll-now", removeOnComplete: true, removeOnFail: true });
+}
+
 /** The polling fallback for missed webhooks (DISPUTE_POLL_SECONDS). */
 export async function scheduleDisputePoll(everySeconds: number): Promise<void> {
   queue ??= new Queue(QUEUE, { connection: redisConnection() });
