@@ -52,7 +52,7 @@ const app = createApp({
     newId,
   },
   store: { merchantKey: KEEL_MERCHANT_KEY, ordersFor: createOrdersFor(db) },
-  turns: { merchantKey: KEEL_MERCHANT_KEY, store: turnStore, now },
+  turns: { merchantKey: KEEL_MERCHANT_KEY, store: turnStore, now, riskDetail: risk.detail },
   guard: {
     merchantKey: KEEL_MERCHANT_KEY,
     session: turnStore.session,

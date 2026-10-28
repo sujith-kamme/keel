@@ -36,6 +36,12 @@ export interface DecisionSummary {
   };
 }
 
+export interface SessionRisk {
+  score: number;
+  threshold: number;
+  signals: { kind: string; weight: number; at: string }[];
+}
+
 export interface TurnStore {
   /** Newest first. */
   listSessions: (limit: number) => Promise<SessionSummary[]>;
@@ -52,6 +58,7 @@ export interface TurnOptions {
   merchantKey: string;
   store: TurnStore;
   now: () => Date;
+  riskDetail: (sessionId: string) => Promise<SessionRisk>;
 }
 
 const Limit = z.coerce.number().int().min(1).max(100);
@@ -83,8 +90,12 @@ export function mountTurns(app: Hono, opts: TurnOptions): void {
     const id = c.req.param("id");
     const session = await opts.store.session(id);
     if (!session) return c.json({ error: "not_found" }, 404);
-    const [turns, decisions] = await Promise.all([opts.store.turns(id), opts.store.decisions(id)]);
-    return c.json({ session, turns, decisions });
+    const [turns, decisions, risk] = await Promise.all([
+      opts.store.turns(id),
+      opts.store.decisions(id),
+      opts.riskDetail(id).catch(() => null),
+    ]);
+    return c.json({ session, turns, decisions, risk });
   });
 
   app.post("/v1/sessions/:id/turns", async (c) => {

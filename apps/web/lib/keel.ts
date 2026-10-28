@@ -63,6 +63,7 @@ export interface SessionDetail {
   session: SessionSummary;
   turns: Turn[];
   decisions: DecisionSummary[];
+  risk: { score: number; threshold: number; signals: { kind: string; weight: number; at: string }[] } | null;
 }
 
 async function keel<T>(path: string, init?: RequestInit): Promise<T> {

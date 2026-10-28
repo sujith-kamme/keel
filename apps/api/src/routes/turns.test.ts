@@ -16,7 +16,9 @@ const session = (id: string, expires_at: string): SessionSummary => ({
   expires_at,
 });
 
-function setup() {
+const detail = { score: 40, threshold: 60, signals: [{ kind: "INJECTION", weight: 40, at: "2026-10-27T11:45:00.000Z" }] };
+
+function setup(riskDetail: () => Promise<typeof detail> = async () => detail) {
   const sessions = [
     session("ses_live", "2026-10-27T12:30:00.000Z"),
     session("ses_old", "2026-10-27T11:59:00.000Z"),
@@ -33,7 +35,7 @@ function setup() {
     customerTurnCount: async (id) => turns.filter((t) => t.sessionId === id && t.role === "customer").length,
   };
   const app = new Hono();
-  mountTurns(app, { merchantKey, store, now: () => now });
+  mountTurns(app, { merchantKey, store, now: () => now, riskDetail });
   return { app, turns };
 }
 
@@ -88,6 +90,17 @@ describe("turns API", () => {
     const text = JSON.stringify(await res.json());
     expect(text).toContain("ses_old");
     for (const key of ["otp_hash", "otp_attempts", "otpHash"]) expect(text).not.toContain(key);
+  });
+
+  it("includes session risk, and null when the risk lookup fails", async () => {
+    const ok = await (await setup().app.request("/v1/sessions/ses_live", { headers: auth })).json();
+    expect((ok as { risk: unknown }).risk).toEqual(detail);
+    const down = setup(async () => {
+      throw new Error("db down");
+    });
+    const res = await down.app.request("/v1/sessions/ses_live", { headers: auth });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { risk: unknown }).risk).toBeNull();
   });
 
   it.each([
