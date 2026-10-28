@@ -1,5 +1,5 @@
 import { fromCents, toCents } from "@keel/engine";
-import { and, eq, gte, sql } from "drizzle-orm";
+import { and, eq, gte, ne, sql } from "drizzle-orm";
 import type { Db } from "./client";
 import { ledgerEntries } from "./schema";
 
@@ -15,14 +15,24 @@ const amount = sql<string>`${ledgerEntries.payload}->'execution'->>'amount'`;
 
 const sum = (rows: { amount: string }[]) => fromCents(rows.reduce((total, row) => total + toCents(row.amount), 0));
 
-/** Budget facts from the ledger: this session's refunds and all refunds in the last 24 hours. */
+/**
+ * Budget facts from the ledger: this session's refunds and all refunds in the last 24 hours.
+ * The daily total leaves out CONTEXT (sandbox certification and test) runs, so
+ * they can never use up the live merchant budget.
+ */
 export async function refundTotals(db: Db, sessionId: string, now: Date) {
   const [session, daily] = await Promise.all([
     db.select({ amount }).from(ledgerEntries).where(and(executedRefund, eq(ledgerEntries.sessionId, sessionId))),
     db
       .select({ amount })
       .from(ledgerEntries)
-      .where(and(executedRefund, gte(ledgerEntries.createdAt, new Date(now.getTime() - DAY_MS)))),
+      .where(
+        and(
+          executedRefund,
+          ne(ledgerEntries.mode, "CONTEXT"),
+          gte(ledgerEntries.createdAt, new Date(now.getTime() - DAY_MS)),
+        ),
+      ),
   ]);
   return { session_refunded: sum(session), daily_refunded: sum(daily) };
 }

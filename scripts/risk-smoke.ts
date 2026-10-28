@@ -44,7 +44,7 @@ const step = (name: string, ok: boolean, detail = "") => {
 type Orders = { orders: { order_id: string; scenario: string }[] };
 type ToolResult = { decision: string; reason_code: string; decision_id: string; message: string; data?: Record<string, unknown> };
 type Guarded = { verdict: string; reason_codes: string[]; final_reply: string; decision_id: string };
-type Detail = { state: string; risk: { score: number; threshold: number; signals: { kind: string }[] } | null };
+type Detail = { session: { state: string }; risk: { score: number; threshold: number; signals: { kind: string }[] } | null };
 type ReviewList = { items: { kind: string; decision_id?: string }[] };
 
 async function connect(token: string) {
@@ -126,7 +126,7 @@ try {
     step(`3.${i} discount 90% blocked`, r.decision === "BLOCK" && r.reason_code === "DISCOUNT_EXCEEDS_LIMIT", `${r.decision} ${r.reason_code}`);
   }
   const d3 = await detail(id);
-  step("3 session quarantined", d3.state === "QUARANTINED" && (d3.risk?.score ?? 0) >= 60, `${d3.state}, score ${d3.risk?.score}`);
+  step("3 session quarantined", d3.session.state === "QUARANTINED" && (d3.risk?.score ?? 0) >= 60, `${d3.session.state}, score ${d3.risk?.score}`);
 
   const held = await agent("offer_refund", refund(inPolicy));
   step("4 refund held", held.decision === "HOLD" && held.reason_code === "RISK_THRESHOLD", `${held.decision} ${held.reason_code}`);

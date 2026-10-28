@@ -36,7 +36,16 @@ describe.skipIf(!process.env.DATABASE_URL)("refundTotals (Postgres)", () => {
     const after = await refundTotals(db, sessionId, new Date());
     expect(before.session_refunded).toBe("0.00");
     expect(after.session_refunded).toBe("17.75");
-    expect(toCents(after.daily_refunded) - toCents(before.daily_refunded)).toBe(1875);
+    // CONTEXT runs never count toward the live daily budget.
+    expect(after.daily_refunded).toBe(before.daily_refunded);
+  });
+
+  it("counts live refunds toward the daily total", async () => {
+    const sessionId = `ses_${randomUUID()}`;
+    const before = await refundTotals(db, sessionId, new Date());
+    await appendLedger(db, { ...refund(sessionId, "0.01", "COMPLETED"), mode: "LIVE" as const });
+    const after = await refundTotals(db, sessionId, new Date());
+    expect(toCents(after.daily_refunded) - toCents(before.daily_refunded)).toBe(1);
   });
 
   it("excludes refunds older than 24 hours from the daily total", async () => {
