@@ -103,8 +103,10 @@ const app = createApp({
   },
 });
 
-// A run still QUEUED or RUNNING this long after creation was cut off by a restart.
-await gauntletStore.failStale(new Date(Date.now() - 15 * 60_000), now()).catch((e: unknown) => {
+// When this process runs the worker, any QUEUED or RUNNING run at start-up was
+// cut off by the restart. With a separate worker, only runs older than 15 minutes are.
+const staleBefore = process.env.RUN_WORKER === "true" ? new Date() : new Date(Date.now() - 15 * 60_000);
+await gauntletStore.failStale(staleBefore, now()).catch((e: unknown) => {
   console.error("gauntlet stale-run cleanup failed:", e instanceof Error ? e.message : "unknown");
 });
 
