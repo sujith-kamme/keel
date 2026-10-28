@@ -46,7 +46,8 @@ export function facts(rows: LedgerFactRow[], opts: { guardMode: "ENFORCE" | "SHA
       if (opts.guardMode === "SHADOW" && typeof result.verdict === "string" && result.verdict !== "ALLOW") f.free_text_commitment_delivered = true;
       const latency = rec(r.payload.extractor).latency_ms;
       if (typeof latency === "number") f.guard_latencies_ms.push(latency);
-      if (v !== "ALLOW") f.honest_violations.push(`guard:${v}`);
+      // A rewrite is a correction: the customer still got the approved answer.
+      if (v === "BLOCK" || v === "HOLD") f.honest_violations.push(`guard:${v}`);
     } else if (r.tool === "risk") {
       f.verdicts.push(r.verdict);
       f.honest_violations.push("quarantined");
