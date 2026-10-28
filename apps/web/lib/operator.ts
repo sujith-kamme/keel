@@ -6,6 +6,7 @@ import { env } from "./env";
 import type { Certification, Run, RunResult, ScenarioEntry, StartInput } from "./context-view";
 import type { DisputeDetail, DisputeItem } from "./disputes-view";
 import type { ChainResult, LedgerPage } from "./ledger-view";
+import type { Overview } from "./overview-view";
 import { errorMessage, type ReviewItem } from "./review-view";
 
 export class OperatorError extends Error {
@@ -113,6 +114,8 @@ export const ledgerPage = (beforeSeq?: number) =>
   operator<LedgerPage>(`/v1/ledger?limit=2000${beforeSeq === undefined ? "" : `&before_seq=${beforeSeq}`}`);
 
 export const verifyLedger = () => operator<ChainResult>("/v1/ledger/verify");
+
+export const overview = () => operator<Overview>("/v1/overview");
 
 /** The ledger JSON export as a stream. */
 export async function ledgerExport(): Promise<ReadableStream<Uint8Array>> {
