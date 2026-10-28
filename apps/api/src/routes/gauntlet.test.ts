@@ -1,4 +1,4 @@
-import { type DraftSource, NotEligible, type Scenario, Scorecard, Versions } from "@keel/gauntlet";
+import { type DraftSource, NotEligible, type Scenario, type Scorecard, type Versions } from "@keel/gauntlet";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
 import { type GauntletOptions, type GauntletRunStore, type RunView, mountGauntlet, scenarioCatalog, scenariosFor } from "./gauntlet";
