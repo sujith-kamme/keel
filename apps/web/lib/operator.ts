@@ -1,0 +1,76 @@
+import "server-only";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { CONSOLE_COOKIE, isConsoleSession } from "./console-auth";
+import { env } from "./env";
+import { errorMessage, type ReviewItem } from "./review-view";
+
+export class OperatorError extends Error {
+  constructor(
+    readonly status: number,
+    readonly error?: string,
+    readonly reasonCode?: string,
+  ) {
+    super(error ?? `Keel API responded ${status}`);
+  }
+}
+
+export interface AgentControl {
+  agent_id: string;
+  frozen: boolean;
+  updated_at: string | null;
+  updated_by: string | null;
+}
+
+/** Same check as the proxy; server actions are public endpoints, so they re-verify. */
+export async function requireConsole(): Promise<{ user: string }> {
+  const { webSecret, consoleUser } = env();
+  if (!isConsoleSession((await cookies()).get(CONSOLE_COOKIE)?.value, webSecret, new Date())) redirect("/login");
+  return { user: consoleUser };
+}
+
+async function operator<T>(path: string, init?: RequestInit): Promise<T> {
+  const { keelApiUrl, operatorKey } = env();
+  const res = await fetch(`${keelApiUrl}${path}`, {
+    ...init,
+    headers: { authorization: `Bearer ${operatorKey}`, "content-type": "application/json" },
+    signal: AbortSignal.timeout(90_000),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string; reason_code?: string } | null;
+    throw new OperatorError(res.status, body?.error, body?.reason_code);
+  }
+  return (await res.json()) as T;
+}
+
+const post = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
+
+export const reviewQueue = async () => (await operator<{ items: ReviewItem[] }>("/v1/review")).items;
+
+export const approveHeld = (decisionId: string, reviewer: string) =>
+  operator<unknown>(`/v1/review/${encodeURIComponent(decisionId)}/approve`, post({ reviewer }));
+
+export const denyHeld = (decisionId: string, reviewer: string) =>
+  operator<unknown>(`/v1/review/${encodeURIComponent(decisionId)}/deny`, post({ reviewer }));
+
+export const releaseSession = (sessionId: string, reviewer: string) =>
+  operator<unknown>(`/v1/sessions/${encodeURIComponent(sessionId)}/release`, post({ reviewer }));
+
+export const agentControl = (agentId: string) => operator<AgentControl>(`/v1/agents/${encodeURIComponent(agentId)}`);
+
+export const setFrozen = (agentId: string, frozen: boolean, operatorName: string) =>
+  operator<AgentControl>(`/v1/agents/${encodeURIComponent(agentId)}/${frozen ? "freeze" : "unfreeze"}`, post({ operator: operatorName }));
+
+export type ActionResult = { ok: true } | { ok: false; message: string };
+
+/** Turns an API failure into an inline message; anything else is rethrown. */
+export async function toResult(fn: () => Promise<unknown>): Promise<ActionResult> {
+  try {
+    await fn();
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof OperatorError) return { ok: false, message: errorMessage(e.status, e.error, e.reasonCode) };
+    throw e;
+  }
+}
