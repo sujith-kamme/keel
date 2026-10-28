@@ -57,7 +57,7 @@ const columns: ColDef<ReviewRow>[] = [
     headerName: "Session",
     field: "sessionId",
     cellRenderer: ({ value }: ICellRendererParams<ReviewRow, string>) => (
-      <Link href={`/sessions/${value}`} className="underline">
+      <Link href={`/sessions/${encodeURIComponent(value)}`} className="underline">
         {value}
       </Link>
     ),
