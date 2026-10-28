@@ -96,7 +96,7 @@ describe("syncDispute", () => {
     const [, evidence, requestId] = t.paypal.provideEvidence.mock.calls[0] as unknown as [string, { evidence_type: string; file: { bytes: Uint8Array } }, string];
     expect(evidence.evidence_type).toBe("PROOF_OF_FULFILLMENT");
     expect(new TextDecoder().decode(evidence.file.bytes.slice(0, 5))).toBe("%PDF-");
-    expect(requestId).toBe("dec_1-evidence-INQUIRY");
+    expect(requestId).toBe("dec_1-evidence-INQUIRY-PROOF_OF_FULFILLMENT");
     await syncDispute(t.deps, "PP-D-1");
     expect(t.paypal.provideEvidence).toHaveBeenCalledTimes(1);
     expect(t.ledger).toHaveLength(1);
@@ -151,13 +151,23 @@ describe("syncDispute", () => {
     expect(t.rows.get("PP-D-1")!.action).toBe("EVIDENCE_SUBMITTED");
   });
 
+  it("submits the evidence type PayPal requested after classification", async () => {
+    // PayPal asks for evidence only once its review ends, after Keel has classified.
+    const t = setup({ d: dispute({ status: "UNDER_REVIEW", evidences: [], links: links() }) });
+    await syncDispute(t.deps, "PP-D-1");
+    t.setDispute(dispute());
+    await syncDispute(t.deps, "PP-D-1");
+    const [, evidence] = t.paypal.provideEvidence.mock.calls[0] as unknown as [string, { evidence_type: string }];
+    expect(evidence.evidence_type).toBe("PROOF_OF_FULFILLMENT");
+  });
+
   it("submits evidence again when PayPal asks at the claim stage", async () => {
     const t = setup();
     await syncDispute(t.deps, "PP-D-1");
     t.setDispute(dispute({ dispute_life_cycle_stage: "CHARGEBACK" }));
     await syncDispute(t.deps, "PP-D-1");
     expect(t.paypal.provideEvidence).toHaveBeenCalledTimes(2);
-    expect(t.paypal.provideEvidence.mock.calls[1]?.[2]).toBe("dec_1-evidence-CHARGEBACK");
+    expect(t.paypal.provideEvidence.mock.calls[1]?.[2]).toBe("dec_1-evidence-CHARGEBACK-PROOF_OF_FULFILLMENT");
   });
 
   it("leaves REVIEW for the operator without touching PayPal", async () => {

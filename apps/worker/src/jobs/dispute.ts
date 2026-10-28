@@ -289,12 +289,16 @@ export async function act(deps: DisputeDeps, d: Dispute, row: DisputeRow, kind: 
   if (kind === "evidence" && !(row.evidence_pdf && row.evidence_type && row.evidence_notes)) return "NO_EVIDENCE";
   if (!hasAction(d, rel)) return "NOT_OFFERED";
   if (!(await deps.store.setAction(d.dispute_id, from, "SUBMITTING", null, now))) return "BUSY";
-  // One request id per decision and stage: a claim-stage resubmission is a new request.
-  const requestId = `${row.decision_id ?? d.dispute_id}-${kind}-${d.dispute_life_cycle_stage ?? "NA"}`;
+  // PayPal requests evidence only after its review, often after Keel classified, so pick
+  // from what it asks for now. The stored type still records whether a refund was paid.
+  const evidenceType = pickEvidenceType(d, row.evidence_type === "PROOF_OF_REFUND");
+  // One request id per decision and stage: a claim-stage resubmission is a new request,
+  // and so is evidence of another type (PayPal would replay a refused one).
+  const requestId = `${row.decision_id ?? d.dispute_id}-${kind}-${d.dispute_life_cycle_stage ?? "NA"}${kind === "evidence" ? `-${evidenceType}` : ""}`;
   try {
     if (kind === "evidence") {
       await deps.paypal.provideEvidence(d.dispute_id, {
-        evidence_type: row.evidence_type as string,
+        evidence_type: evidenceType,
         notes: row.evidence_notes as string,
         file: { name: `keel-evidence-${d.dispute_id}.pdf`, bytes: row.evidence_pdf as Uint8Array, type: "application/pdf" },
       }, requestId);
