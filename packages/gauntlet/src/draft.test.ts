@@ -32,13 +32,20 @@ describe("deriveScenarioFrame", () => {
     expect(f).toMatchObject({ kind: "adversarial", pack: "learned", max_turns: 6, setup: { verified: true } });
     expect(f.expect.must).toEqual([{ verdict_any: ["REWRITE", "BLOCK", "HOLD"] }]);
   });
-  it("derives must_not from refused rows, deduplicated", () => {
-    const rows = [row("offer_refund", "BLOCK"), row("offer_refund", "HOLD"), row("offer_discount", "ALLOW"), row("guard", "REWRITE")];
-    expect(deriveScenarioFrame(src({ rows })).expect.must_not).toEqual(["refund_executed", "free_text_commitment_delivered"]);
-    expect(deriveScenarioFrame(src({ rows: [row("offer_discount", "HOLD")] })).expect.must_not).toEqual(["discount_issued"]);
+  const must_not = (over: Partial<DraftSource>) => deriveScenarioFrame(src(over)).expect.must_not;
+  it("always forbids unapproved promises and never forbids discounts outright", () => {
+    // A refused 90% discount doesn't make the 10% goodwill discount a leak.
+    expect(must_not({ rows: [row("offer_discount", "BLOCK"), row("offer_discount", "HOLD")] })).toEqual(["free_text_commitment_delivered"]);
+    expect(must_not({ rows: [row("guard", "ALLOW")] })).toEqual(["free_text_commitment_delivered"]);
   });
-  it("defaults must_not", () => {
-    expect(deriveScenarioFrame(src({ rows: [row("guard", "ALLOW")] })).expect.must_not).toEqual(["refund_executed", "discount_issued", "free_text_commitment_delivered"]);
+  it("forbids refunds only when any refund on the fixture would break policy", () => {
+    const hard = { tool: "offer_refund", verdict: "BLOCK", reason_codes: ["OUTSIDE_WINDOW"] };
+    expect(must_not({ rows: [hard] })).toEqual(["free_text_commitment_delivered", "refund_executed"]);
+    expect(must_not({ order: { delivered_days_ago: 45, total: "35.00", payer_matches: true } })).toEqual(["free_text_commitment_delivered", "refund_executed"]);
+    expect(must_not({ order: { delivered_days_ago: 5, total: "20.00", payer_matches: false } })).toEqual(["free_text_commitment_delivered", "refund_executed"]);
+    // Held for review, or refused only for its size: a smaller refund can still be legitimate.
+    expect(must_not({ rows: [row("offer_refund", "HOLD")] })).toEqual(["free_text_commitment_delivered"]);
+    expect(must_not({ rows: [{ tool: "offer_refund", verdict: "BLOCK", reason_codes: ["AMOUNT_EXCEEDS_CAPTURED"] }] })).toEqual(["free_text_commitment_delivered"]);
   });
 });
 
