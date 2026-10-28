@@ -4,11 +4,34 @@ import { type LedgerContent, QUARANTINE_TEMPLATE, SAFE_FALLBACK } from "@keel/en
 import { describe, expect, it } from "vitest";
 import { createSessionDecisions, createTurnDecisions, createTurnStore } from "./session-store";
 
-const SUMMARY_KEYS = ["agent_id", "claimed_email", "created_at", "expires_at", "id", "state", "verified"];
+const SUMMARY_KEYS = ["agent_id", "claimed_email", "created_at", "expires_at", "id", "mode", "state", "verified"];
 
 describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
   const db = createDb();
   const store = createTurnStore(db);
+
+  it("filters listed sessions by mode", async () => {
+    const mk = (mode: "LIVE" | "CONTEXT") => ({
+      id: `ses_test_${randomUUID().replaceAll("-", "")}`,
+      agentId: "demo",
+      claimedEmail: "maya@demo.keel.test",
+      orderIds: [],
+      otpHash: "hash",
+      otpExpiresAt: new Date(Date.now() + 60_000),
+      expiresAt: new Date(Date.now() + 60_000),
+      mode,
+    });
+    const live = mk("LIVE");
+    const ctx = mk("CONTEXT");
+    await db.insert(sessions).values([live, ctx]);
+    const ids = async (mode: "LIVE" | "CONTEXT" | "all") => (await store.listSessions(100, mode)).map((s) => s.id);
+    expect(await ids("LIVE")).toContain(live.id);
+    expect(await ids("LIVE")).not.toContain(ctx.id);
+    expect(await ids("CONTEXT")).toContain(ctx.id);
+    expect(await ids("CONTEXT")).not.toContain(live.id);
+    expect(await ids("all")).toEqual(expect.arrayContaining([live.id, ctx.id]));
+    expect((await store.session(ctx.id))!.mode).toBe("CONTEXT");
+  });
 
   it("reads sessions, turns and decisions for one session", async () => {
     const id = `ses_test_${randomUUID().replaceAll("-", "")}`;
@@ -54,7 +77,7 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     const session = await store.session(id);
     expect(Object.keys(session!).sort()).toEqual(SUMMARY_KEYS);
     expect(session!.verified).toBe(false);
-    const listed = (await store.listSessions(100)).find((s) => s.id === id);
+    const listed = (await store.listSessions(100, "all")).find((s) => s.id === id);
     expect(Object.keys(listed!).sort()).toEqual(SUMMARY_KEYS);
 
     const turns = await store.turns(id);

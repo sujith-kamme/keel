@@ -56,6 +56,7 @@ const summary = (r: typeof sessions.$inferSelect): SessionSummary => ({
   claimed_email: r.claimedEmail,
   verified: r.verifiedPayer !== null,
   state: r.state,
+  mode: r.mode as SessionMode,
   created_at: r.createdAt.toISOString(),
   expires_at: r.expiresAt.toISOString(),
 });
@@ -87,8 +88,13 @@ function guardDetails(payload: unknown): NonNullable<DecisionSummary["guard"]> {
 
 export function createTurnStore(db: Db): TurnStore {
   return {
-    listSessions: async (limit) => {
-      const rows = await db.select().from(sessions).orderBy(desc(sessions.createdAt)).limit(limit);
+    listSessions: async (limit, mode) => {
+      const rows = await db
+        .select()
+        .from(sessions)
+        .where(mode === "all" ? undefined : eq(sessions.mode, mode))
+        .orderBy(desc(sessions.createdAt))
+        .limit(limit);
       return rows.map(summary);
     },
     session: async (id) => {

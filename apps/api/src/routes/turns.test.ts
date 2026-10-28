@@ -6,12 +6,13 @@ const merchantKey = "m".repeat(32);
 const now = new Date("2026-10-27T12:00:00Z");
 const auth = { authorization: `Bearer ${merchantKey}`, "content-type": "application/json" };
 
-const session = (id: string, expires_at: string): SessionSummary => ({
+const session = (id: string, expires_at: string, mode: SessionSummary["mode"] = "LIVE"): SessionSummary => ({
   id,
   agent_id: "demo",
   claimed_email: "maya@demo.keel.test",
   verified: true,
   state: "ACTIVE",
+  mode,
   created_at: "2026-10-27T11:30:00.000Z",
   expires_at,
 });
@@ -23,11 +24,12 @@ function setup(riskDetail: () => Promise<typeof detail> = async () => detail) {
     session("ses_live", "2026-10-27T12:30:00.000Z"),
     session("ses_old", "2026-10-27T11:59:00.000Z"),
     session("ses_third", "2026-10-27T12:30:00.000Z"),
+    session("ses_ctx", "2026-10-27T12:30:00.000Z", "CONTEXT"),
   ];
   const turns: (Turn & { sessionId: string })[] = [];
   const decisions: DecisionSummary[] = [];
   const store: TurnStore = {
-    listSessions: async (limit) => sessions.slice(0, limit),
+    listSessions: async (limit, mode) => sessions.filter((s) => mode === "all" || s.mode === mode).slice(0, limit),
     session: async (id) => sessions.find((s) => s.id === id) ?? null,
     turns: async (id) => turns.filter((t) => t.sessionId === id),
     decisions: async () => decisions,
@@ -67,6 +69,22 @@ describe("turns API", () => {
     expect(((await (await app.request("/v1/sessions", { headers: auth })).json()) as { sessions: unknown[] }).sessions).toHaveLength(3);
     const text = JSON.stringify(await (await app.request("/v1/sessions", { headers: auth })).json());
     for (const key of ["otp_hash", "otp_attempts", "otpHash"]) expect(text).not.toContain(key);
+  });
+
+  it("filters sessions by mode, defaulting to LIVE", async () => {
+    const { app } = setup();
+    const ids = async (q: string) =>
+      ((await (await app.request(`/v1/sessions${q}`, { headers: auth })).json()) as { sessions: { id: string; mode: string }[] }).sessions.map((s) => `${s.id}:${s.mode}`);
+    expect(await ids("")).toEqual(["ses_live:LIVE", "ses_old:LIVE", "ses_third:LIVE"]);
+    expect(await ids("?mode=CONTEXT")).toEqual(["ses_ctx:CONTEXT"]);
+    expect(await ids("?mode=all")).toHaveLength(4);
+    expect((await app.request("/v1/sessions?mode=bogus", { headers: auth })).status).toBe(400);
+  });
+
+  it("returns mode in session detail", async () => {
+    const { app } = setup();
+    const body = (await (await app.request("/v1/sessions/ses_ctx", { headers: auth })).json()) as { session: { mode: string } };
+    expect(body.session.mode).toBe("CONTEXT");
   });
 
   it.each(["0", "101", "abc"])("rejects limit=%s", async (limit) => {

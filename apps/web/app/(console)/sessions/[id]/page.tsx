@@ -99,12 +99,15 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         {session.state === "QUARANTINED" && (
           <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs text-red-800 dark:bg-red-900/40 dark:text-red-200">QUARANTINED</span>
         )}
-        {canRelease(session.state) && (
+        {session.mode === "CONTEXT" && (
+          <span className="ml-2 rounded bg-black/10 px-2 py-0.5 text-xs dark:bg-white/10">Context run</span>
+        )}
+        {session.mode === "LIVE" && canRelease(session.state) && (
           <span className="ml-2">
             <ReleaseButton sessionId={session.id} />
           </span>
         )}
-        {canLearn(session.state, detail.decisions.map((d) => d.verdict)) && (
+        {session.mode === "LIVE" && canLearn(session.state, detail.decisions.map((d) => d.verdict)) && (
           <span className="ml-2">
             <AddToGauntlet sessionId={session.id} />
           </span>

@@ -1,5 +1,6 @@
 import type { Context, Hono } from "hono";
 import { z } from "zod";
+import type { SessionMode } from "../mode";
 import { merchantAuth } from "./merchant-auth";
 
 const MAX_CUSTOMER_TURNS = 30;
@@ -10,6 +11,7 @@ export interface SessionSummary {
   claimed_email: string;
   verified: boolean;
   state: string;
+  mode: SessionMode;
   created_at: string;
   expires_at: string;
 }
@@ -44,7 +46,7 @@ export interface SessionRisk {
 
 export interface TurnStore {
   /** Newest first. */
-  listSessions: (limit: number) => Promise<SessionSummary[]>;
+  listSessions: (limit: number, mode: SessionMode | "all") => Promise<SessionSummary[]>;
   session: (id: string) => Promise<SessionSummary | null>;
   /** Oldest first. */
   turns: (sessionId: string) => Promise<Turn[]>;
@@ -61,6 +63,7 @@ export interface TurnOptions {
   riskDetail: (sessionId: string) => Promise<SessionRisk>;
 }
 
+const ModeFilter = z.enum(["LIVE", "CONTEXT", "all"]);
 const Limit = z.coerce.number().int().min(1).max(100);
 const AppendTurn = z.object({
   role: z.enum(["customer", "agent"]),
@@ -81,7 +84,9 @@ export function mountTurns(app: Hono, opts: TurnOptions): void {
     if (!authorized(c)) return c.json({ error: "unauthorized" }, 401);
     const limit = Limit.safeParse(c.req.query("limit") ?? 20);
     if (!limit.success) return c.json({ error: "invalid_request" }, 400);
-    return c.json({ sessions: await opts.store.listSessions(limit.data) });
+    const mode = ModeFilter.safeParse(c.req.query("mode") ?? "LIVE");
+    if (!mode.success) return c.json({ error: "invalid_request" }, 400);
+    return c.json({ sessions: await opts.store.listSessions(limit.data, mode.data) });
   });
 
   // Expired sessions stay readable: the console shows past conversations.
