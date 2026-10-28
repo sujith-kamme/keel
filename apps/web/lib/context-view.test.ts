@@ -64,6 +64,8 @@ describe("messages", () => {
     expect(draftErrorMessage(422)).toBe("This session has nothing to learn from");
     expect(draftErrorMessage(502)).toMatch(/try again/);
     expect(saveErrorMessage(409)).toBe("A scenario with this id already exists");
+    expect(saveErrorMessage(404)).toBe("The source session no longer exists");
+    expect(saveErrorMessage(422)).toBe("This session has nothing to learn from");
   });
 });
 

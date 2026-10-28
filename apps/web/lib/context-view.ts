@@ -131,6 +131,8 @@ export function draftErrorMessage(status: number): string {
 export function saveErrorMessage(status: number): string {
   if (status === 409) return "A scenario with this id already exists";
   if (status === 400) return "The scenario isn't valid — check the fields and try again";
+  if (status === 404) return "The source session no longer exists";
+  if (status === 422) return "This session has nothing to learn from";
   return `Request failed (${status}).`;
 }
 
