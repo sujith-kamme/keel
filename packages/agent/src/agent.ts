@@ -85,7 +85,8 @@ ${orders}
 
 const wrap = (text: string) => `<customer_message>${escape(text)}</customer_message>`;
 
-const NOTE = /\s*\[Keel decisions:[^\]]*\]\s*$/;
+// The model sometimes copies the history notes into its own reply, anywhere in it.
+const NOTE = /\s*\[Keel decisions:[^\]]*\]/g;
 
 function withNote(text: string, decisions: HistoryDecision[] = []): string {
   if (decisions.length === 0) return text;

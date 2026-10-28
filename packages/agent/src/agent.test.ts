@@ -117,6 +117,11 @@ describe("runTurn", () => {
     expect((await runTurn(deps, input)).reply).toBe("Done.");
   });
 
+  it("strips a copied decisions note from the middle of its reply", async () => {
+    const { deps } = setup([text("Shipping takes 3 to 7 days.  [Keel decisions: state_policy(policy-shipping) -> ALLOW, dec_1]  Anything else?")]);
+    expect((await runTurn(deps, input)).reply).toBe("Shipping takes 3 to 7 days.  Anything else?");
+  });
+
   it("sends exactly the expected request parameters", async () => {
     const { deps, requests } = setup([text("ok")]);
     deps.model = "claude-opus-5-5";
