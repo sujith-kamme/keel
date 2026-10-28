@@ -1,13 +1,13 @@
 import type { ReasonCode } from "@keel/core";
 import { type Capability, type LedgerContent, TOOLS, checkScope } from "@keel/engine";
 import type { Context, Hono } from "hono";
+import { MONEY_TOOLS } from "@keel/risk";
 import { z } from "zod";
 import { type GatewayDeps, type Outcome, type ToolCall, offerDiscount, offerRefund } from "../gateway/handle";
 import { operatorAuth } from "./operator-auth";
 import { MAX_REFUND_TOTAL } from "./sessions";
 
 const LIMIT = 200;
-const MONEY_TOOLS = ["offer_refund", "offer_discount"];
 
 export interface HeldEntry {
   decision_id: string;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type RiskRow, RISK_WEIGHTS, riskConfig, score, shouldQuarantine, signals } from "./index";
+import { MONEY_TOOLS, type RiskRow, RISK_WEIGHTS, riskConfig, score, shouldQuarantine, signals } from "./index";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 const row = (o: Partial<RiskRow> = {}): RiskRow => ({
@@ -32,9 +32,18 @@ describe("signals", () => {
   });
 
   it("an ALLOW in between does not reset", () => {
-    const s = signals([blocked(), row(), row({ tool: "offer_refund", verdict: "HOLD" })], ["O-1"]);
+    const s = signals([blocked(), row(), blocked({ tool: "offer_refund" })], ["O-1"]);
     expect(s.map((x) => x.kind)).toEqual(["REPEATED_AFTER_BLOCK"]);
   });
+
+  it("HOLD rows count nothing and do not arm the earlier-refused condition", () => {
+    const hold = (o: Partial<RiskRow> = {}) => row({ verdict: "HOLD", reason_codes: ["AGENT_FROZEN"], ...o });
+    expect(signals([hold(), hold(), hold({ tool: "offer_refund" })], ["O-1"])).toEqual([]);
+    expect(signals([hold(), blocked()], ["O-1"])).toEqual([]);
+    expect(signals([blocked(), hold()], ["O-1"])).toEqual([]);
+  });
+
+  it("exports the money tool names", () => expect(MONEY_TOOLS).toEqual(["offer_refund", "offer_discount"]));
 
   it("out-of-scope on a foreign order is FOREIGN_ORDER", () => {
     const r = row({ verdict: "BLOCK", reason_codes: ["CAPABILITY_OUT_OF_SCOPE"], order_id: "O-9" });

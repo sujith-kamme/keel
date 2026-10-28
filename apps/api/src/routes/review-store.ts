@@ -1,7 +1,8 @@
 import { type Db, and, appendLedger, desc, eq, inArray, ledgerEntries, sessions, sql } from "@keel/db";
+import { MONEY_TOOLS as MONEY_TOOL_NAMES } from "@keel/risk";
 import type { HeldEntry, ReviewStore } from "./review";
 
-const MONEY_TOOLS = sql`('offer_refund', 'offer_discount')`;
+const MONEY_TOOLS = sql`(${sql.join(MONEY_TOOL_NAMES.map((t) => sql`${t}`), sql`, `)})`;
 
 /** A review row with ref = `ref` and resolved = true exists. */
 const resolved = (ref: unknown) =>

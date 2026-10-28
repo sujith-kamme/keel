@@ -13,8 +13,9 @@ export interface RiskConfig { threshold: number; half_life_min: number }
 
 export const RISK_WEIGHTS = { INJECTION: 40, REPEATED_AFTER_BLOCK: 15, FOREIGN_ORDER: 30 } as const;
 
-const MONEY_TOOLS = ["offer_refund", "offer_discount"];
-const refused = (r: RiskRow) => r.verdict === "BLOCK" || r.verdict === "HOLD";
+export const MONEY_TOOLS = ["offer_refund", "offer_discount"];
+// Only Keel's rule refusals count; HOLDs are system states (freeze, outage, quarantine, approval), not behaviour.
+const refused = (r: RiskRow) => r.verdict === "BLOCK";
 
 // Signals come from the session's ledger rows since the last reviewer release.
 // `rows` must be in ledger order (oldest first, by seq).
