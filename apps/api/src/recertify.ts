@@ -16,10 +16,14 @@ export interface RecertifyDeps {
 export function createRecertify(deps: RecertifyDeps): () => Promise<void> {
   return async () => {
     for (const id of AGENT_IDS) {
-      const [run, current] = await Promise.all([deps.latest(id), deps.versions(id)]);
-      if (run && (run.status === "QUEUED" || run.status === "RUNNING")) continue;
-      if (run && versionDiff(run.versions, current).length === 0) continue;
-      await deps.start(id);
+      try {
+        const [run, current] = await Promise.all([deps.latest(id), deps.versions(id)]);
+        if (run && (run.status === "QUEUED" || run.status === "RUNNING")) continue;
+        if (run && versionDiff(run.versions, current).length === 0) continue;
+        await deps.start(id);
+      } catch (e) {
+        console.error("recertify failed:", id, e instanceof Error ? e.message : "unknown");
+      }
     }
   };
 }

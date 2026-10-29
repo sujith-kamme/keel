@@ -43,4 +43,21 @@ describe("recertify", () => {
     await recertify();
     expect(start).not.toHaveBeenCalled();
   });
+
+  it("keeps going when one agent's check throws", async () => {
+    const start = vi.fn(async (_id: AgentId) => {});
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const recertify = createRecertify({
+      latest: async () => null,
+      versions: async (id) => {
+        if (id === "agt_policy") throw new Error("boom");
+        return v("a");
+      },
+      start,
+    });
+    await recertify();
+    expect(start.mock.calls.map((c) => c[0])).toEqual(["agt_refund"]);
+    expect(err).toHaveBeenCalledWith("recertify failed:", "agt_policy", "boom");
+    err.mockRestore();
+  });
 });

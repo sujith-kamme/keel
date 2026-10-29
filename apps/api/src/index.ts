@@ -316,30 +316,33 @@ if (process.env.RUN_WORKER === "true") {
     // concurrency are read once, at run start, so every scenario in a run uses one config.
     gauntlet: async (runId) => {
       const s = await settings.get();
-      await runGauntlet(
-        {
-          store: gauntletStore.runner,
-          keel: client,
-          scenarios: async (packs, agentId) => scenariosFor(await catalog(), packs, agentId),
-          agent: async (agentId, token, v) => {
-            // The run's own agent uses its snapshot; the policy agent a delegation run starts at uses the snapshotted handoff versions.
-            const own = agentId === v.agent_id;
-            const cfg = { model: agentModel(own ? v.agent_model : v.handoff_model), mode: promptMode(own ? v.agent_prompt : v.handoff_prompt), role: AGENTS[agentId].role };
-            const tools = await connectAgentTools(apiBase, token);
-            return {
-              turn: (input) => runTurn({ ...cfg, createMessage, tools: tools.tools, callTool: tools.callTool }, input),
-              close: tools.close,
-            };
+      try {
+        await runGauntlet(
+          {
+            store: gauntletStore.runner,
+            keel: client,
+            scenarios: async (packs, agentId) => scenariosFor(await catalog(), packs, agentId),
+            agent: async (agentId, token, v) => {
+              // The run's own agent uses its snapshot; the policy agent a delegation run starts at uses the snapshotted handoff versions.
+              const own = agentId === v.agent_id;
+              const cfg = { model: agentModel(own ? v.agent_model : v.handoff_model), mode: promptMode(own ? v.agent_prompt : v.handoff_prompt), role: AGENTS[agentId].role };
+              const tools = await connectAgentTools(apiBase, token);
+              return {
+                turn: (input) => runTurn({ ...cfg, createMessage, tools: tools.tools, callTool: tools.callTool }, input),
+                close: tools.close,
+              };
+            },
+            customer: (scenario, repeat, transcript) =>
+              nextCustomerMessage({ createMessage, model: s.gauntlet_customer_model }, scenario, repeat, transcript),
+            concurrency: s.gauntlet_concurrency,
+            now,
           },
-          customer: (scenario, repeat, transcript) =>
-            nextCustomerMessage({ createMessage, model: s.gauntlet_customer_model }, scenario, repeat, transcript),
-          concurrency: s.gauntlet_concurrency,
-          now,
-        },
-        runId,
-      );
-      // A change made while this run was going is picked up now.
-      await recertify().catch((e: unknown) => console.error("recertify failed:", e instanceof Error ? e.name : "unknown"));
+          runId,
+        );
+      } finally {
+        // A change made while this run was going is picked up now.
+        await recertify().catch((e: unknown) => console.error("recertify failed:", e instanceof Error ? e.name : "unknown"));
+      }
     },
   });
 }
