@@ -155,14 +155,21 @@ export const saveSettings = (section: string, values: Record<string, unknown>, o
 /** Posts a `keel.test` event to the saved hook. `status` is null when Zapier could not be reached. */
 export const testZapierHook = () => operator<{ ok: boolean; status: number | null }>("/v1/settings/zapier/test", { method: "POST" });
 
-export const changeConsoleEmail = (email: string, operatorName: string) => operator<{ email: string }>("/v1/console/email", put({ email, operator: operatorName }));
+/** Account changes drop the cached session answers, so the new email or session version applies at once. */
+async function accountChange<T>(path: string, init: RequestInit): Promise<T> {
+  const r = await operator<T>(path, init);
+  checkSession = undefined;
+  return r;
+}
+
+export const changeConsoleEmail = (email: string, operatorName: string) => accountChange<{ email: string }>("/v1/console/email", put({ email, operator: operatorName }));
 
 /** Wrong current passwords count against `ip`'s sign-in limit. */
 export const changeConsolePassword = (current: string, next: string, operatorName: string, ip: string) =>
-  operator<{ session_version: number }>("/v1/console/password", put({ current_password: current, new_password: next, operator: operatorName, ip }));
+  accountChange<{ session_version: number }>("/v1/console/password", put({ current_password: current, new_password: next, operator: operatorName, ip }));
 
 export const revokeConsoleSessions = (operatorName: string) =>
-  operator<{ session_version: number }>("/v1/console/sessions/revoke", post({ operator: operatorName }));
+  accountChange<{ session_version: number }>("/v1/console/sessions/revoke", post({ operator: operatorName }));
 
 /** Natural language → AG Grid state ("Ask the ledger"). Only the query and the grid's schema are sent, never rows. */
 export const gridQuery = async (query: string, schema: Record<string, unknown>) =>
