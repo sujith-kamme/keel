@@ -2,7 +2,7 @@ import type { DisputeNotice } from "./dispute";
 
 export type NotifyEvent =
   | {
-      event: "session.quarantined" | "action.held";
+      event: "session.quarantined" | "action.held" | "keel.test";
       session_id: string;
       decision_id: string;
       reason_codes: string[];

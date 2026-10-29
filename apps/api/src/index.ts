@@ -9,6 +9,7 @@ import { acceptClaim, adjudicate, escalate, getDispute, listDisputes, provideEvi
 import { type KeelClient, KeelHttpError, runGauntlet } from "@keel/worker/gauntlet";
 import { type DisputeDeps, pollDisputes, syncDispute } from "@keel/worker/dispute";
 import { enqueueDisputePoll, enqueueDisputeSync, enqueueGauntlet, enqueueNotify, scheduleDisputePoll } from "@keel/worker/queue";
+import { sendNotify } from "@keel/worker/notify";
 import { Redis } from "ioredis";
 import { createApp } from "./app";
 import { createRisk } from "./risk";
@@ -23,6 +24,7 @@ import { KNOWN_POLICY_IDS } from "./routes/guard";
 import { createReviewStore } from "./routes/review-store";
 import { createOrdersFor, createSessionDecisions, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
 import { createSettings } from "./settings";
+import type { SettingsStatus } from "./routes/settings";
 
 const { KEEL_SIGNING_KEY, KEEL_MERCHANT_KEY, KEEL_OPERATOR_KEY } = process.env;
 if (!KEEL_SIGNING_KEY || !KEEL_MERCHANT_KEY || !KEEL_OPERATOR_KEY) {
@@ -102,6 +104,16 @@ const disputeDeps: DisputeDeps = {
   now,
 };
 // Render injects PORT; API_PORT is the local default.
+const clientId = process.env.PAYPAL_CLIENT_ID?.trim() || null;
+const settingsStatus: SettingsStatus = {
+  paypal: {
+    mode: paypal.isSandbox ? "sandbox" : "live",
+    client_id: clientId && `${clientId.slice(0, 4)}…${clientId.slice(-3)}`,
+    webhook_configured: webhookId !== null,
+  },
+  anthropic: { key_set: Boolean(process.env.ANTHROPIC_API_KEY?.trim()) },
+  demo_otp: process.env.DEMO_OTP === "true",
+};
 const port = Number(process.env.PORT ?? process.env.API_PORT ?? 8787);
 
 const app = createApp({
@@ -144,6 +156,21 @@ const app = createApp({
   mcp: { signingKey: KEEL_SIGNING_KEY, now, handle: (cap, call) => handleTool(gateway, cap, call) },
   review: { operatorKey: KEEL_OPERATOR_KEY, merchantKey: KEEL_MERCHANT_KEY, store: createReviewStore(db), gateway, detail: risk.detail },
   agents: { operatorKey: KEEL_OPERATOR_KEY, merchantKey: KEEL_MERCHANT_KEY, store: createAgentStore(db), newId },
+  settings: {
+    operatorKey: KEEL_OPERATOR_KEY,
+    merchantKey: KEEL_MERCHANT_KEY,
+    settings,
+    status: settingsStatus,
+    reschedulePoll: process.env.RUN_WORKER === "true" ? scheduleDisputePoll : async () => {},
+    getHookUrl: async () => (await settings.get()).zapier_hook_url,
+    send: async (hookUrl) => {
+      const res = await sendNotify(
+        { event: "keel.test", session_id: "test", decision_id: "test", reason_codes: ["OK"], console_url: consoleUrl, at: now().toISOString() },
+        { hookUrl, fetch },
+      );
+      return "status" in res ? res : { status: 0 };
+    },
+  },
   gauntlet: {
     operatorKey: KEEL_OPERATOR_KEY,
     merchantKey: KEEL_MERCHANT_KEY,

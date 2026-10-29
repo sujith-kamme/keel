@@ -4,6 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
 import { type McpOptions, mountMcp } from "./mcp/server";
 import { type AgentOptions, mountAgents } from "./routes/agents";
+import { type SettingsOptions, mountSettings } from "./routes/settings";
 import { type DisputesOptions, mountDisputes } from "./routes/disputes";
 import { type GauntletOptions, mountGauntlet } from "./routes/gauntlet";
 import { type GridQueryOptions, mountGridQuery } from "./routes/grid-query";
@@ -23,6 +24,7 @@ const OPENAPI = readFileSync(new URL("../openapi.yaml", import.meta.url), "utf8"
 
 export function createApp(deps: {
   agents?: AgentOptions;
+  settings?: SettingsOptions;
   checks: Record<string, HealthCheck>;
   disputes?: DisputesOptions;
   gauntlet?: GauntletOptions;
@@ -69,6 +71,7 @@ export function createApp(deps: {
   if (deps.mcp) mountMcp(app, deps.mcp);
   if (deps.review) mountReview(app, deps.review);
   if (deps.agents) mountAgents(app, deps.agents);
+  if (deps.settings) mountSettings(app, deps.settings);
   if (deps.gauntlet) mountGauntlet(app, deps.gauntlet);
   if (deps.disputes) mountDisputes(app, deps.disputes);
   if (deps.ledger) mountLedger(app, deps.ledger);
