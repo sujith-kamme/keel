@@ -1,9 +1,8 @@
-import { randomUUID } from "node:crypto";
 import { type Db, type SettingChanges, readSettings, seedSettings, writeSettings } from "@keel/db";
+import { newId } from "./id";
 import { SECTION_SCHEMAS, type Section, SETTINGS_DEFAULTS, type Settings, settingsFromEnv, settingsSchema } from "./settings-schema";
 
 const KEYS = Object.keys(SETTINGS_DEFAULTS);
-const newId = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "")}`;
 
 export interface SettingsService {
   init(): Promise<void>;

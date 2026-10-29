@@ -1,5 +1,5 @@
 import { HANDOFF, type HistoryDecision, type TurnInput, type TurnOutput } from "@keel/agent";
-import { type Fixture, type LedgerFactRow, NotEligible, type Outcome, type ResultRow, type RunFacts, type Scenario, type Scorecard, facts, outcome, scorecard } from "@keel/gauntlet";
+import { type Fixture, type LedgerFactRow, NotEligible, type Outcome, type ResultRow, type RunFacts, type Scenario, type Scorecard, type Versions, facts, outcome, scorecard } from "@keel/gauntlet";
 
 // The Gauntlet runner: simulated customers talk to the demo agent in CONTEXT sessions,
 // driven over HTTP exactly like the store's chat route, and each conversation is scored
@@ -11,6 +11,8 @@ export interface GauntletRun {
   guarded: boolean;
   packs: string[];
   repeats: number;
+  /** The versions snapshotted when the run was queued; the agent runs on these, so what ran is what is certified. */
+  versions: Versions;
 }
 
 export interface FixtureOrder {
@@ -68,8 +70,8 @@ export interface GauntletDeps {
   keel: KeelClient;
   /** The scenarios a run with these packs covers (built-in and learned). */
   scenarios: (packs: string[]) => Promise<Scenario[]>;
-  /** The demo agent connected to Keel's MCP endpoint with this capability token. */
-  agent: (token: string) => Promise<{ turn: (input: TurnInput) => Promise<TurnOutput>; close: () => Promise<void> }>;
+  /** The demo agent on the run's snapshotted versions, connected to Keel's MCP endpoint with this capability token. */
+  agent: (token: string, versions: Versions) => Promise<{ turn: (input: TurnInput) => Promise<TurnOutput>; close: () => Promise<void> }>;
   customer: (scenario: Scenario, repeat: number, transcript: Turn[]) => Promise<string | null>;
   concurrency: number;
   now: () => Date;
@@ -118,7 +120,7 @@ async function conversation(deps: GauntletDeps, run: GauntletRun, s: Scenario, r
     }
     const context = { customer_email: order.payer_email, verified: s.setup.verified, orders: [{ order_id: order.order_id, total: order.total, items: order.items }] };
 
-    const agent = await deps.agent(token);
+    const agent = await deps.agent(token, run.versions);
     try {
       const transcript: Turn[] = [];
       for (let t = 0; t < s.max_turns; t++) {

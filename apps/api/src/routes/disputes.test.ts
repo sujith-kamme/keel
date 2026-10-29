@@ -52,7 +52,7 @@ function setup(over: { row?: Partial<DisputeRow> | null; dispute?: Dispute; webh
         return true;
       },
     },
-    paypal, scan: vi.fn(), notify: vi.fn(), enqueueSync, autoSubmit: true, consoleUrl: "https://c.test", newId: (p) => `${p}_x`, now: () => new Date(),
+    paypal, scan: vi.fn(), notify: vi.fn(), enqueueSync, autoSubmit: async () => true, consoleUrl: "https://c.test", newId: (p) => `${p}_x`, now: () => new Date(),
   };
   const sandbox = { escalate: vi.fn(async () => undefined), adjudicate: vi.fn(async () => undefined) };
   const app = new Hono();

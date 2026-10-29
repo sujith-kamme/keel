@@ -22,7 +22,8 @@ function customerInjection(payload: Record<string, unknown>): boolean {
 export function createRisk(
   db: DbOrTx,
   opts: {
-    cfg: RiskConfig;
+    /** Read per scoring call, so a changed threshold or half-life applies without a restart. */
+    cfg: () => Promise<RiskConfig>;
     enqueue: (e: NotifyEvent) => Promise<void>;
     consoleUrl: string;
     now: () => Date;
@@ -30,7 +31,6 @@ export function createRisk(
     appendLedger?: typeof appendLedger;
   },
 ): RiskService {
-  const { cfg } = opts;
   const append = opts.appendLedger ?? appendLedger;
 
   async function load(sessionId: string) {
@@ -49,7 +49,8 @@ export function createRisk(
       };
     });
     const sigs = signals(rows, session.orderIds);
-    return { session, sigs, score: score(sigs, opts.now(), cfg) };
+    const cfg = await opts.cfg();
+    return { session, sigs, cfg, score: score(sigs, opts.now(), cfg) };
   }
 
   return {
@@ -69,7 +70,7 @@ export function createRisk(
     },
 
     assess: async (sessionId) => {
-      const { session, sigs, score: s } = await load(sessionId);
+      const { session, sigs, cfg, score: s } = await load(sessionId);
       let state = session.state;
       if (shouldQuarantine(s, state, cfg)) {
         const decisionId = opts.newId("dec");
@@ -116,7 +117,7 @@ export function createRisk(
     },
 
     detail: async (sessionId) => {
-      const { sigs, score: s } = await load(sessionId);
+      const { sigs, cfg, score: s } = await load(sessionId);
       return { score: s, threshold: cfg.threshold, signals: sigs };
     },
   };

@@ -12,7 +12,8 @@ export interface GridQueryOptions {
     params: Anthropic.MessageCreateParamsNonStreaming,
     options: { signal: AbortSignal },
   ) => Promise<{ stop_reason: string | null; content: { type: string; text?: string }[] }>;
-  model: string;
+  /** Read per call. */
+  model: () => Promise<string>;
   timeoutMs: number;
   now: () => Date;
 }
@@ -75,6 +76,14 @@ export function mountGridQuery(app: Hono, opts: GridQueryOptions): void {
       const req = GridQuery.safeParse(await c.req.json().catch(() => null));
       if (!req.success) return c.json({ error: "invalid_request" }, 400);
 
+      // Read before the timeout starts, so its rejection always has a listener.
+      let model: string;
+      try {
+        model = await opts.model();
+      } catch {
+        console.warn("grid query failed: settings unavailable");
+        return c.json({ error: "model_unavailable" }, 502);
+      }
       let timer: ReturnType<typeof setTimeout> | undefined;
       const controller = new AbortController();
       const timeout = new Promise<never>((_, reject) => {
@@ -88,7 +97,7 @@ export function mountGridQuery(app: Hono, opts: GridQueryOptions): void {
         res = await Promise.race([
           opts.complete(
             {
-              model: opts.model,
+              model,
               max_tokens: 2000,
               system: system(opts.now().toISOString().slice(0, 10)),
               messages: [{ role: "user", content: req.data.query }],

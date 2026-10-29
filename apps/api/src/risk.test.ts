@@ -47,11 +47,11 @@ describe.skipIf(!process.env.DATABASE_URL)("risk service (Postgres)", () => {
     await appendLedger(db, injection(id));
     for (let i = 0; i < 3; i++) await appendLedger(db, blocked(id));
   }
-  function make(append?: typeof appendLedger, conn: DbOrTx = db) {
+  function make(append?: typeof appendLedger, conn: DbOrTx = db, config: () => Promise<typeof cfg> = async () => cfg) {
     const events: NotifyEvent[] = [];
     let fail = false;
     const svc = createRisk(conn, {
-      cfg,
+      cfg: config,
       consoleUrl,
       appendLedger: append,
       now: () => new Date(),
@@ -75,6 +75,19 @@ describe.skipIf(!process.env.DATABASE_URL)("risk service (Postgres)", () => {
     expect(await stateOf(id)).toBe("ACTIVE");
     expect(await riskRows(id)).toHaveLength(0);
     expect(events).toHaveLength(0);
+  });
+
+  it("reads the threshold per call, so a lowered threshold applies without a new service", async () => {
+    const id = await setup();
+    let current = cfg;
+    const { svc } = make(undefined, db, async () => current);
+    await appendLedger(db, blocked(id));
+    await appendLedger(db, blocked(id));
+    expect(await svc.assess(id)).toEqual({ score: 15, quarantined: false });
+    current = { ...cfg, threshold: 15 };
+    expect((await svc.detail(id)).threshold).toBe(15);
+    expect(await svc.assess(id)).toEqual({ score: 15, quarantined: true });
+    expect((await riskRows(id))[0]?.payload).toMatchObject({ threshold: 15 });
   });
 
   it("quarantines once on crossing, with ledger row and notification", async () => {

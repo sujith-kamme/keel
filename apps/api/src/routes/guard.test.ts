@@ -1,4 +1,5 @@
 import type { Extraction } from "@keel/core";
+import type { ExtractorModel } from "@keel/extractor";
 import { type LedgerContent, QUARANTINE_TEMPLATE, SAFE_FALLBACK, type TurnDecision, replayReply } from "@keel/engine";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
@@ -15,7 +16,7 @@ const empty = extraction([]);
 
 function setup(over: Partial<GuardOptions> = {}) {
   const ledger: LedgerContent[] = [];
-  const calls = { turnDecisions: [] as [string, string[]][], extract: [] as unknown[], policy: [] as string[] };
+  const calls = { turnDecisions: [] as [string, string[]][], extract: [] as unknown[], models: [] as string[], policy: [] as string[] };
   const opts: GuardOptions = {
     merchantKey,
     session: async (id) =>
@@ -33,14 +34,15 @@ function setup(over: Partial<GuardOptions> = {}) {
       calls.policy.push(id);
       return id === "policy-bereavement" ? { id, approved_text: APPROVED } : null;
     },
-    extract: async (input) => {
+    extract: async (input, cfg) => {
       calls.extract.push(input);
+      calls.models.push(cfg.model);
       return empty;
     },
     control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" }),
     assess: async () => ({ score: 0, quarantined: false }),
     appendLedger: async (c) => void ledger.push(c),
-    extractor: { model: "claude-haiku-5-5", prompt_version: "v1" },
+    extractor: async () => ({ model: "claude-haiku-5-5", prompt_version: "v1", timeout_ms: 4000 }),
     now: () => now,
     newId: (p) => `${p}_abc123`,
     ...over,
@@ -210,6 +212,31 @@ describe("POST /v1/guard", () => {
     const meta = (ledger[0]!.payload as { extractor: { model: string; prompt_version: string; latency_ms: number } }).extractor;
     expect(meta).toMatchObject({ model: "claude-haiku-5-5", prompt_version: "v1" });
     expect(typeof meta.latency_ms).toBe("number");
+  });
+
+  it("reads the extractor model per call and stamps the one it used", async () => {
+    let model: ExtractorModel = "claude-haiku-5-5";
+    const { app, ledger, calls } = setup({ extractor: async () => ({ model, prompt_version: "v1", timeout_ms: 4000 }) });
+    await post(app, valid);
+    model = "claude-sonnet-5-5";
+    await post(app, valid);
+    expect(calls.models).toEqual(["claude-haiku-5-5", "claude-sonnet-5-5"]);
+    expect(ledger.map((l) => (l.payload as { extractor: { model: string } }).extractor.model)).toEqual(["claude-haiku-5-5", "claude-sonnet-5-5"]);
+  });
+
+  it("fails closed when the extractor settings cannot be read", async () => {
+    const { app, ledger, calls } = setup({
+      extractor: async () => {
+        throw new Error("db down");
+      },
+    });
+    const res = (await (await post(app, valid)).json()) as { verdict: string; reason_codes: string[] };
+    expect(res.verdict).toBe("BLOCK");
+    expect(res.reason_codes).toContain("EXTRACTOR_UNAVAILABLE");
+    expect(calls.extract).toHaveLength(0);
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0]!.verdict).toBe("BLOCK");
+    expect((ledger[0]!.payload as { extractor_error: string }).extractor_error).toBe("Error");
   });
 
   it("takes session_state from the session row", async () => {

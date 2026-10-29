@@ -1,20 +1,19 @@
-import { randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
 import { agentModel, connectAgentTools, promptMode, runTurn } from "@keel/agent";
 import { activePolicy, appendLedger, approveVersion, createDb, decisionsByDay, disputeOutcomes, dollarsProtected, insertDraft, listPolicies, liveSessions, policyVersions, readChain, readLedgerPage, sql, violations } from "@keel/db";
-import { PROMPT_VERSION, draftPolicy, extract, extractorModel } from "@keel/extractor";
-import { type Versions, customerModel, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
+import { PROMPT_VERSION, draftPolicy, extract } from "@keel/extractor";
+import { type Versions, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
 import { PayPalClient, configFromEnv } from "@keel/paypal";
 import { acceptClaim, adjudicate, escalate, getDispute, listDisputes, provideEvidence, verifyWebhook } from "@keel/paypal/disputes";
-import { riskConfig } from "@keel/risk";
-import { type KeelClient, KeelHttpError, gauntletConcurrency, runGauntlet } from "@keel/worker/gauntlet";
+import { type KeelClient, KeelHttpError, runGauntlet } from "@keel/worker/gauntlet";
 import { type DisputeDeps, pollDisputes, syncDispute } from "@keel/worker/dispute";
 import { enqueueDisputePoll, enqueueDisputeSync, enqueueGauntlet, enqueueNotify, scheduleDisputePoll } from "@keel/worker/queue";
 import { Redis } from "ioredis";
 import { createApp } from "./app";
 import { createRisk } from "./risk";
 import { createGatewayDeps } from "./gateway/deps";
+import { newId } from "./id";
 import { handleTool } from "./gateway/handle";
 import { createAgentStore } from "./routes/agent-store";
 import { createDisputeStore } from "./routes/dispute-store";
@@ -23,6 +22,7 @@ import { createGauntletStore } from "./routes/gauntlet-store";
 import { KNOWN_POLICY_IDS } from "./routes/guard";
 import { createReviewStore } from "./routes/review-store";
 import { createOrdersFor, createSessionDecisions, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
+import { createSettings } from "./settings";
 
 const { KEEL_SIGNING_KEY, KEEL_MERCHANT_KEY, KEEL_OPERATOR_KEY } = process.env;
 if (!KEEL_SIGNING_KEY || !KEEL_MERCHANT_KEY || !KEEL_OPERATOR_KEY) {
@@ -30,26 +30,28 @@ if (!KEEL_SIGNING_KEY || !KEEL_MERCHANT_KEY || !KEEL_OPERATOR_KEY) {
 }
 
 const db = createDb();
+// Runtime settings live in the DB; env values only seed keys that have no row yet. Read at use time.
+const settings = createSettings(db, process.env);
+await settings.init();
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true, maxRetriesPerRequest: 1 });
 const now = () => new Date();
-const newId = (prefix: string) => `${prefix}_${randomUUID().replaceAll("-", "")}`;
 const consoleUrl = process.env.CONSOLE_URL ?? "http://localhost:3000";
-const risk = createRisk(db, { cfg: riskConfig(process.env), enqueue: enqueueNotify, consoleUrl, now, newId });
+const riskCfg = async () => {
+  const s = await settings.get();
+  return { threshold: s.risk_threshold, half_life_min: s.risk_half_life_min };
+};
+const risk = createRisk(db, { cfg: riskCfg, enqueue: enqueueNotify, consoleUrl, now, newId });
 const notifyHeld = (e: { session_id: string; decision_id: string; reason_codes: string[] }) =>
   enqueueNotify({ event: "action.held", ...e, console_url: `${consoleUrl}/review`, at: now().toISOString() });
 const paypal = new PayPalClient(configFromEnv());
 const gateway = createGatewayDeps(db, paypal, risk, notifyHeld);
 const anthropic = new Anthropic();
-const model = extractorModel(process.env.EXTRACTOR_MODEL);
-const timeoutMs = Number(process.env.EXTRACTOR_TIMEOUT_MS ?? 4000);
 const turnStore = createTurnStore(db);
 
-// Gauntlet (Phase 5). Typos in these settings fail here, at start-up.
+// Gauntlet (Phase 5).
 const gauntletStore = createGauntletStore(db);
 const builtinScenarios = loadBuiltin();
-const draftModel = customerModel(process.env.GAUNTLET_CUSTOMER_MODEL);
 const catalog = async () => scenarioCatalog(builtinScenarios, await gauntletStore.learned());
-const demoAgent = { model: agentModel(process.env.DEMO_AGENT_MODEL), mode: promptMode(process.env.DEMO_AGENT_PROMPT) };
 const currentVersions = async (): Promise<Versions> => {
   const policies: Record<string, number> = {};
   // price-catalog isn't a policy the guard checks claims against, but an approved change to it still makes certification stale.
@@ -57,13 +59,19 @@ const currentVersions = async (): Promise<Versions> => {
     const version = ((await activePolicy(db, id)) as { version?: unknown } | null)?.version;
     if (typeof version === "number") policies[id] = version;
   }
-  return { agent_model: demoAgent.model, agent_prompt: demoAgent.mode, extractor_model: model, extractor_prompt_version: PROMPT_VERSION, policies };
+  const s = await settings.get();
+  return {
+    agent_model: s.agent_model,
+    agent_prompt: s.agent_prompt,
+    extractor_model: s.extractor_model,
+    extractor_prompt_version: PROMPT_VERSION,
+    extractor_timeout_ms: s.extractor_timeout_ms,
+    risk_threshold: s.risk_threshold,
+    risk_half_life_min: s.risk_half_life_min,
+    policies,
+  };
 };
-// Disputes (Phase 6). DISPUTE_AUTO_SUBMIT=true acts on DEFEND/CONCEDE without an operator (demo).
-const disputePollSeconds = Number(process.env.DISPUTE_POLL_SECONDS ?? 120);
-if (!Number.isInteger(disputePollSeconds) || disputePollSeconds < 30 || disputePollSeconds > 3600) {
-  throw new Error("DISPUTE_POLL_SECONDS must be an integer from 30 to 3600");
-}
+// Disputes (Phase 6). dispute_auto_submit acts on DEFEND/CONCEDE without an operator (demo).
 const webhookId = process.env.PAYPAL_WEBHOOK_ID?.trim() || null;
 const disputeStore = createDisputeStore(db);
 const disputeDeps: DisputeDeps = {
@@ -84,11 +92,11 @@ const disputeDeps: DisputeDeps = {
   },
   // The buyer's dispute text goes to the extractor as customer data, never as instructions (FR-SEC-5).
   scan: async (text) =>
-    (await extract({ parse: (p, o) => anthropic.messages.parse(p, o), model, timeoutMs: 15_000 }, { draft: "", customer_message: text, policy_ids: [] }))
+    (await extract({ parse: (p, o) => anthropic.messages.parse(p, o), model: (await settings.get()).extractor_model, timeoutMs: 15_000 }, { draft: "", customer_message: text, policy_ids: [] }))
       .injection_signals.some((s) => s.source === "customer"),
   notify: enqueueNotify,
   enqueueSync: enqueueDisputeSync,
-  autoSubmit: process.env.DISPUTE_AUTO_SUBMIT === "true",
+  autoSubmit: async () => (await settings.get()).dispute_auto_submit,
   consoleUrl,
   newId,
   now,
@@ -124,9 +132,12 @@ const app = createApp({
     policy: (id) => activePolicy(db, id),
     control: risk.control,
     assess: risk.assess,
-    extract: (input) => extract({ parse: (p, o) => anthropic.messages.parse(p, o), model, timeoutMs }, input),
+    extract: (input, cfg) => extract({ parse: (p, o) => anthropic.messages.parse(p, o), model: cfg.model, timeoutMs: cfg.timeout_ms }, input),
     appendLedger: (c) => appendLedger(db, c),
-    extractor: { model, prompt_version: PROMPT_VERSION },
+    extractor: async () => {
+      const s = await settings.get();
+      return { model: s.extractor_model, prompt_version: PROMPT_VERSION, timeout_ms: s.extractor_timeout_ms };
+    },
     now,
     newId,
   },
@@ -143,8 +154,8 @@ const app = createApp({
     now,
     newId,
     draftSource: gauntletStore.draftSource,
-    draft: (src, at) =>
-      draftScenario({ parse: (p, o) => anthropic.messages.parse(p, o), model: draftModel, timeoutMs: 20_000 }, src, at),
+    draft: async (src, at) =>
+      draftScenario({ parse: (p, o) => anthropic.messages.parse(p, o), model: (await settings.get()).gauntlet_customer_model, timeoutMs: 20_000 }, src, at),
     saveScenario: gauntletStore.saveLearned,
   },
   disputes: {
@@ -183,7 +194,7 @@ const app = createApp({
     operatorKey: KEEL_OPERATOR_KEY,
     merchantKey: KEEL_MERCHANT_KEY,
     complete: (p, o) => anthropic.messages.create(p, o),
-    model,
+    model: async () => (await settings.get()).extractor_model,
     timeoutMs: 20_000,
     now,
   },
@@ -193,7 +204,8 @@ const app = createApp({
     list: () => listPolicies(db),
     versions: (id) => policyVersions(db, id),
     active: (id) => activePolicy(db, id),
-    draft: (input) => draftPolicy({ parse: (p, o) => anthropic.messages.parse(p, o), model, timeoutMs: 45_000 }, input),
+    draft: async (input) =>
+      draftPolicy({ parse: (p, o) => anthropic.messages.parse(p, o), model: (await settings.get()).extractor_model, timeoutMs: 45_000 }, input),
     insertDraft: (id, policy) => insertDraft(db, id, policy),
     approve: (id, version, edits, entry) => approveVersion(db, id, version, edits, entry),
     newId,
@@ -211,8 +223,6 @@ await gauntletStore.failStale(staleBefore, now()).catch((e: unknown) => {
 // process also runs the job worker when RUN_WORKER=true.
 if (process.env.RUN_WORKER === "true") {
   const { startWorker } = await import("@keel/worker/worker");
-  const concurrency = gauntletConcurrency(process.env.GAUNTLET_CONCURRENCY);
-  const customer = customerModel(process.env.GAUNTLET_CUSTOMER_MODEL);
   // The runner plays the merchant backend against this same process, over HTTP.
   const apiBase = `http://127.0.0.1:${port}`;
   const keel = async <T>(path: string, body?: unknown): Promise<T> => {
@@ -239,28 +249,35 @@ if (process.env.RUN_WORKER === "true") {
     guard: (body) => keel("/v1/guard", body),
   };
   const createMessage = (p: Anthropic.MessageCreateParamsNonStreaming) => anthropic.messages.create(p);
-  await scheduleDisputePoll(disputePollSeconds);
+  await scheduleDisputePoll((await settings.get()).dispute_poll_seconds);
   startWorker({
+    hookUrl: async () => (await settings.get()).zapier_hook_url,
     dispute: { sync: (id) => syncDispute(disputeDeps, id), poll: () => pollDisputes(disputeDeps) },
-    gauntlet: (runId) =>
-      runGauntlet(
+    // The agent runs on the run's own snapshot (what is certified); the customer model and
+    // concurrency are read once, at run start, so every scenario in a run uses one config.
+    gauntlet: async (runId) => {
+      const s = await settings.get();
+      return runGauntlet(
         {
           store: gauntletStore.runner,
           keel: client,
           scenarios: async (packs) => scenariosFor(await catalog(), packs),
-          agent: async (token) => {
+          agent: async (token, v) => {
+            const demoAgent = { model: agentModel(v.agent_model), mode: promptMode(v.agent_prompt) };
             const tools = await connectAgentTools(apiBase, token);
             return {
               turn: (input) => runTurn({ ...demoAgent, createMessage, tools: tools.tools, callTool: tools.callTool }, input),
               close: tools.close,
             };
           },
-          customer: (scenario, repeat, transcript) => nextCustomerMessage({ createMessage, model: customer }, scenario, repeat, transcript),
-          concurrency,
+          customer: (scenario, repeat, transcript) =>
+            nextCustomerMessage({ createMessage, model: s.gauntlet_customer_model }, scenario, repeat, transcript),
+          concurrency: s.gauntlet_concurrency,
           now,
         },
         runId,
-      ),
+      );
+    },
   });
 }
 

@@ -53,6 +53,12 @@ describe("sendNotify", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("refuses a hook URL outside Zapier", async () => {
+    const fetch = okFetch();
+    await expect(sendNotify(event, { hookUrl: "https://evil.example.com/x", fetch })).rejects.toThrow("must start with");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("throws on non-2xx without leaking the url", async () => {
     const fetch = vi.fn(async () => new Response("no", { status: 500 }));
     const err = await sendNotify(event, { hookUrl: HOOK, fetch }).catch((e: Error) => e);

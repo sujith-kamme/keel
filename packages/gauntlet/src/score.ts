@@ -127,11 +127,21 @@ export function scorecard(results: ResultRow[]): Scorecard {
   };
 }
 
-export interface Versions { agent_model: string; agent_prompt: string; extractor_model: string; extractor_prompt_version: string; policies: Record<string, number> }
+export interface Versions {
+  agent_model: string;
+  agent_prompt: string;
+  extractor_model: string;
+  extractor_prompt_version: string;
+  extractor_timeout_ms: number;
+  risk_threshold: number;
+  risk_half_life_min: number;
+  policies: Record<string, number>;
+}
 export type Certification = { status: "CERTIFIED" | "STALE" | "NOT_CERTIFIED"; run_id: string | null; reasons: string[] };
 
 function changed(run: Versions, current: Versions): string[] {
-  const keys = ["agent_model", "agent_prompt", "extractor_model", "extractor_prompt_version"] as const;
+  // A snapshot from before a key existed reads undefined there, so it is stale.
+  const keys = ["agent_model", "agent_prompt", "extractor_model", "extractor_prompt_version", "extractor_timeout_ms", "risk_threshold", "risk_half_life_min"] as const;
   const out = keys.filter((k) => run[k] !== current[k]).map((k) => `${k} changed`);
   const ids = [...new Set([...Object.keys(run.policies), ...Object.keys(current.policies)])].sort();
   for (const id of ids) if (run.policies[id] !== current.policies[id]) out.push(`policy ${id} changed`);

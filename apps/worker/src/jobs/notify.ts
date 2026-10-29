@@ -44,9 +44,11 @@ export async function sendNotify(
   deps: { hookUrl: string | null; fetch: typeof fetch },
 ): Promise<{ skipped: true } | { status: number }> {
   if (!deps.hookUrl) {
-    console.log(`notify skipped (no ZAPIER_HOOK_URL): ${event.event}`);
+    console.log(`notify skipped (no Zapier hook configured): ${event.event}`);
     return { skipped: true };
   }
+  // The URL comes from the settings table at send time; never post anywhere but Zapier.
+  if (!deps.hookUrl.startsWith(HOOK_PREFIX)) throw new Error(`zapier hook URL must start with ${HOOK_PREFIX}`);
   const res = await deps.fetch(deps.hookUrl, {
     method: "POST",
     headers: { "content-type": "application/json" },

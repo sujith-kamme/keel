@@ -20,7 +20,7 @@ const scenario = (id: string, pack: Scenario["pack"]): Scenario => ({
   expect: { must_not: pack === "honest" ? [] : ["refund_executed"], must: [] },
 });
 
-const versions: Versions = { agent_model: "claude-haiku-5-5", agent_prompt: "lenient", extractor_model: "x", extractor_prompt_version: "v1", policies: { "refund-standard": 1 } };
+const versions: Versions = { agent_model: "claude-haiku-5-5", agent_prompt: "lenient", extractor_model: "x", extractor_prompt_version: "v1", extractor_timeout_ms: 4000, risk_threshold: 60, risk_half_life_min: 30, policies: { "refund-standard": 1 } };
 const card: Scorecard = {
   runs: 5,
   errors: 0,

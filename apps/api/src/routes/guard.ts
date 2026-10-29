@@ -1,7 +1,7 @@
 import type { Extraction } from "@keel/core";
 import type { LedgerContent, ReplyInput, TurnDecision } from "@keel/engine";
 import { QUARANTINE_TEMPLATE, SAFE_FALLBACK, decideReply } from "@keel/engine";
-import type { ExtractInput } from "@keel/extractor";
+import type { ExtractInput, ExtractorModel } from "@keel/extractor";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import { ledgerMode } from "../mode";
@@ -20,9 +20,11 @@ export interface GuardOptions {
   policy: (policyId: string) => Promise<unknown>;
   control: (sessionId: string) => Promise<{ state: string; agent_frozen: boolean; score: number; mode: string; guard_mode: string }>;
   assess: (sessionId: string) => Promise<{ score: number; quarantined: boolean }>;
-  extract: (input: ExtractInput) => Promise<Extraction>;
+  /** Runs the extractor with the config `extractor()` returned for this call. */
+  extract: (input: ExtractInput, cfg: { model: ExtractorModel; timeout_ms: number }) => Promise<Extraction>;
   appendLedger: (content: LedgerContent) => Promise<unknown>;
-  extractor: { model: string; prompt_version: string };
+  /** Read per call: the ledger stamp names the model that call used. */
+  extractor: () => Promise<{ model: ExtractorModel; prompt_version: string; timeout_ms: number }>;
   now: () => Date;
   newId: (prefix: string) => string;
 }
@@ -118,11 +120,15 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
     }
     const customer_message = req.conversation.findLast((t) => t.role === "customer")?.text ?? null;
 
+    // A failed settings read is an extractor failure: fail closed like any other.
+    let extractor: { model: string | null; prompt_version: string | null } = { model: null, prompt_version: null };
     let extraction: Extraction | null = null;
     let extractor_error: string | undefined;
     const started = performance.now();
     try {
-      extraction = await opts.extract({ draft: req.draft_reply, customer_message, policy_ids: KNOWN_POLICY_IDS });
+      const { timeout_ms, ...stamp } = await opts.extractor();
+      extractor = stamp;
+      extraction = await opts.extract({ draft: req.draft_reply, customer_message, policy_ids: KNOWN_POLICY_IDS }, { model: stamp.model, timeout_ms });
     } catch (e) {
       extractor_error = e instanceof Error ? e.name : "UnknownError";
     }
@@ -154,7 +160,7 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
         tool: "guard",
         input,
         result,
-        extractor: { ...opts.extractor, latency_ms },
+        extractor: { ...extractor, latency_ms },
         ...(extractor_error ? { extractor_error } : {}),
         risk_score: ctl.score,
       },

@@ -13,7 +13,7 @@ const reply = (text: string, stop_reason = "end_turn") => ({ stop_reason, conten
 function setup(over: Partial<GridQueryOptions> = {}) {
   const complete = vi.fn<GridQueryOptions["complete"]>(async () => reply(JSON.stringify(state)));
   const app = new Hono();
-  mountGridQuery(app, { operatorKey, merchantKey, complete, model: "claude-haiku-5-5", timeoutMs: 50, now: () => NOW, ...over });
+  mountGridQuery(app, { operatorKey, merchantKey, complete, model: async () => "claude-haiku-5-5", timeoutMs: 50, now: () => NOW, ...over });
   return { app, complete };
 }
 
@@ -126,11 +126,19 @@ describe("grid-query route", () => {
     expect(await down.json()).toEqual({ error: "model_unavailable" });
   });
 
+  it("maps a failed model setting read to 502 without calling the model", async () => {
+    const complete = vi.fn<GridQueryOptions["complete"]>(async () => reply("{}"));
+    const res = await post(setup({ complete, model: async () => Promise.reject(new Error("db down")) }).app, { query: "held refunds", schema });
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "model_unavailable" });
+    expect(complete).not.toHaveBeenCalled();
+  });
+
   it("is not cut off by the app's 64 KB body limit", async () => {
     const complete = vi.fn<GridQueryOptions["complete"]>(async () => reply("{}"));
     const app = createApp({
       checks: {},
-      gridQuery: { operatorKey, merchantKey, complete, model: "claude-haiku-5-5", timeoutMs: 50, now: () => NOW },
+      gridQuery: { operatorKey, merchantKey, complete, model: async () => "claude-haiku-5-5", timeoutMs: 50, now: () => NOW },
     });
     // Exactly 64 KB of schema, so the whole body is over 64 KB.
     const big = { ...schema, description: "" };
