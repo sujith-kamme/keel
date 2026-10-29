@@ -142,6 +142,7 @@ export function createTurnStore(db: Db): TurnStore {
     decisions: async (sessionId) => {
       const rows = await db
         .select({
+          seq: ledgerEntries.seq,
           decisionId: ledgerEntries.decisionId,
           tool: sql<string>`${ledgerEntries.payload}->>'tool'`,
           payload: ledgerEntries.payload,
@@ -154,6 +155,7 @@ export function createTurnStore(db: Db): TurnStore {
         .where(eq(ledgerEntries.sessionId, sessionId))
         .orderBy(asc(ledgerEntries.seq));
       return rows.map((r) => ({
+        seq: r.seq,
         decision_id: r.decisionId,
         tool: r.tool,
         order_id: r.orderId,

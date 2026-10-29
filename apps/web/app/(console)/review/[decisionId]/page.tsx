@@ -23,6 +23,7 @@ async function Item({ params }: { params: Promise<{ decisionId: string }> }) {
   // The excerpt is a nice-to-have; the decision stands without it.
   const detail = await sessionDetail(item.session_id).catch(() => null);
   const email = detail?.session.claimed_email;
+  const seq = detail?.decisions.find((d) => d.decision_id === decisionId)?.seq;
   const policyId = typeof item.args?.policy_id === "string" && isPolicyId(item.args.policy_id) ? item.args.policy_id : null;
   const amount = row.amount === "" ? null : amountText(row.amount);
   const isRefund = item.tool === "offer_refund";
@@ -48,7 +49,13 @@ async function Item({ params }: { params: Promise<{ decisionId: string }> }) {
                 {reasonLabel(c)}
               </span>
             ))}
-            <span className="mono">{decisionId}</span>
+            {seq === undefined ? (
+              <span className="mono">{decisionId}</span>
+            ) : (
+              <Link href={`/ledger/${seq}`} className="mono">
+                {decisionId}
+              </Link>
+            )}
             <span>Held {relativeTime(item.created_at, new Date())}</span>
           </div>
         </div>

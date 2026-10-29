@@ -64,7 +64,7 @@ function DecisionRow({ d }: { d: DecisionSummary }) {
       <span className={`st ${v.tone}`}>{v.label}</span>
       <span className="mono">{d.tool}</span>
       <span className="mut">{[reasons, d.order_id].filter(Boolean).join(" · ")}</span>
-      <Link href="/ledger" style={{ marginLeft: "auto" }}>
+      <Link href={`/ledger/${d.seq}`} style={{ marginLeft: "auto" }}>
         Ledger
       </Link>
       {d.guard && <GuardDetail d={d} guard={d.guard} />}

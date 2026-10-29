@@ -34,6 +34,7 @@ export interface Turn {
 }
 
 export interface DecisionSummary {
+  seq: number;
   decision_id: string;
   tool: string;
   order_id: string | null;

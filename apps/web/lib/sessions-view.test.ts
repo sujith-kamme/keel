@@ -9,6 +9,7 @@ const turn = (role: Turn["role"], text: string, decision_ids: string[] = []): Tu
   created_at: "2026-01-01T00:00:00Z",
 });
 const dec = (decision_id: string): DecisionSummary => ({
+  seq: 1,
   decision_id,
   tool: "refund",
   order_id: null,
