@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { type Certification, packLabel, packStats, pct, progressPct, type Run, type RunResult, runOutcome, type Scorecard } from "@/lib/context-view";
-import { usd, utcTime } from "@/lib/overview-view";
+import { type Certification, packLabel, packStats, pct, progressPct, type Run, type RunResult, runName, runOutcome, type Scorecard } from "@/lib/context-view";
+import { usd } from "@/lib/overview-view";
 
 const n = (x: number) => x.toLocaleString("en-US");
 // Run rows come straight from stored JSON; an older or interrupted run may lack a count.
@@ -111,14 +111,13 @@ export function ByPack({ results }: { results: RunResult[] }) {
   );
 }
 
-export function RunHistory({ runs, selectedId, cert }: { runs: Run[]; selectedId: string | undefined; cert: Certification }) {
+export function RunHistory({ runs, selectedId, latestId, cert }: { runs: Run[]; selectedId: string | undefined; latestId: string | undefined; cert: Certification }) {
   return (
     <div className="tw">
       <table className="t" style={{ minWidth: 760 }}>
         <thead>
           <tr>
             <th scope="col">Run</th>
-            <th scope="col">Started (UTC)</th>
             <th scope="col">Mode</th>
             <th scope="col" className="r">
               Conversations
@@ -134,10 +133,9 @@ export function RunHistory({ runs, selectedId, cert }: { runs: Run[]; selectedId
             const o = runOutcome(r, cert);
             return (
               <tr key={r.id} className={r.id === selectedId ? "selr" : undefined}>
-                <td className="mono">
-                  <Link href={`/context?run=${encodeURIComponent(r.id)}`}>{r.id}</Link>
+                <td>
+                  <Link href={`/context?run=${encodeURIComponent(r.id)}`}>{runName(r, latestId)}</Link>
                 </td>
-                <td className="mut">{utcTime(r.created_at)}</td>
                 <td>{r.guarded ? "Guarded" : "No reply guard"}</td>
                 <td className="r">{count(r.scorecard?.runs ?? r.progress?.total)}</td>
                 <td className="r">{count(r.scorecard?.leaks)}</td>

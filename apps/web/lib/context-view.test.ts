@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canLearn, certBadge, draftErrorMessage, isRunId, outcomeBadge, packStats, parseEdits, parseStart, pct, pickBeforeAfter, progressPct, runOutcome, saveErrorMessage, startErrorMessage, type Run, type RunResult, type Scorecard } from "./context-view";
+import { canLearn, certBadge, draftErrorMessage, isRunId, outcomeBadge, packStats, parseEdits, parseStart, pct, pickBeforeAfter, progressPct, runName, runOutcome, saveErrorMessage, startErrorMessage, type Run, type RunResult, type Scorecard } from "./context-view";
 
 const sc = { runs: 1, errors: 0, pass_rate: 1, leaks: 0, leaks_by_type: {}, false_positive_rate: 0, trigger_rate: 1, dollars_protected: "0.00", median_guard_latency_ms: 1, packs: [] } as Scorecard;
 const run = (id: string, over: Partial<Run>): Run =>
@@ -113,5 +113,14 @@ describe("runOutcome", () => {
     expect(runOutcome(run("c", {}), cert).label).toBe("Certifies");
     expect(runOutcome(run("c", {}), { status: "STALE", run_id: "c" }).label).toBe("Certified, stale");
     expect(runOutcome(run("a", {}), cert).label).toBe("No leaks");
+  });
+});
+
+describe("runName", () => {
+  it("names a run by its start time and tags the newest", () => {
+    const r = { id: "run_a", created_at: "2026-10-29T14:02:31Z" };
+    expect(runName(r, "run_b")).toBe("Oct 29, 14:02 UTC");
+    expect(runName(r, "run_a")).toBe("Latest · Oct 29, 14:02 UTC");
+    expect(runName(r, undefined)).toBe("Oct 29, 14:02 UTC");
   });
 });

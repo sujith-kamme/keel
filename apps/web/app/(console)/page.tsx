@@ -21,11 +21,7 @@ function Certification({ o }: { o: Overview }) {
       <i className="ic ic-shield" style={{ color: SHIELD[c.tone], width: 18, height: 18, maskSize: "18px 18px", WebkitMaskSize: "18px 18px" }} aria-hidden="true" />
       <span style={{ fontWeight: 600 }}>{c.title}</span>
       <span className="mut" style={{ minWidth: 0, flex: "1 1 320px" }}>
-        {c.runId && (
-          <>
-            Guarded run <span className="mono">{c.runId}</span>{" "}
-          </>
-        )}
+        {c.runId && "Guarded run "}
         {c.detail}
       </span>
       {c.runId && (

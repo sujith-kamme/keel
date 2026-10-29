@@ -2,9 +2,8 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { certBadge, isActive, isRunId, PACKS, packLabel, pickBeforeAfter, runOutcome } from "@/lib/context-view";
+import { certBadge, isActive, isRunId, PACKS, packLabel, pickBeforeAfter, runName, runOutcome } from "@/lib/context-view";
 import { gauntletCertification, gauntletRun, gauntletRuns, gauntletScenarios, OperatorError, requireConsole } from "@/lib/operator";
-import { utcTime } from "@/lib/overview-view";
 import { NewRunDrawer } from "./new-run-drawer";
 import { ResultsGrid } from "./results-grid";
 import { RunPicker } from "./run-picker";
@@ -21,14 +20,14 @@ async function Body({ search }: { search: Search }) {
   const sp = await search;
   const [cert, runs, scenarios] = await Promise.all([gauntletCertification(), gauntletRuns(), gauntletScenarios()]);
   const wanted = one(sp.run);
-  const selectedId = isRunId(wanted) ? wanted : runs[0]?.id;
+  const latestId = runs[0]?.id;
+  const selectedId = isRunId(wanted) ? wanted : latestId;
   const selected = selectedId ? await gauntletRun(selectedId).catch((e) => (e instanceof OperatorError && e.status === 404 ? null : Promise.reject(e))) : null;
   const busy = runs.some((r) => isActive(r.status));
   const run = selected?.run;
   const results = selected?.results ?? [];
   const baseline = run?.guarded ? (pickBeforeAfter(runs)?.without.scorecard ?? null) : null;
   const cb = certBadge(cert.status);
-  const v = cert.current_versions;
   const runHref = selectedId ? `/context?run=${encodeURIComponent(selectedId)}` : "/context";
   return (
     <>
@@ -48,7 +47,7 @@ async function Body({ search }: { search: Search }) {
           {runs.length > 0 && (
             <RunPicker
               selectedId={selectedId}
-              runs={runs.map((r) => ({ id: r.id, label: `${r.id} · ${utcTime(r.created_at)} UTC · ${r.guarded ? "Guarded" : "No reply guard"}` }))}
+              runs={runs.map((r) => ({ id: r.id, label: `${runName(r, latestId)} · ${r.guarded ? "Guarded" : "No reply guard"}` }))}
             />
           )}
           <Link id="new-run" className="b pri" href={`${runHref}${selectedId ? "&" : "?"}new=1`} scroll={false}>
@@ -62,21 +61,13 @@ async function Body({ search }: { search: Search }) {
           Scenario added to the Gauntlet.
         </p>
       )}
-      <div className="sm mut" style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: -8 }}>
-        {cert.reasons.length > 0 && (
-          <ul style={{ margin: 0, paddingLeft: 18, listStyle: "disc" }}>
-            {cert.reasons.map((r, i) => (
-              <li key={i}>{r}</li>
-            ))}
-          </ul>
-        )}
-        <span className="dim">
-          Agent <span className="mono">{v.agent_model}</span> ({v.agent_prompt}) · extractor <span className="mono">{v.extractor_model}</span> ({v.extractor_prompt_version}, {v.extractor_timeout_ms} ms timeout) · risk threshold {v.risk_threshold}, half-life {v.risk_half_life_min} min · policies{" "}
-          {Object.entries(v.policies)
-            .map(([id, n]) => `${id} v${n}`)
-            .join(", ")}
-        </span>
-      </div>
+      {cert.reasons.length > 0 && (
+        <ul className="sm mut" style={{ margin: "-8px 0 0", paddingLeft: 18, listStyle: "disc" }}>
+          {cert.reasons.map((r, i) => (
+            <li key={i}>{r}</li>
+          ))}
+        </ul>
+      )}
       {!run ? (
         <p className="pnl mut" style={{ margin: 0, padding: "12px 16px" }}>
           {runs.length === 0 ? "No runs yet. Start one with New run." : "Run not found."}
@@ -84,7 +75,7 @@ async function Body({ search }: { search: Search }) {
       ) : (
         <>
           <div className="sm mut">
-            <span className={`st ${runOutcome(run, cert).tone}`}>{runOutcome(run, cert).label}</span> · <span className="mono">{run.id}</span> · {run.guarded ? "Guarded" : "No reply guard"} · {run.packs.map(packLabel).join(", ")} · {run.repeats}× · started {utcTime(run.created_at)} UTC
+            <span className={`st ${runOutcome(run, cert).tone}`}>{runOutcome(run, cert).label}</span> · {runName(run, latestId)} · {run.guarded ? "Guarded" : "No reply guard"} · {run.packs.map(packLabel).join(", ")} · {run.repeats}×
           </div>
           {isActive(run.status) && <Progress run={run} />}
           {run.error && (
@@ -117,7 +108,7 @@ async function Body({ search }: { search: Search }) {
             count: runs.length,
             panel:
               runs.length > 0 ? (
-                <RunHistory runs={runs} selectedId={selectedId} cert={cert} />
+                <RunHistory runs={runs} selectedId={selectedId} latestId={latestId} cert={cert} />
               ) : (
                 <p className="pnl-b mut" style={{ margin: 0 }}>
                   No runs yet.

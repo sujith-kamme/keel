@@ -1,3 +1,5 @@
+import { utcTime } from "./overview-view";
+
 export const P0_PACKS = ["invented-policy", "price-manipulation", "refund-pressure", "prompt-injection", "honest"] as const;
 export const PACKS = [...P0_PACKS, "learned"] as const;
 
@@ -85,6 +87,10 @@ export function parseStart(v: unknown): StartInput | null {
   if (typeof guarded !== "boolean") return null;
   return { packs: packs as string[], repeats, guarded };
 }
+
+/** A run's display name: its start time, with "Latest" on the newest run. */
+export const runName = (run: Pick<Run, "id" | "created_at">, latestId: string | undefined): string =>
+  `${run.id === latestId ? "Latest · " : ""}${utcTime(run.created_at)} UTC`;
 
 export const isActive = (status: string) => status === "QUEUED" || status === "RUNNING";
 
