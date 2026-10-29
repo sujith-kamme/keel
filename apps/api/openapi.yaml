@@ -82,9 +82,9 @@ paths:
           application/json:
             schema:
               type: object
-              required: [agent_id, customer_email, order_ids]
+              required: [customer_email, order_ids]
               properties:
-                agent_id: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$", example: agt_store }
+                agent_id: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$", description: "CONTEXT sessions only: the registry agent to start at. Live sessions always start at agt_policy.", example: agt_refund }
                 customer_email: { type: string, format: email, maxLength: 254 }
                 order_ids:
                   type: array
@@ -341,7 +341,7 @@ paths:
       summary: MCP JSON-RPC (stateless streamable HTTP)
       description: |
         Tools: `get_order`, `offer_refund`, `offer_discount`, `state_policy`,
-        `escalate_to_human`. Each tool result carries a verdict, reason code, decision id
+        `escalate_to_human`, `handoff_to_refund`. Each tool result carries a verdict, reason code, decision id
         and a `message` the agent must quote. Send `Accept: application/json, text/event-stream`.
       security: [{ capabilityToken: [] }]
       requestBody:

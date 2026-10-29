@@ -18,7 +18,7 @@ if (Object.keys(process.env).some((k) => k.startsWith("PAYPAL_"))) {
   throw new Error("PayPal credentials are in the environment; the agent side must run without them");
 }
 const deny = process.argv.includes("--deny");
-const AGENT = "agt_demo_store";
+const AGENT = "agt_refund";
 const QUARANTINE_REPLY = "Your request has been passed to our team for review. You'll hear back within 24 hours.";
 
 const call = async <T>(key: string, path: string, init?: RequestInit): Promise<{ status: number; body: T }> => {
@@ -64,14 +64,21 @@ async function connect(token: string) {
 async function startSession(orderIds: string[]) {
   const s = await merchant<{ session_id: string; demo_otp?: string }>("/v1/sessions", {
     method: "POST",
-    body: JSON.stringify({ agent_id: AGENT, customer_email: "maya@gmail.com", order_ids: orderIds }),
+    body: JSON.stringify({ customer_email: "maya@gmail.com", order_ids: orderIds }),
   });
   if (!s.demo_otp) throw new Error("DEMO_OTP must be enabled on the API");
   const v = await merchant<{ capability_token: string }>(`/v1/sessions/${s.session_id}/verify`, {
     method: "POST",
     body: JSON.stringify({ code: s.demo_otp }),
   });
-  return { id: s.session_id, agent: await connect(v.capability_token) };
+  const policy = await connect(v.capability_token);
+  // Live sessions start at the policy agent, which has no money tools.
+  const handoff = () => policy("handoff_to_refund", { order_id: orderIds[0], reason: "smoke test" });
+  const refundAgent = async () => {
+    const t = await merchant<{ capability_token: string }>(`/v1/sessions/${s.session_id}/token`, { method: "POST" });
+    return connect(t.capability_token);
+  };
+  return { id: s.session_id, handoff, refundAgent };
 }
 
 const guardTimes: number[] = [];
@@ -108,8 +115,11 @@ try {
     .pop()?.order_id;
   if (!inPolicy) throw new Error("Demo orders missing; run npm run seed:store");
 
-  const { id, agent } = await startSession([inPolicy]);
+  const { id, handoff, refundAgent } = await startSession([inPolicy]);
   step("1 session started and verified", true);
+  const h1 = await handoff();
+  step("1 handed off to the refund agent", h1.decision === "ALLOW", `${h1.decision} ${h1.reason_code}`);
+  const agent = await refundAgent();
 
   const g1 = await guard(
     id,
@@ -150,8 +160,8 @@ try {
   frozen = true;
   step("8 agent frozen", f.status === 200, String(f.status));
   const second = await startSession([inPolicy]);
-  const r8 = await second.agent("offer_refund", refund(inPolicy));
-  step("8 frozen agent refund held", r8.decision === "HOLD" && r8.reason_code === "AGENT_FROZEN", `${r8.decision} ${r8.reason_code}`);
+  const r8 = await second.handoff();
+  step("8 frozen agent handoff held", r8.decision === "HOLD" && r8.reason_code === "AGENT_FROZEN", `${r8.decision} ${r8.reason_code}`);
 } catch (e) {
   failed = true;
   console.error(e instanceof Error ? e.message : e);

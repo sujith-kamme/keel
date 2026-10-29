@@ -66,7 +66,9 @@ describe("id validation", () => {
     expect(isSessionId("ses_1-x")).toBe(true);
     expect(isSessionId("../x")).toBe(false);
     expect(isAgentId("*")).toBe(true);
-    expect(isAgentId("agt_demo_store")).toBe(true);
+    expect(isAgentId("agt_policy")).toBe(true);
+    expect(isAgentId("agt_refund")).toBe(true);
+    expect(isAgentId("agt_demo_store")).toBe(false);
     expect(isAgentId("agt_other")).toBe(false);
   });
 });
