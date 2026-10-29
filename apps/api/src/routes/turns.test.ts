@@ -1,35 +1,47 @@
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
-import { type DecisionSummary, type SessionSummary, type Turn, type TurnStore, mountTurns } from "./turns";
+import { type DecisionSummary, type SessionRow, type Turn, type TurnOptions, type TurnStore, mountTurns } from "./turns";
 
 const merchantKey = "m".repeat(32);
 const now = new Date("2026-10-27T12:00:00Z");
 const auth = { authorization: `Bearer ${merchantKey}`, "content-type": "application/json" };
 
-const session = (id: string, expires_at: string, mode: SessionSummary["mode"] = "LIVE"): SessionSummary => ({
+const session = (id: string, expires_at: string, mode: SessionRow["mode"] = "LIVE", state = "ACTIVE"): SessionRow => ({
   id,
   agent_id: "demo",
   claimed_email: "maya@demo.keel.test",
   verified: true,
-  state: "ACTIVE",
+  order_ids: ["O-1"],
+  state,
   mode,
   created_at: "2026-10-27T11:30:00.000Z",
   expires_at,
+  decision_count: 2,
+  last_turn_at: null,
 });
 
 const detail = { score: 40, threshold: 60, signals: [{ kind: "INJECTION", weight: 40, at: "2026-10-27T11:45:00.000Z" }] };
 
-function setup(riskDetail: () => Promise<typeof detail> = async () => detail) {
+function setup(
+  riskDetail: () => Promise<typeof detail> = async () => detail,
+  scores: TurnOptions["scores"] = async () => new Map(),
+) {
   const sessions = [
     session("ses_live", "2026-10-27T12:30:00.000Z"),
-    session("ses_old", "2026-10-27T11:59:00.000Z"),
+    session("ses_old", "2026-10-27T11:59:00.000Z", "LIVE", "QUARANTINED"),
     session("ses_third", "2026-10-27T12:30:00.000Z"),
     session("ses_ctx", "2026-10-27T12:30:00.000Z", "CONTEXT"),
   ];
   const turns: (Turn & { sessionId: string })[] = [];
   const decisions: DecisionSummary[] = [];
   const store: TurnStore = {
-    listSessions: async (limit, mode) => sessions.filter((s) => mode === "all" || s.mode === mode).slice(0, limit),
+    listSessions: async ({ limit, mode, state, before }) => {
+      const from = before === undefined ? 0 : sessions.findIndex((s) => s.id === before) + 1 || sessions.length;
+      return sessions
+        .slice(from)
+        .filter((s) => (mode === "all" || s.mode === mode) && (state === undefined || s.state === state))
+        .slice(0, limit);
+    },
     session: async (id) => sessions.find((s) => s.id === id) ?? null,
     turns: async (id) => turns.filter((t) => t.sessionId === id),
     decisions: async () => decisions,
@@ -37,7 +49,7 @@ function setup(riskDetail: () => Promise<typeof detail> = async () => detail) {
     customerTurnCount: async (id) => turns.filter((t) => t.sessionId === id && t.role === "customer").length,
   };
   const app = new Hono();
-  mountTurns(app, { merchantKey, store, now: () => now, riskDetail });
+  mountTurns(app, { merchantKey, store, now: () => now, riskDetail, scores });
   return { app, turns };
 }
 
@@ -69,6 +81,44 @@ describe("turns API", () => {
     expect(((await (await app.request("/v1/sessions", { headers: auth })).json()) as { sessions: unknown[] }).sessions).toHaveLength(3);
     const text = JSON.stringify(await (await app.request("/v1/sessions", { headers: auth })).json());
     for (const key of ["otp_hash", "otp_attempts", "otpHash"]) expect(text).not.toContain(key);
+  });
+
+  it("adds each row's risk score from one batched lookup, null when unknown or the lookup fails", async () => {
+    const calls: string[][] = [];
+    const { app } = setup(undefined, async (ids) => {
+      calls.push(ids);
+      return new Map([["ses_live", 25]]);
+    });
+    type Row = { id: string; risk_score: number | null; order_ids: string[]; decision_count: number; last_turn_at: string | null };
+    const rows = ((await (await app.request("/v1/sessions", { headers: auth })).json()) as { sessions: Row[] }).sessions;
+    expect(calls).toEqual([["ses_live", "ses_old", "ses_third"]]);
+    expect(rows.map((r) => [r.id, r.risk_score])).toEqual([["ses_live", 25], ["ses_old", null], ["ses_third", null]]);
+    expect(rows[0]).toMatchObject({ order_ids: ["O-1"], decision_count: 2, last_turn_at: null });
+    const down = setup(undefined, async () => {
+      throw new Error("db down");
+    });
+    const res = await down.app.request("/v1/sessions", { headers: auth });
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { sessions: Row[] }).sessions.every((r) => r.risk_score === null)).toBe(true);
+  });
+
+  it("pages with the before cursor and returns next_before only for a full page", async () => {
+    const { app } = setup();
+    const page = async (q: string) => (await (await app.request(`/v1/sessions${q}`, { headers: auth })).json()) as { sessions: { id: string }[]; next_before: string | null };
+    const first = await page("?limit=2");
+    expect(first.sessions.map((s) => s.id)).toEqual(["ses_live", "ses_old"]);
+    expect(first.next_before).toBe("ses_old");
+    const second = await page(`?limit=2&before=${first.next_before}`);
+    expect(second.sessions.map((s) => s.id)).toEqual(["ses_third"]);
+    expect(second.next_before).toBeNull();
+    expect((await app.request("/v1/sessions?before=bad%20id", { headers: auth })).status).toBe(400);
+  });
+
+  it("filters sessions by state", async () => {
+    const { app } = setup();
+    const body = (await (await app.request("/v1/sessions?state=QUARANTINED", { headers: auth })).json()) as { sessions: { id: string }[] };
+    expect(body.sessions.map((s) => s.id)).toEqual(["ses_old"]);
+    expect((await app.request("/v1/sessions?state=bogus", { headers: auth })).status).toBe(400);
   });
 
   it("filters sessions by mode, defaulting to LIVE", async () => {

@@ -141,7 +141,7 @@ const app = createApp({
     newId,
   },
   store: { merchantKey: KEEL_MERCHANT_KEY, ordersFor: createOrdersFor(db) },
-  turns: { merchantKey: KEEL_MERCHANT_KEY, store: turnStore, now, riskDetail: risk.detail },
+  turns: { merchantKey: KEEL_MERCHANT_KEY, store: turnStore, now, riskDetail: risk.detail, scores: risk.scores },
   guard: {
     merchantKey: KEEL_MERCHANT_KEY,
     session: turnStore.session,
