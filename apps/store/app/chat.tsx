@@ -21,7 +21,7 @@ const VERIFY_ERRORS: Record<string, string> = {
 };
 
 const post = (path: string, body: unknown) =>
-  fetch(`/store/api/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  fetch(`/api/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
 export function Chat() {
   const [connecting, setConnecting] = useState(false);

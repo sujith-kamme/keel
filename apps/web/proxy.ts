@@ -13,7 +13,7 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // `(?:/|$)` so only /store and /login themselves are public, not e.g. /storefront.
+  // `(?:/|$)` so only /login itself is public, not e.g. /loginx.
   // keel-*.svg and icon.svg are the public logo and favicon, needed on the login page.
-  matcher: ["/((?!(?:store|login)(?:/|$)|_next/static|_next/image|favicon.ico|icon\\.svg$|keel-[\\w-]+\\.svg$).*)"],
+  matcher: ["/((?!login(?:/|$)|_next/static|_next/image|favicon.ico|icon\\.svg$|keel-[\\w-]+\\.svg$).*)"],
 };

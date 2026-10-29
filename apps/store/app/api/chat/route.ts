@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { HANDOFF, connectAgentTools, runTurn } from "@keel/agent";
 import { env } from "@/lib/env";
 import { agentConfig, appendTurn, guardReply, KeelError, sessionDetail } from "@/lib/keel";
-import { attachDecisions } from "@/lib/sessions-view";
+import { chatHistory } from "@/lib/history";
 import { ChatBody } from "@/lib/store-input";
 import { readChatCookie } from "../cookie";
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const { text } = body.data;
   try {
     const detail = await sessionDetail(chat.session_id);
-    const history = attachDecisions(detail.turns, detail.decisions).turns.map(({ role, text, decisions }) => ({ role, text, decisions }));
+    const history = chatHistory(detail);
     try {
       await appendTurn(chat.session_id, { role: "customer", text, decision_ids: [] });
     } catch (err) {
