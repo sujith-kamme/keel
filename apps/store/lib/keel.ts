@@ -66,6 +66,17 @@ async function keel<T>(path: string, init?: RequestInit): Promise<T> {
 
 const post = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
 
+export interface CatalogItem {
+  sku: string;
+  title: string;
+  image_url: string | null;
+  price: string;
+  currency: string;
+  category: string;
+}
+
+export const catalog = async () => (await keel<{ items: CatalogItem[] }>("/v1/store/catalog")).items;
+
 export const ordersFor = async (email: string) =>
   (await keel<{ orders: StoreOrder[] }>(`/v1/store/orders?customer_email=${encodeURIComponent(email)}`)).orders;
 
