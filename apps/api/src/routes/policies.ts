@@ -23,6 +23,8 @@ export interface PoliciesOptions {
   /** DRAFT → DISCARDED plus the ledger row, atomically. */
   discard: (policyId: string, version: number, entry: LedgerContent) => Promise<"discarded" | "not_found" | "not_draft">;
   newId: (prefix: string) => string;
+  /** Called after an approval commits; failures are logged, never returned. */
+  onChange: () => Promise<void>;
 }
 
 const POLICY_ID = /^[a-z0-9-]{1,64}$/;
@@ -113,6 +115,7 @@ export function mountPolicies(app: Hono, opts: PoliciesOptions): void {
       },
     );
     if (!approved) return c.json({ error: "not_draft" }, 409);
+    opts.onChange().catch((e: unknown) => console.error("recertify failed:", e instanceof Error ? e.name : "unknown"));
     return c.json({ policy_id: id, version: version.data, status: "APPROVED", decision_id: decisionId });
   });
 

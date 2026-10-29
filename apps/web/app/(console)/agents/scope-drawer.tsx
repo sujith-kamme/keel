@@ -14,18 +14,27 @@ const MODEL_DESC: Record<string, string> = {
 };
 const ORDER = ["lenient", "strict"];
 
-/** The agent model and system prompt (PUT /v1/settings/agent), opened from /agents?scope=<agent id>. */
+/** One agent's model and system prompt (PUT /v1/settings/agent), opened from /agents?scope=<agent id>. */
 export function ScopeDrawer({
   agentId,
+  name,
+  role,
+  tools,
   model,
   prompt,
+  section,
   models,
   prompts,
   limits,
 }: {
   agentId: string;
+  name: string;
+  role: "policy" | "refund";
+  tools: readonly string[];
   model: string;
   prompt: string;
+  /** The whole agent section as saved: it is saved whole, so the other agent's values go back unchanged. */
+  section: Record<string, string>;
   models: readonly string[];
   prompts: readonly string[];
   limits: { refunds: string | null; discounts: string | null };
@@ -38,12 +47,12 @@ export function ScopeDrawer({
   const [error, setError] = useState<string | null>(null);
   const dirty = m !== model || p !== prompt;
 
-  useDrawer(ref, { closeHref: "/agents", initial: "input:checked", fallbackId: "edit-scope" });
+  useDrawer(ref, { closeHref: "/agents", initial: "input:checked", fallbackId: `edit-scope-${agentId}` });
 
   const save = () => {
     setError(null);
     start(async () => {
-      const r = await saveSection("agent", { agent_model: m, agent_prompt: p });
+      const r = await saveSection("agent", { ...section, [`${role}_agent_model`]: m, [`${role}_agent_prompt`]: p });
       if (r.ok) router.push("/agents", { scroll: false });
       else setError(r.message);
     });
@@ -57,7 +66,7 @@ export function ScopeDrawer({
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "20px 24px 16px", borderBottom: "1px solid var(--line)" }}>
           <div>
             <h2 id="sc-h" style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
-              Store support agent
+              {name}
             </h2>
             <p className="mono dim" style={{ margin: "2px 0 0", fontSize: 12 }}>
               {agentId}
@@ -111,40 +120,47 @@ export function ScopeDrawer({
             ))}
           </fieldset>
 
-          <div className="pnl">
-            <div className="pnl-h">
-              <h2>Limits</h2>
-              <Link href="/policies" className="sm">
-                Edit in Policies
-              </Link>
-            </div>
-            {limits.refunds || limits.discounts ? (
-              <dl className="facts" style={{ margin: 0 }}>
-                {limits.refunds && (
-                  <div>
-                    <dt>Refunds</dt>
-                    <dd>{limits.refunds}</dd>
-                  </div>
-                )}
-                {limits.discounts && (
-                  <div>
-                    <dt>Discounts</dt>
-                    <dd>{limits.discounts}</dd>
-                  </div>
-                )}
-              </dl>
-            ) : (
-              <p className="pnl-b sm mut" style={{ margin: 0 }}>
-                No refund or discount limits in the approved policies.
-              </p>
-            )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span className="lbl">Tools (set by Keel)</span>
+            <span className="mono sm">{tools.join(", ")}</span>
           </div>
+
+          {(tools.includes("offer_refund") || tools.includes("offer_discount")) && (
+            <div className="pnl">
+              <div className="pnl-h">
+                <h2>Limits</h2>
+                <Link href="/policies" className="sm">
+                  Edit in Policies
+                </Link>
+              </div>
+              {limits.refunds || limits.discounts ? (
+                <dl className="facts" style={{ margin: 0 }}>
+                  {limits.refunds && (
+                    <div>
+                      <dt>Refunds</dt>
+                      <dd>{limits.refunds}</dd>
+                    </div>
+                  )}
+                  {limits.discounts && (
+                    <div>
+                      <dt>Discounts</dt>
+                      <dd>{limits.discounts}</dd>
+                    </div>
+                  )}
+                </dl>
+              ) : (
+                <p className="pnl-b sm mut" style={{ margin: 0 }}>
+                  No refund or discount limits in the approved policies.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {dirty && (
           <div style={{ display: "flex", gap: 10, padding: "10px 24px", background: "var(--warn-bg)", color: "var(--warn)", borderTop: "1px solid var(--warn-line)", fontSize: 13, lineHeight: "20px" }}>
             <i className="ic ic-shield s14" style={{ marginTop: 3 }} aria-hidden="true" />
-            <span>Saving makes certification stale. The agent&apos;s next reply, in every conversation, uses the new settings.</span>
+            <span>Saving makes this agent&apos;s certification stale and queues a re-certification. Its next reply, in every conversation, uses the new settings.</span>
           </div>
         )}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 24px", borderTop: "1px solid var(--line)", background: "var(--canvas)" }}>

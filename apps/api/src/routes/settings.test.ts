@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { SettingsService } from "../settings";
 import { SETTINGS_DEFAULTS, type Settings } from "../settings-schema";
 import { type SettingsStatus, mountSettings } from "./settings";
@@ -15,9 +15,12 @@ const status: SettingsStatus = {
   demo_otp: false,
 };
 
-function setup(opts: { hook?: string | null; fail?: boolean; rescheduleFails?: boolean; send?: (url: string) => Promise<{ status: number }> } = {}) {
+function setup(opts: { hook?: string | null; fail?: boolean; rescheduleFails?: boolean; onChangeFails?: boolean; send?: (url: string) => Promise<{ status: number }> } = {}) {
   let current: Settings = { ...SETTINGS_DEFAULTS, zapier_hook_url: opts.hook ?? null };
   const polls: number[] = [];
+  const onChange = vi.fn(async () => {
+    if (opts.onChangeFails) throw new Error("recertify failed");
+  });
   const settings: SettingsService = {
     init: async () => {},
     get: async () => current,
@@ -44,8 +47,9 @@ function setup(opts: { hook?: string | null; fail?: boolean; rescheduleFails?: b
     },
     getHookUrl: async () => current.zapier_hook_url,
     send: opts.send ?? (async () => ({ status: 200 })),
+    onChange,
   });
-  return { app, polls };
+  return { app, polls, onChange };
 }
 const put = (app: Hono, section: string, body: unknown, headers: Record<string, string> = op) =>
   app.request(`/v1/settings/${section}`, { method: "PUT", headers, body: JSON.stringify(body) });
@@ -87,15 +91,22 @@ describe("settings API", () => {
     expect(await res.json()).toEqual({ changes: { risk_threshold: { from: 60, to: 70 } } });
   });
 
+  it("PUT calls onChange after a committed write, and its failure does not fail the write", async () => {
+    const { app, onChange } = setup({ onChangeFails: true });
+    expect((await put(app, "guard", { operator: "ops", values: { risk_threshold: 70 } })).status).toBe(200);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
+
   it("PUT rejects an unknown section, invalid values, unknown keys and a bad body", async () => {
-    const { app } = setup();
+    const { app, onChange } = setup();
     expect((await put(app, "nope", { operator: "ops", values: {} })).status).toBe(404);
     expect((await put(app, "guard", { operator: "ops", values: { risk_threshold: 0 } })).status).toBe(400);
     expect((await put(app, "guard", { operator: "ops", values: { bogus: 1 } })).status).toBe(400);
-    expect((await put(app, "guard", { operator: "ops", values: { agent_model: "x" } })).status).toBe(400);
+    expect((await put(app, "guard", { operator: "ops", values: { refund_agent_model: "x" } })).status).toBe(400);
     expect((await put(app, "guard", { values: {} })).status).toBe(400);
     expect((await put(app, "guard", { operator: "ops", values: {}, extra: 1 })).status).toBe(400);
     expect((await put(app, "zapier", { operator: "ops", values: { zapier_hook_url: "https://evil.test/x" } })).status).toBe(400);
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("reschedules the poll once when dispute_poll_seconds changes, not when unchanged", async () => {
@@ -143,11 +154,12 @@ describe("settings API", () => {
     expect((await app.request("/v1/settings/zapier/test", { method: "POST", headers: op })).status).toBe(200);
   });
 
-  it("agent-config needs the merchant key and returns model and prompt", async () => {
+  it("agent-config needs the merchant key and returns both agents' model and prompt", async () => {
     const { app } = setup();
     expect((await app.request("/v1/agent-config")).status).toBe(401);
     expect((await app.request("/v1/agent-config", { headers: op })).status).toBe(401);
     const res = await app.request("/v1/agent-config", { headers: bearer(merchantKey) });
-    expect(await res.json()).toEqual({ model: SETTINGS_DEFAULTS.agent_model, prompt: SETTINGS_DEFAULTS.agent_prompt });
+    const d = { model: SETTINGS_DEFAULTS.policy_agent_model, prompt: SETTINGS_DEFAULTS.policy_agent_prompt };
+    expect(await res.json()).toEqual({ agents: { agt_policy: d, agt_refund: d } });
   });
 });

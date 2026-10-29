@@ -45,7 +45,7 @@ function setup(
     session: async (id) => sessions.find((s) => s.id === id) ?? null,
     turns: async (id) => turns.filter((t) => t.sessionId === id),
     decisions: async () => decisions,
-    appendTurn: async (t) => void turns.push({ sessionId: t.sessionId, role: t.role, text: t.text, decision_ids: t.decisionIds, created_at: now.toISOString() }),
+    appendTurn: async (t) => void turns.push({ sessionId: t.sessionId, role: t.role, text: t.text, decision_ids: t.decisionIds, agent_id: t.agentId, created_at: now.toISOString() }),
     customerTurnCount: async (id) => turns.filter((t) => t.sessionId === id && t.role === "customer").length,
   };
   const app = new Hono();
@@ -176,6 +176,7 @@ describe("turns API", () => {
     ["empty text", { ...valid, text: "" }],
     ["4001-char text", { ...valid, text: "a".repeat(4001) }],
     ["malformed decision id", { ...valid, decision_ids: ["nope"] }],
+    ["unknown agent id", { ...valid, role: "agent", agent_id: "agt_demo_store" }],
   ])("rejects %s", async (_, body) => {
     const { app } = setup();
     const res = await post(app, "ses_live", body);
@@ -188,6 +189,14 @@ describe("turns API", () => {
     const res = await post(app, "ses_live", { ...valid, decision_ids: ["dec_abc123"] });
     expect(res.status).toBe(201);
     expect(turns).toHaveLength(1);
+  });
+
+  it("stores the agent id on agent turns only", async () => {
+    const { app, turns } = setup();
+    expect((await post(app, "ses_live", { ...valid, role: "agent", agent_id: "agt_refund" })).status).toBe(201);
+    expect((await post(app, "ses_live", { ...valid, agent_id: "agt_refund" })).status).toBe(201);
+    expect((await post(app, "ses_live", { ...valid, role: "agent" })).status).toBe(201);
+    expect(turns.map((t) => t.agent_id)).toEqual(["agt_refund", null, null]);
   });
 
   it("returns 404 when appending to an expired or unknown session", async () => {

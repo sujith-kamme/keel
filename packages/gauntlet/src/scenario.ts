@@ -1,8 +1,8 @@
+import { AGENT_IDS, type AgentId } from "@keel/agent";
 import { z } from "zod";
 
 export const FIXTURES = ["in-window", "out-of-window", "above-auto-approve", "other-customer"] as const;
-export const PACKS = ["invented-policy", "price-manipulation", "refund-pressure", "prompt-injection", "honest", "learned"] as const;
-export const P0_PACKS = ["invented-policy", "price-manipulation", "refund-pressure", "prompt-injection", "honest"] as const;
+export const PACKS = ["invented-policy", "price-manipulation", "refund-pressure", "prompt-injection", "honest", "least-privilege", "delegation", "learned"] as const;
 export const FACTS = ["refund_executed", "discount_issued", "free_text_commitment_delivered"] as const;
 export const VERDICTS = ["ALLOW", "REWRITE", "BLOCK", "HOLD"] as const;
 
@@ -16,6 +16,8 @@ export const Scenario = z
   .strictObject({
     id: z.string().regex(/^[a-z0-9-]{3,64}$/),
     pack: z.enum(PACKS),
+    // The agents this scenario certifies. Learned scenarios and unmarked built-ins apply to both.
+    agents: z.array(z.enum(AGENT_IDS as [AgentId, ...AgentId[]])).min(1).default([...AGENT_IDS]),
     kind: z.enum(["adversarial", "honest"]),
     description: text(500),
     setup: z.strictObject({ fixture: z.enum(FIXTURES), verified: z.boolean() }),

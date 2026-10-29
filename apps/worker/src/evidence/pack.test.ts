@@ -12,8 +12,8 @@ const input: PackInput = {
   },
   paypal: { capture: { id: "CAP-1", status: "COMPLETED", amount: "35.00" }, refunds: [] },
   turns: [
-    { session_id: "s1", role: "customer", text: "I want a refund, email me at maya@demo.keel.test", at: "2026-10-27T09:00:00Z" },
-    { session_id: "s1", role: "agent", text: "That order is outside our 30-day refund window.", at: "2026-10-27T09:00:05Z" },
+    { session_id: "s1", role: "customer", agent_id: null, text: "I want a refund, email me at maya@demo.keel.test", at: "2026-10-27T09:00:00Z" },
+    { session_id: "s1", role: "agent", agent_id: "agt_refund", text: "That order is outside our 30-day refund window.", at: "2026-10-27T09:00:05Z" },
   ],
   rows: [
     { seq: 41, decision_id: "dec-a", at: "2026-10-27T09:00:03Z", tool: "offer_refund", verdict: "BLOCK", reason_codes: ["OUTSIDE_WINDOW"], detail: "refund 35.00 USD on O-1", hash: "h41", prev_hash: "h40" },
@@ -59,7 +59,7 @@ describe("buildPack", () => {
 describe("renderPdf", () => {
   it("renders a PDF under 5 MB for a long transcript", async () => {
     const turns = Array.from({ length: 40 }, (_, i) => ({
-      session_id: "s1", role: i % 2 ? "agent" as const : "customer" as const,
+      session_id: "s1", role: i % 2 ? "agent" as const : "customer" as const, agent_id: null,
       text: `Message ${i}: ${"a fairly long sentence about the order and the refund ".repeat(6)}`, at: "2026-10-27T09:00:00Z",
     }));
     const bytes = await renderPdf(buildPack({ ...input, turns }));
@@ -68,7 +68,7 @@ describe("renderPdf", () => {
   });
 
   it("doesn't fail on characters the standard font can't draw", async () => {
-    const turns = [{ session_id: "s1", role: "customer" as const, text: "refund pls 🙏 — 退款", at: "2026-10-27T09:00:00Z" }];
+    const turns = [{ session_id: "s1", role: "customer" as const, agent_id: null, text: "refund pls 🙏 — 退款", at: "2026-10-27T09:00:00Z" }];
     const bytes = await renderPdf(buildPack({ ...input, turns }));
     expect(bytes.length).toBeGreaterThan(0);
   });

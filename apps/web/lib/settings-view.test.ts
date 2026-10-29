@@ -35,11 +35,12 @@ describe("settings sections", () => {
     ]) {
       expect(sectionValues("guard", bad)).toBeNull();
     }
+    const agent = { policy_agent_model: "claude-haiku-5-5", policy_agent_prompt: "lenient", refund_agent_model: "claude-haiku-5-5", refund_agent_prompt: "lenient" };
     expect(sectionValues("gauntlet", { gauntlet_customer_model: "claude-opus-5-5", gauntlet_concurrency: 11 })).toBeNull();
     expect(sectionValues("disputes", { dispute_auto_submit: "true", dispute_poll_seconds: 120 })).toBeNull();
     expect(sectionValues("disputes", { dispute_auto_submit: true, dispute_poll_seconds: 29 })).toBeNull();
-    expect(sectionValues("agent", { agent_model: "claude-sonnet-5-5", agent_prompt: "strict" })).not.toBeNull();
-    expect(sectionValues("agent", { agent_model: "claude-sonnet-5-5", agent_prompt: "rude" })).toBeNull();
+    expect(sectionValues("agent", { ...agent, refund_agent_model: "claude-sonnet-5-5", refund_agent_prompt: "strict" })).not.toBeNull();
+    expect(sectionValues("agent", { ...agent, refund_agent_prompt: "rude" })).toBeNull();
   });
 
   it("only stores Zapier hook URLs, or null to remove", () => {

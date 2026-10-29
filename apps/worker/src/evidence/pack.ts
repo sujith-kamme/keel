@@ -22,7 +22,7 @@ export interface PackInput {
   reason_codes: string[];
   order: { order_id: string; capture_id: string; total: string; currency: string; delivered_at: string | null; items: { title: string; price: string }[] } | null;
   paypal: { capture: { id: string; status: string; amount: string } | null; refunds: { id: string; status: string; amount: string }[] };
-  turns: { session_id: string; role: "customer" | "agent"; text: string; at: string }[];
+  turns: { session_id: string; role: "customer" | "agent"; agent_id: string | null; text: string; at: string }[];
   rows: PackRow[];
   policies: { policy_id: string; version: number; approved_text: string }[];
 }

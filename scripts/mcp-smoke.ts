@@ -61,19 +61,6 @@ const large = maya.get("large-order")!;
 const other = sam.get("other-customer")!;
 if (!inPolicy || !oldOrder || !large || !other) throw new Error("Demo orders missing; run npm run seed:store");
 
-const session = await merchant<{ session_id: string; capability_token: string; demo_otp?: string; orders: string[] }>(
-  "/v1/sessions",
-  {
-    method: "POST",
-    body: JSON.stringify({
-      agent_id: "agt_smoke",
-      customer_email: "maya@gmail.com",
-      order_ids: [inPolicy, oldOrder, large, other],
-    }),
-  },
-);
-if (!session.demo_otp) throw new Error("DEMO_OTP must be enabled on the API");
-
 const rows: { step: string; expected: string; actual: string; pass: boolean }[] = [];
 const check = async (step: string, expected: string, call: Promise<{ decision: string; reason_code: string }>) => {
   const r = await call;
@@ -83,11 +70,39 @@ const check = async (step: string, expected: string, call: Promise<{ decision: s
 };
 const refund = (order_id: string, amount: string) => ({ order_id, amount, reason: "smoke test", policy_id: "refund-standard" });
 
-// Before identity verification.
-const unverified = await connect(session.capability_token);
-await check("refund before OTP", "BLOCK PAYER_NOT_VERIFIED", unverified("offer_refund", refund(inPolicy, "10.00")));
+// A live session always starts at the policy agent, whatever agent_id is sent.
+const startSession = () =>
+  merchant<{ session_id: string; capability_token: string; demo_otp?: string; orders: string[] }>("/v1/sessions", {
+    method: "POST",
+    body: JSON.stringify({ agent_id: "agt_refund", customer_email: "maya@gmail.com", order_ids: [inPolicy, oldOrder, large, other] }),
+  });
+const handoff = async (sessionId: string, call: Awaited<ReturnType<typeof connect>>, label: string) => {
+  await check(`${label}: handoff to refund`, "ALLOW OK", call("handoff_to_refund", { order_id: inPolicy, reason: "smoke test" }));
+  const t = await merchant<{ agent_id: string; capability_token: string }>(`/v1/sessions/${sessionId}/token`, { method: "POST", body: "{}" });
+  rows.push({ step: `${label}: session now at refund agent`, expected: "agt_refund", actual: t.agent_id, pass: t.agent_id === "agt_refund" });
+  return t.capability_token;
+};
 
-const verified = await merchant<{ capability_token: string }>(`/v1/sessions/${session.session_id}/verify`, {
+// Each refusal adds to the session's risk score, and the checks below would cross the
+// quarantine threshold in one session, so the refusals are split across two.
+
+// The policy agent has no money tools; the refund agent can't hand off again, and its
+// money tools still need the OTP after a handoff.
+const scopeSession = await startSession();
+const policy = await connect(scopeSession.capability_token);
+await check("policy agent: refund", "BLOCK CAPABILITY_OUT_OF_SCOPE", policy("offer_refund", refund(inPolicy, "10.00")));
+await check("policy agent: discount", "BLOCK CAPABILITY_OUT_OF_SCOPE", policy("offer_discount", { percent: 10, policy_id: "discount-goodwill" }));
+const unverified = await connect(await handoff(scopeSession.session_id, policy, "scope"));
+await check("refund agent: handoff again", "BLOCK CAPABILITY_OUT_OF_SCOPE", unverified("handoff_to_refund", { order_id: inPolicy, reason: "smoke test" }));
+await check("refund before OTP", "BLOCK PAYER_NOT_VERIFIED", unverified("offer_refund", refund(inPolicy, "10.00")));
+// Last in this session: a foreign order is the heaviest signal.
+await check("another customer's order", "BLOCK CAPABILITY_OUT_OF_SCOPE", unverified("get_order", { order_id: other }));
+
+const session = await startSession();
+if (!session.demo_otp) throw new Error("DEMO_OTP must be enabled on the API");
+const sessionPath = `/v1/sessions/${session.session_id}`;
+await handoff(session.session_id, await connect(session.capability_token), "main");
+const verified = await merchant<{ capability_token: string }>(`${sessionPath}/verify`, {
   method: "POST",
   body: JSON.stringify({ code: session.demo_otp }),
 });
@@ -96,7 +111,6 @@ const agent = await connect(verified.capability_token);
 const order = await check("get_order in-policy", "ALLOW OK", agent("get_order", { order_id: inPolicy }));
 if (order.data?.refunded !== "0.00") throw new Error("In-policy order already refunded; run npm run seed:store -- --fresh in-policy");
 
-await check("another customer's order", "BLOCK CAPABILITY_OUT_OF_SCOPE", agent("get_order", { order_id: other }));
 await check("refund over capability cap ($130)", "BLOCK CAPABILITY_OUT_OF_SCOPE", agent("offer_refund", refund(large, "130.00")));
 await check("refund outside window", "BLOCK OUTSIDE_WINDOW", agent("offer_refund", refund(oldOrder, "10.00")));
 await check("refund over captured ($45 on $42)", "BLOCK AMOUNT_EXCEEDS_CAPTURED", agent("offer_refund", refund(inPolicy, "45.00")));

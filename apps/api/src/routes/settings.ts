@@ -1,7 +1,8 @@
+import { AGENT_IDS } from "@keel/agent";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import type { SettingsService } from "../settings";
-import { SECTION_SCHEMAS, type Section } from "../settings-schema";
+import { SECTION_SCHEMAS, type Section, agentSettings } from "../settings-schema";
 import { merchantAuth } from "./merchant-auth";
 import { operatorAuth } from "./operator-auth";
 
@@ -21,6 +22,8 @@ export interface SettingsOptions {
   reschedulePoll: (seconds: number) => Promise<void>;
   getHookUrl: () => Promise<string | null>;
   send: (hookUrl: string) => Promise<{ status: number }>;
+  /** Called after a committed write; failures are logged, never returned. */
+  onChange: () => Promise<void>;
 }
 
 const Update = z.strictObject({ operator: z.string().min(1).max(64), values: z.record(z.string(), z.unknown()) });
@@ -75,6 +78,7 @@ export function mountSettings(app: Hono, opts: SettingsOptions): void {
     } catch {
       return c.json({ error: "settings_write_failed" }, 500);
     }
+    opts.onChange().catch((e: unknown) => console.error("recertify failed:", e instanceof Error ? e.name : "unknown"));
     const poll = result.changes.dispute_poll_seconds;
     if (section !== "disputes" || !poll) return c.json({ changes: result.changes });
     // The write is committed: a failed reschedule must not turn into a 500 the client would retry as a no-op.
@@ -90,6 +94,6 @@ export function mountSettings(app: Hono, opts: SettingsOptions): void {
   app.get("/v1/agent-config", async (c) => {
     if (!merchant(c)) return c.json({ error: "unauthorized" }, 401);
     const s = await settings.get();
-    return c.json({ model: s.agent_model, prompt: s.agent_prompt });
+    return c.json({ agents: Object.fromEntries(AGENT_IDS.map((id) => [id, agentSettings(s, id)])) });
   });
 }

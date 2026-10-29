@@ -53,7 +53,7 @@ describe("/v1/mcp", () => {
     expect(handle).not.toHaveBeenCalled();
   });
 
-  it("lists exactly the five Keel tools", async () => {
+  it("lists exactly the six Keel tools", async () => {
     const { app } = setup();
     const res = await rpc(app, issueToken(claims, key), "tools/list");
     expect(res.status).toBe(200);
@@ -61,6 +61,7 @@ describe("/v1/mcp", () => {
     expect(body.result.tools.map((t) => t.name).sort()).toEqual([
       "escalate_to_human",
       "get_order",
+      "handoff_to_refund",
       "offer_discount",
       "offer_refund",
       "state_policy",

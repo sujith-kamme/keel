@@ -1,3 +1,4 @@
+import { type AgentId, isAgentId as isRegistryAgent } from "@keel/agent/agents";
 import { toolLabel, usd } from "./overview-view";
 import { reasonLabel } from "./reason-labels";
 
@@ -40,7 +41,7 @@ const DECISION_ID = /^dec_[A-Za-z0-9]{1,64}$/;
 const SESSION_ID = /^[A-Za-z0-9_-]{1,64}$/;
 export const isDecisionId = (v: unknown): v is string => typeof v === "string" && DECISION_ID.test(v);
 export const isSessionId = (v: unknown): v is string => typeof v === "string" && SESSION_ID.test(v);
-export const isAgentId = (v: unknown): v is "agt_demo_store" | "*" => v === "agt_demo_store" || v === "*";
+export const isAgentId = (v: unknown): v is AgentId | "*" => v === "*" || isRegistryAgent(v);
 
 function amountOf(args: Record<string, unknown> | undefined): string {
   if (!args) return "";

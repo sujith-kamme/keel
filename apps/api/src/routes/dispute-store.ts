@@ -133,7 +133,7 @@ export function createDisputeStore(db: Db): DisputeStore & DisputeApiStore {
           items: order.items.map((i) => ({ title: i.title, price: i.price })),
         },
         rows: rows.map(ledgerRow),
-        turns: turns.map((t) => ({ session_id: t.sessionId, role: t.role as "customer" | "agent", text: t.text, at: t.createdAt.toISOString() })),
+        turns: turns.map((t) => ({ session_id: t.sessionId, role: t.role as "customer" | "agent", agent_id: t.agentId, text: t.text, at: t.createdAt.toISOString() })),
         policies,
       };
     },

@@ -3,14 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 
 interface Message {
-  role: "customer" | "agent";
+  role: "customer" | "agent" | "marker";
   text: string;
+  agent_id?: string;
 }
 
 const post = (path: string, body: unknown) =>
   fetch(`/api/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
 
-const bubble = (role: Message["role"]): React.CSSProperties =>
+const bubble = (role: "customer" | "agent"): React.CSSProperties =>
   role === "customer"
     ? { alignSelf: "flex-end", maxWidth: "80%", background: "var(--accent)", color: "#FFFFFF", borderRadius: "14px 14px 4px 14px", padding: "10px 14px", whiteSpace: "pre-wrap" }
     : { alignSelf: "flex-start", maxWidth: "80%", background: "#F1EDE6", borderRadius: "14px 14px 14px 4px", padding: "10px 14px", whiteSpace: "pre-wrap" };
@@ -62,8 +63,16 @@ export function SupportChat({ orderId }: { orderId: string }) {
       if (res.status === 401) return setState("ended");
       if (res.status === 429) return setNotice("This chat has reached its message limit. Start a new chat.");
       if (!res.ok) throw new Error();
-      const { reply } = (await res.json()) as { reply: string };
-      setMessages((m) => [...m, { role: "agent", text: reply }]);
+      const { replies } = (await res.json()) as { replies: { agent_id: string; text: string }[] };
+      setMessages((m) => {
+        const out = [...m];
+        for (const r of replies) {
+          const lastAgent = [...out].reverse().find((x) => x.role === "agent")?.agent_id;
+          if (lastAgent && lastAgent !== r.agent_id && r.agent_id === "agt_refund") out.push({ role: "marker", text: "Refunds specialist joined" });
+          out.push({ role: "agent", text: r.text, agent_id: r.agent_id });
+        }
+        return out;
+      });
     } catch {
       setNotice("That message didn't send. Try again.");
     } finally {
@@ -104,11 +113,17 @@ export function SupportChat({ orderId }: { orderId: string }) {
         {state === "ready" && (
           <>
             <div style={bubble("agent")}>Hi, I can help with order {orderId}. What&apos;s going on?</div>
-            {messages.map((m, i) => (
-              <div key={i} style={bubble(m.role)}>
-                {m.text}
-              </div>
-            ))}
+            {messages.map((m, i) =>
+              m.role === "marker" ? (
+                <p key={i} role="status" className="small dim" style={{ textAlign: "center", margin: "4px 0" }}>
+                  {m.text}
+                </p>
+              ) : (
+                <div key={i} style={bubble(m.role)}>
+                  {m.text}
+                </div>
+              ),
+            )}
             {sending && (
               <div style={bubble("agent")} className="dim">
                 Typing…

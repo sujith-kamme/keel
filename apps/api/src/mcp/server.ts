@@ -61,6 +61,14 @@ function buildServer(cap: Capability, opts: McpOptions): McpServer {
     { description: `Hand the conversation to a person. ${QUOTE}`, inputSchema: { reason: Reason } },
     (args) => reply({ tool: "escalate_to_human", args }),
   );
+  server.registerTool(
+    "handoff_to_refund",
+    {
+      description: "Hand the conversation to the refunds specialist. Use it for any refund or discount request; you cannot refund or discount yourself.",
+      inputSchema: { order_id: OrderId, reason: Reason },
+    },
+    (args) => reply({ tool: "handoff_to_refund", args }),
+  );
   return server;
 }
 

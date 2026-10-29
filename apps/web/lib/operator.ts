@@ -1,4 +1,5 @@
 import "server-only";
+import type { AgentId } from "@keel/agent/agents";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
@@ -94,7 +95,7 @@ export const agentControl = (agentId: string) => operator<AgentControl>(`/v1/age
 export const setFrozen = (agentId: string, frozen: boolean, operatorName: string) =>
   operator<AgentControl>(`/v1/agents/${encodeURIComponent(agentId)}/${frozen ? "freeze" : "unfreeze"}`, post({ operator: operatorName }));
 
-export const gauntletCertification = () => operator<Certification>("/v1/gauntlet/certification");
+export const gauntletCertification = (agentId?: AgentId) => operator<Certification>(`/v1/gauntlet/certification${agentId ? `?agent_id=${agentId}` : ""}`);
 
 export const gauntletRuns = async () => (await operator<{ runs: Run[] }>("/v1/gauntlet/runs")).runs;
 

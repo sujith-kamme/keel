@@ -1,3 +1,4 @@
+import { ENTRY_AGENT } from "@keel/agent";
 import { NextResponse } from "next/server";
 import { currentCustomer } from "@/lib/customer";
 import { ordersFor, startSession } from "@/lib/keel";
@@ -17,6 +18,7 @@ export async function POST(request: Request) {
     await writeChatCookie({
       session_id: started.session_id,
       token: started.capability_token,
+      agent_id: ENTRY_AGENT,
       email,
       verified: true,
       expires_at: started.expires_at,

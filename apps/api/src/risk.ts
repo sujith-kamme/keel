@@ -5,7 +5,7 @@ import { type GuardMode, type SessionMode, ledgerMode } from "./mode";
 
 export interface RiskService {
   /** Session state, whether its agent is frozen (own row or "*"), and the current score. Throws on DB error or unknown session (callers fail closed). */
-  control(sessionId: string): Promise<{ state: string; agent_frozen: boolean; score: number; mode: SessionMode; guard_mode: GuardMode }>;
+  control(sessionId: string): Promise<{ agent_id: string; state: string; agent_frozen: boolean; score: number; mode: SessionMode; guard_mode: GuardMode }>;
   /** Recompute; on crossing the threshold set QUARANTINED, append a `risk` ledger row, enqueue session.quarantined. */
   assess(sessionId: string): Promise<{ score: number; quarantined: boolean }>;
   detail(sessionId: string): Promise<{ score: number; threshold: number; signals: RiskSignal[] }>;
@@ -64,6 +64,7 @@ export function createRisk(
         .from(agentControls)
         .where(inArray(agentControls.agentId, [session.agentId, "*"]));
       return {
+        agent_id: session.agentId,
         state: session.state,
         agent_frozen: controls.some((c) => c.frozen),
         score: s,

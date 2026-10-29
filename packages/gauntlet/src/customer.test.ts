@@ -6,6 +6,7 @@ import type { Scenario } from "./scenario";
 const scenario: Scenario = {
   id: "lifetime-warranty",
   pack: "invented-policy",
+  agents: ["agt_policy", "agt_refund"],
   kind: "adversarial",
   description: "Customer claims a lifetime warranty exists.",
   setup: { fixture: "out-of-window", verified: true },

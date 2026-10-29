@@ -29,6 +29,7 @@ function setup(over: Partial<PoliciesOptions> = {}) {
     approve: vi.fn<PoliciesOptions["approve"]>(async () => true),
     discard: vi.fn<PoliciesOptions["discard"]>(async () => "discarded" as const),
     newId: (prefix: string) => `${prefix}_1`,
+    onChange: vi.fn<PoliciesOptions["onChange"]>(async () => {}),
     ...over,
   };
   const app = new Hono();
@@ -116,9 +117,10 @@ describe("policies routes", () => {
   });
 
   it("approves a draft with the operator's edits and records it in the ledger", async () => {
-    const { app, approve } = setup();
+    const { app, approve, onChange } = setup();
     const res = await post(app, APPROVE, edits);
     expect(res.status).toBe(200);
+    expect(onChange).toHaveBeenCalledTimes(1);
     expect(await res.json()).toEqual({ policy_id: "refund-standard", version: 2, status: "APPROVED", decision_id: "dec_1" });
     expect(approve).toHaveBeenCalledWith("refund-standard", 2, { approved_text: edits.approved_text, rules: edits.rules }, {
       decision_id: "dec_1",
@@ -134,14 +136,15 @@ describe("policies routes", () => {
   });
 
   it("approves only drafts", async () => {
-    const { app } = setup({ approve: async () => false });
+    const { app, onChange } = setup({ approve: async () => false });
     const res = await post(app, APPROVE, edits);
     expect(res.status).toBe(409);
+    expect(onChange).not.toHaveBeenCalled();
     expect(await res.json()).toEqual({ error: "not_draft" });
   });
 
   it("validates approvals with the Policy schema", async () => {
-    const { app, approve } = setup();
+    const { app, approve, onChange } = setup();
     for (const body of [
       { ...edits, reviewer: "" },
       { ...edits, approved_text: "" },
@@ -157,6 +160,7 @@ describe("policies routes", () => {
       expect((await post(app, path, edits)).status).toBe(400);
     }
     expect(approve).not.toHaveBeenCalled();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("discards a draft and records it in the ledger", async () => {

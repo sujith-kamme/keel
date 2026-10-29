@@ -32,6 +32,7 @@ export interface Turn {
   role: "customer" | "agent";
   text: string;
   decision_ids: string[];
+  agent_id: string | null;
   created_at: string;
 }
 
@@ -44,6 +45,7 @@ export interface DecisionSummary {
 }
 
 export interface SessionDetail {
+  session: { agent_id: string };
   turns: Turn[];
   decisions: DecisionSummary[];
 }
@@ -93,11 +95,13 @@ export const ordersFor = async (email: string) =>
 
 export const startSession = (email: string, orderIds: string[]) =>
   // The shopper is signed in to the store, so the session starts verified.
-  keel<StartedSession>("/v1/sessions", post({ agent_id: "agt_demo_store", customer_email: email, order_ids: orderIds, customer_authenticated: true }));
+  keel<StartedSession>("/v1/sessions", post({ customer_email: email, order_ids: orderIds, customer_authenticated: true }));
 
 export const sessionDetail = (id: string) => keel<SessionDetail>(`/v1/sessions/${encodeURIComponent(id)}`);
 
-export const appendTurn = (id: string, turn: { role: "customer" | "agent"; text: string; decision_ids: string[] }) =>
+export const mintToken = (id: string) => keel<{ agent_id: string; capability_token: string }>(`/v1/sessions/${encodeURIComponent(id)}/token`, post({}));
+
+export const appendTurn = (id: string, turn: { role: "customer" | "agent"; text: string; decision_ids: string[]; agent_id?: string }) =>
   keel<unknown>(`/v1/sessions/${encodeURIComponent(id)}/turns`, post(turn));
 
 export interface GuardResult {
@@ -116,6 +120,6 @@ export const guardReply = (body: {
 }) => keel<GuardResult>("/v1/guard", post(body));
 
 let readAgentConfig: ReturnType<typeof agentConfigReader> | undefined;
-/** The agent model and prompt the Gauntlet certifies, read from the API settings (cached 5 s). */
+/** Each agent's model and prompt the Gauntlet certifies, read from the API settings (cached 5 s). */
 export const agentConfig = () => (readAgentConfig ??= agentConfigReader({ url: env().keelApiUrl, key: env().merchantKey }))();
 

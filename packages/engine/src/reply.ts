@@ -11,6 +11,10 @@ export interface TurnDecision {
   tool: string;
   verdict: Verdict;
   args: Record<string, unknown>;
+  /** The ledger decision id of the call, when known. */
+  decision_id?: string;
+  /** The agent that made the call, when recorded. */
+  agent_id?: string;
   /** The customer-safe message Keel returned for this call, when recorded. */
   message?: string;
   /** Figures Keel's own order lookup returned (owner-verified get_order only); absent in old rows. */

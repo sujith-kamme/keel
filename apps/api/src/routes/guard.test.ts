@@ -21,9 +21,9 @@ function setup(over: Partial<GuardOptions> = {}) {
     merchantKey,
     session: async (id) =>
       id === "ses_live"
-        ? { id, state: "ACTIVE", expires_at: "2026-10-27T12:30:00.000Z" }
+        ? { id, state: "ACTIVE", agent_id: "agt_refund", expires_at: "2026-10-27T12:30:00.000Z" }
         : id === "ses_old"
-          ? { id, state: "ACTIVE", expires_at: "2026-10-27T12:00:00.000Z" }
+          ? { id, state: "ACTIVE", agent_id: "agt_refund", expires_at: "2026-10-27T12:00:00.000Z" }
           : null,
     turnDecisions: async (sid, ids) => {
       calls.turnDecisions.push([sid, ids]);
@@ -249,8 +249,38 @@ describe("POST /v1/guard", () => {
   });
 
   it("takes session_state from the session row", async () => {
-    const { app } = setup({ session: async (id) => ({ id, state: "HELD", expires_at: "2026-10-27T12:30:00.000Z" }) });
+    const { app } = setup({ session: async (id) => ({ id, state: "HELD", agent_id: "agt_policy", expires_at: "2026-10-27T12:30:00.000Z" }) });
     expect(((await (await post(app, valid)).json()) as { session_state: string }).session_state).toBe("HELD");
+  });
+
+  it("records the session's current agent on every guard row", async () => {
+    const quarantined = async () => ({ state: "QUARANTINED", agent_frozen: false, score: 9, mode: "LIVE", guard_mode: "ENFORCE" });
+    const failing = async () => {
+      throw new Error("db");
+    };
+    for (const control of [undefined, quarantined, failing]) {
+      const { app, ledger } = setup(control ? { control } : {});
+      await post(app, valid);
+      expect(ledger).toHaveLength(1);
+      expect(ledger[0]!.payload).toMatchObject({ tool: "guard", agent_id: "agt_refund" });
+    }
+  });
+
+  it("records the last acting agent in request order, whatever order rows come back in", async () => {
+    const row = (decision_id: string, agent_id: string): TurnDecision => ({ decision_id, tool: "handoff_to_refund", verdict: "ALLOW", args: {}, agent_id });
+    const { app, ledger } = setup({ turnDecisions: async () => [row("dec_b", "agt_refund2"), row("dec_a", "agt_policy")] });
+    await post(app, { ...valid, tool_calls_this_turn: ["dec_a", "dec_b"] });
+    expect(ledger[0]!.payload).toMatchObject({ agent_id: "agt_refund2" });
+  });
+
+  it("records the agent that acted this turn, not the session's current agent", async () => {
+    const acted: TurnDecision = { tool: "handoff_to_refund", verdict: "ALLOW", args: {}, agent_id: "agt_policy" };
+    const quarantined = async () => ({ state: "QUARANTINED", agent_frozen: false, score: 9, mode: "LIVE", guard_mode: "ENFORCE" });
+    for (const control of [undefined, quarantined]) {
+      const { app, ledger } = setup({ ...(control ? { control } : {}), turnDecisions: async () => [acted] });
+      await post(app, { ...valid, tool_calls_this_turn: ["dec_h"] });
+      expect(ledger[0]!.payload).toMatchObject({ tool: "guard", agent_id: "agt_policy" });
+    }
   });
 
   describe("session mode", () => {

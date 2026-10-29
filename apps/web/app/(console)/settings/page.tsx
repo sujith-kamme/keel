@@ -96,7 +96,7 @@ async function Sections() {
         title="Guard"
         desc={
           <>
-            How Keel checks agent replies and when it quarantines a conversation. The agent&apos;s own model is set on <Link href="/agents?scope=agt_demo_store">Agents</Link>.
+            How Keel checks agent replies and when it quarantines a conversation. Each agent&apos;s own model is set on <Link href="/agents">Agents</Link>.
           </>
         }
       >

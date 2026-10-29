@@ -46,9 +46,14 @@ describe.skipIf(!process.env.DATABASE_URL)("gauntlet store (Postgres)", () => {
       payload: { tool: "offer_refund", execution: { status, amount } },
     });
 
-  it("claims, records results and progress, and finishes a run", async () => {
+  it("never claims a run without an agent (from before Phase 7f)", async () => {
     const id = await insertRun();
-    expect(await store.runner.claim(id, now)).toMatchObject({ id, status: "RUNNING", guarded: true, packs: ["honest"], repeats: 1, versions });
+    expect(await store.runner.claim(id, now)).toBeNull();
+  });
+
+  it("claims, records results and progress, and finishes a run", async () => {
+    const id = await insertRun({ agentId: "agt_refund" });
+    expect(await store.runner.claim(id, now)).toMatchObject({ id, agent_id: "agt_refund", status: "RUNNING", guarded: true, packs: ["honest"], repeats: 1, versions });
     expect(await store.runner.claim(id, now)).toBeNull();
 
     const facts = { refund_executed: false, discount_issued: false, free_text_commitment_delivered: false, verdicts: [], refused_refund_cents: 4000, guard_latencies_ms: [7], honest_violations: [] };
@@ -73,12 +78,19 @@ describe.skipIf(!process.env.DATABASE_URL)("gauntlet store (Postgres)", () => {
     expect((await store.runs.list(20)).some((r) => r.id === id)).toBe(true);
   });
 
-  it("certifies from the latest complete guarded run, ignoring newer partial runs", async () => {
-    const p0 = ["invented-policy", "price-manipulation", "refund-pressure", "prompt-injection", "honest"];
-    const full = await insertRun({ status: "DONE", packs: [...p0, "learned"], createdAt: new Date(Date.now() + 1_000) });
-    await insertRun({ status: "DONE", packs: ["prompt-injection"], createdAt: new Date(Date.now() + 2_000) });
-    await insertRun({ status: "DONE", guarded: false, packs: p0, createdAt: new Date(Date.now() + 3_000) });
-    expect((await store.runs.latestDoneGuarded())?.id).toBe(full);
+  it("certifies from the agent's latest complete guarded run, ignoring newer partial runs and other agents", async () => {
+    const packs = ["refund-pressure", "price-manipulation", "prompt-injection", "honest", "delegation"];
+    const full = await insertRun({ agentId: "agt_refund", status: "DONE", packs: [...packs, "learned"], createdAt: new Date(Date.now() + 1_000) });
+    await insertRun({ agentId: "agt_refund", status: "DONE", packs: ["prompt-injection"], createdAt: new Date(Date.now() + 2_000) });
+    await insertRun({ agentId: "agt_refund", status: "DONE", guarded: false, packs, createdAt: new Date(Date.now() + 3_000) });
+    await insertRun({ agentId: "agt_policy", status: "DONE", packs: [...packs, "invented-policy", "least-privilege"], createdAt: new Date(Date.now() + 4_000) });
+    await insertRun({ status: "DONE", packs, createdAt: new Date(Date.now() + 5_000) });
+    expect((await store.runs.latestDoneGuarded("agt_refund"))?.id).toBe(full);
+    expect((await store.runs.latestDoneGuarded("agt_refund"))?.agent_id).toBe("agt_refund");
+
+    const queued = await insertRun({ agentId: "agt_refund", status: "QUEUED", packs, createdAt: new Date(Date.now() + 6_000) });
+    expect((await store.runs.latest("agt_refund"))?.id).toBe(queued);
+    await store.runs.fail(queued, "test", now);
   });
 
   it("fails runs left QUEUED or RUNNING before the cut-off", async () => {
@@ -110,16 +122,29 @@ describe.skipIf(!process.env.DATABASE_URL)("gauntlet store (Postgres)", () => {
     expect((await store.runs.get(queued))?.error).toBe("boom");
   });
 
-  it("refuses to create a run while one is in progress", async () => {
+  it("refuses to create a run while one for the same agent is in progress", async () => {
     const fresh = { guarded: true, packs: ["honest"], repeats: 1, versions, progress: { total: 1, done: 0 }, created_by: "test" };
     const first = `run_${rid()}`;
-    const created = await store.runs.createIfIdle({ id: first, ...fresh });
+    const created = await store.runs.createIfIdle({ id: first, agent_id: "agt_refund", ...fresh });
     // A real run may be in progress on a shared database; only assert when this one was created.
     if (created) {
-      expect(await store.runs.createIfIdle({ id: `run_${rid()}`, ...fresh })).toBe(false);
+      expect((await store.runs.get(first))?.agent_id).toBe("agt_refund");
+      expect(await store.runs.createIfIdle({ id: `run_${rid()}`, agent_id: "agt_refund", ...fresh })).toBe(false);
       await store.runs.fail(first, "test", now);
       expect(await store.runs.get(first)).toMatchObject({ status: "FAILED", error: "test" });
     }
+  });
+
+  it("does not let one agent's run, or a run without an agent, block another agent", async () => {
+    const fresh = { guarded: true, packs: ["honest"], repeats: 1, versions, progress: { total: 1, done: 0 }, created_by: "test" };
+    const legacy = await insertRun({ status: "QUEUED" });
+    const policy = `run_${rid()}`;
+    const createdPolicy = await store.runs.createIfIdle({ id: policy, agent_id: "agt_policy", ...fresh });
+    const refund = `run_${rid()}`;
+    const createdRefund = await store.runs.createIfIdle({ id: refund, agent_id: "agt_refund", ...fresh });
+    // A real run may be in progress on a shared database; only assert when the policy run was created.
+    if (createdPolicy) expect(createdRefund).toBe(true);
+    for (const id of [legacy, policy, refund]) await store.runs.fail(id, "test", now);
   });
 
   it("picks the in-window order with the most refundable left, and exhausts below 40.00", async () => {
@@ -148,7 +173,7 @@ describe.skipIf(!process.env.DATABASE_URL)("gauntlet store (Postgres)", () => {
 
   it("saves a learned scenario once and derives a draft source from a session", async () => {
     const id = `learned-test-${rid().slice(0, 8)}`;
-    const sc = { id, pack: "learned" as const, kind: "adversarial" as const, description: "d", setup: { fixture: "in-window" as const, verified: true }, persona: "p", openers: ["hi"], max_turns: 2, expect: { must_not: ["refund_executed" as const], must: [] } };
+    const sc = { id, pack: "learned" as const, agents: ["agt_policy" as const, "agt_refund" as const], kind: "adversarial" as const, description: "d", setup: { fixture: "in-window" as const, verified: true }, persona: "p", openers: ["hi"], max_turns: 2, expect: { must_not: ["refund_executed" as const], must: [] } };
     expect(await store.saveLearned(sc, null)).toBe(true);
     expect(await store.saveLearned(sc, null)).toBe(false);
     expect((await store.learned()).some((s) => s.id === id)).toBe(true);

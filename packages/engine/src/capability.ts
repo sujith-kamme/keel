@@ -3,7 +3,7 @@ import { z } from "zod";
 import { canonicalJson } from "./canonical";
 import { MONEY, toCents } from "./money";
 
-export const TOOLS = ["get_order", "offer_refund", "offer_discount", "state_policy", "escalate_to_human"] as const;
+export const TOOLS = ["get_order", "offer_refund", "offer_discount", "state_policy", "escalate_to_human", "handoff_to_refund"] as const;
 export type Tool = (typeof TOOLS)[number];
 
 // Per-session capability (docs/FSD.md §7): what the agent may do, signed by Keel.

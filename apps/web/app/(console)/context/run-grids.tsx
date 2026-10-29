@@ -3,7 +3,7 @@
 import { type ColDef, type ICellRendererParams } from "ag-grid-community";
 import Link from "next/link";
 import { ListGrid } from "@/components/list-grid";
-import { type Certification, packLabel, packStats, type PackStats, pct, type Run, type RunResult, runName, runOutcome } from "@/lib/context-view";
+import { agentCert, agentName, type Certification, packLabel, packStats, type PackStats, pct, type Run, type RunResult, runName, runOutcome } from "@/lib/context-view";
 
 const num = { type: "rightAligned", width: 130 } as const;
 // Run rows come straight from stored JSON; an older or interrupted run may lack a count.
@@ -36,7 +36,12 @@ const packColumns: ColDef<PackStats>[] = [
 
 export function ByPack({ results }: { results: RunResult[] }) {
   const stats = packStats(results);
-  if (stats.length === 0) return <p className="pnl-b mut" style={{ margin: 0 }}>No results yet.</p>;
+  if (stats.length === 0)
+    return (
+      <p className="pnl-b mut" style={{ margin: 0 }}>
+        No results yet.
+      </p>
+    );
   return <ListGrid rows={stats} columns={packColumns} rowId={(s) => s.pack} />;
 }
 
@@ -54,6 +59,8 @@ const historyColumns: ColDef<HistoryRow>[] = [
     comparator: (_a, _b, x, y) => (x.data?.run.created_at ?? "").localeCompare(y.data?.run.created_at ?? ""),
     cellRenderer: ({ data, value }: ICellRendererParams<HistoryRow, string>) => (data ? <Link href={runHref(data)}>{value}</Link> : null),
   },
+  { headerName: "Agent", colId: "agent", valueGetter: (p) => agentName(p.data?.run.agent_id ?? null), width: 150 },
+  { headerName: "Started by", colId: "by", valueGetter: (p) => (p.data?.run.created_by === "auto" ? "Re-certification" : "Operator"), width: 150, cellClass: "mut" },
   { headerName: "Mode", colId: "mode", valueGetter: (p) => (p.data?.run.guarded ? "Guarded" : "No reply guard"), width: 160 },
   { headerName: "Conversations", colId: "conversations", valueGetter: (p) => p.data?.run.scorecard?.runs ?? p.data?.run.progress?.total, ...num, valueFormatter: (p) => count(p.value) },
   { headerName: "Leaks", colId: "leaks", valueGetter: (p) => p.data?.run.scorecard?.leaks, ...num, valueFormatter: (p) => count(p.value) },
@@ -67,6 +74,6 @@ const historyColumns: ColDef<HistoryRow>[] = [
 ];
 
 export function RunHistory({ runs, latestId, cert }: { runs: Run[]; latestId: string | undefined; cert: Certification }) {
-  const rows = runs.map((run) => ({ run, name: runName(run, latestId), outcome: runOutcome(run, cert) }));
+  const rows = runs.map((run) => ({ run, name: runName(run, latestId), outcome: runOutcome(run, agentCert(cert, run.agent_id)) }));
   return <ListGrid rows={rows} columns={historyColumns} rowId={(r) => r.run.id} href={runHref} />;
 }

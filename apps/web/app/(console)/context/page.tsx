@@ -2,7 +2,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { certBadge, isActive, isRunId, PACKS, packLabel, pickBeforeAfter, runName, runOutcome } from "@/lib/context-view";
+import { agentCert, agentName, certBadge, isActive, isRunId, packCounts, packLabel, pickBeforeAfter, runName, runOutcome } from "@/lib/context-view";
 import { gauntletCertification, gauntletRun, gauntletRuns, gauntletScenarios, OperatorError, requireConsole } from "@/lib/operator";
 import { NewRunDrawer } from "./new-run-drawer";
 import { ResultsGrid } from "./results-grid";
@@ -24,10 +24,10 @@ async function Body({ search }: { search: Search }) {
   const latestId = runs[0]?.id;
   const selectedId = isRunId(wanted) ? wanted : latestId;
   const selected = selectedId ? await gauntletRun(selectedId).catch((e) => (e instanceof OperatorError && e.status === 404 ? null : Promise.reject(e))) : null;
-  const busy = runs.some((r) => isActive(r.status));
+  const busyAgents = runs.filter((r) => isActive(r.status)).map((r) => r.agent_id ?? "");
   const run = selected?.run;
   const results = selected?.results ?? [];
-  const baseline = run?.guarded ? (pickBeforeAfter(runs)?.without.scorecard ?? null) : null;
+  const baseline = run?.guarded ? (pickBeforeAfter(runs.filter((r) => r.agent_id === run.agent_id))?.without.scorecard ?? null) : null;
   const cb = certBadge(cert.status);
   const runHref = selectedId ? `/context?run=${encodeURIComponent(selectedId)}` : "/context";
   return (
@@ -45,12 +45,7 @@ async function Body({ search }: { search: Search }) {
           </div>
         </div>
         <div className="acts">
-          {runs.length > 0 && (
-            <RunPicker
-              selectedId={selectedId}
-              runs={runs.map((r) => ({ id: r.id, label: `${runName(r, latestId)} · ${r.guarded ? "Guarded" : "No reply guard"}` }))}
-            />
-          )}
+          {runs.length > 0 && <RunPicker selectedId={selectedId} runs={runs.map((r) => ({ id: r.id, label: `${runName(r, latestId)} · ${agentName(r.agent_id)} · ${r.guarded ? "Guarded" : "No reply guard"}` }))} />}
           <Link id="new-run" className="b pri" href={`${runHref}${selectedId ? "&" : "?"}new=1`} scroll={false}>
             <i className="ic ic-plus s14" aria-hidden="true" />
             New run
@@ -76,7 +71,8 @@ async function Body({ search }: { search: Search }) {
       ) : (
         <>
           <div className="sm mut">
-            <span className={`st ${runOutcome(run, cert).tone}`}>{runOutcome(run, cert).label}</span> · {runName(run, latestId)} · {run.guarded ? "Guarded" : "No reply guard"} · {run.packs.map(packLabel).join(", ")} · {run.repeats}×
+            <span className={`st ${runOutcome(run, agentCert(cert, run.agent_id)).tone}`}>{runOutcome(run, agentCert(cert, run.agent_id)).label}</span> · {agentName(run.agent_id)} · {runName(run, latestId)} ·{" "}
+            {run.guarded ? "Guarded" : "No reply guard"} · {run.packs.map(packLabel).join(", ")} · {run.repeats}×
           </div>
           {isActive(run.status) && <Progress run={run} />}
           {run.error && (
@@ -118,14 +114,8 @@ async function Body({ search }: { search: Search }) {
           },
         ]}
       />
-      {one(sp.new) && (
-        <NewRunDrawer
-          packs={PACKS.map((id) => ({ id, count: scenarios.filter((s) => s.pack === id).length }))}
-          busy={busy}
-          closeHref={runHref}
-        />
-      )}
-      {busy && <AutoRefresh ms={2000} />}
+      {one(sp.new) && <NewRunDrawer packsByAgent={{ agt_policy: packCounts(scenarios, "agt_policy"), agt_refund: packCounts(scenarios, "agt_refund") }} busyAgents={busyAgents} closeHref={runHref} />}
+      {busyAgents.length > 0 && <AutoRefresh ms={2000} />}
     </>
   );
 }

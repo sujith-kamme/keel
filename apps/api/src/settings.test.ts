@@ -78,7 +78,7 @@ describe.skipIf(!process.env.DATABASE_URL)("settings service (Postgres)", () => 
 
     await expect(s.update("guard", { risk_threshold: 0 }, "op@test")).rejects.toThrow();
     await expect(s.update("guard", { nope: 1 }, "op@test")).rejects.toThrow();
-    await expect(s.update("guard", { agent_model: "claude-opus-5-5" }, "op@test")).rejects.toThrow();
+    await expect(s.update("guard", { refund_agent_model: "claude-opus-5-5" }, "op@test")).rejects.toThrow();
   });
 
   it("concurrent updates chain from/to instead of both logging the same from", async () => {

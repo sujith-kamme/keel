@@ -1,4 +1,4 @@
-import { AGENT_MODELS, PROMPT_MODES, agentModel, promptMode } from "@keel/agent";
+import { AGENT_MODELS, type AgentId, type AgentModel, PROMPT_MODES, type PromptMode, agentModel, promptMode } from "@keel/agent";
 import { EXTRACTOR_MODELS, extractorModel } from "@keel/extractor";
 import { CUSTOMER_MODELS, customerModel } from "@keel/gauntlet";
 import { riskConfig } from "@keel/risk";
@@ -15,8 +15,10 @@ export const guardSchema = z.strictObject({
   risk_half_life_min: int(1, 1440),
 });
 export const agentSchema = z.strictObject({
-  agent_model: z.enum(AGENT_MODELS),
-  agent_prompt: z.enum(PROMPT_MODES),
+  policy_agent_model: z.enum(AGENT_MODELS),
+  policy_agent_prompt: z.enum(PROMPT_MODES),
+  refund_agent_model: z.enum(AGENT_MODELS),
+  refund_agent_prompt: z.enum(PROMPT_MODES),
 });
 export const gauntletSchema = z.strictObject({
   gauntlet_customer_model: z.enum(CUSTOMER_MODELS),
@@ -53,8 +55,10 @@ export const SETTINGS_DEFAULTS: Settings = {
   extractor_timeout_ms: 4000,
   risk_threshold: 60,
   risk_half_life_min: 30,
-  agent_model: "claude-haiku-5-5",
-  agent_prompt: "lenient",
+  policy_agent_model: "claude-haiku-5-5",
+  policy_agent_prompt: "lenient",
+  refund_agent_model: "claude-haiku-5-5",
+  refund_agent_prompt: "lenient",
   gauntlet_customer_model: "claude-haiku-5-5",
   gauntlet_concurrency: 6,
   dispute_auto_submit: false,
@@ -70,12 +74,21 @@ export function settingsFromEnv(env: Record<string, string | undefined>): Settin
     extractor_timeout_ms: Number(env.EXTRACTOR_TIMEOUT_MS ?? SETTINGS_DEFAULTS.extractor_timeout_ms),
     risk_threshold: risk.threshold,
     risk_half_life_min: risk.half_life_min,
-    agent_model: agentModel(env.DEMO_AGENT_MODEL),
-    agent_prompt: promptMode(env.DEMO_AGENT_PROMPT),
+    policy_agent_model: agentModel(env.DEMO_AGENT_MODEL),
+    policy_agent_prompt: promptMode(env.DEMO_AGENT_PROMPT),
+    refund_agent_model: agentModel(env.DEMO_AGENT_MODEL),
+    refund_agent_prompt: promptMode(env.DEMO_AGENT_PROMPT),
     gauntlet_customer_model: customerModel(env.GAUNTLET_CUSTOMER_MODEL),
     gauntlet_concurrency: gauntletConcurrency(env.GAUNTLET_CONCURRENCY),
     dispute_auto_submit: env.DISPUTE_AUTO_SUBMIT === "true",
     dispute_poll_seconds: Number(env.DISPUTE_POLL_SECONDS ?? SETTINGS_DEFAULTS.dispute_poll_seconds),
     zapier_hook_url: notifyConfig(env).hookUrl,
   });
+}
+
+/** One agent's model and prompt from the settings. */
+export function agentSettings(s: Settings, id: AgentId): { model: AgentModel; prompt: PromptMode } {
+  return id === "agt_policy"
+    ? { model: s.policy_agent_model, prompt: s.policy_agent_prompt }
+    : { model: s.refund_agent_model, prompt: s.refund_agent_prompt };
 }

@@ -18,7 +18,12 @@ export const SECTION_SCHEMAS = {
     risk_threshold: int(1, 100),
     risk_half_life_min: int(1, 1440),
   }),
-  agent: z.strictObject({ agent_model: z.enum(AGENT_MODELS), agent_prompt: z.enum(PROMPT_MODES) }),
+  agent: z.strictObject({
+    policy_agent_model: z.enum(AGENT_MODELS),
+    policy_agent_prompt: z.enum(PROMPT_MODES),
+    refund_agent_model: z.enum(AGENT_MODELS),
+    refund_agent_prompt: z.enum(PROMPT_MODES),
+  }),
   gauntlet: z.strictObject({ gauntlet_customer_model: z.enum(CUSTOMER_MODELS), gauntlet_concurrency: int(1, 10) }),
   disputes: z.strictObject({ dispute_auto_submit: z.boolean(), dispute_poll_seconds: int(30, 3600) }),
   zapier: z.strictObject({ zapier_hook_url: z.string().trim().max(2048).startsWith(HOOK_PREFIX).nullable() }),

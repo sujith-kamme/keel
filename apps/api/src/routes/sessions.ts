@@ -1,4 +1,5 @@
-import { type Capability, TOOLS, checkOtp, issueToken, newOtp } from "@keel/engine";
+import { AGENTS, ENTRY_AGENT, isAgentId } from "@keel/agent";
+import { type Capability, checkOtp, issueToken, newOtp } from "@keel/engine";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import type { GuardMode, SessionMode } from "../mode";
@@ -51,7 +52,7 @@ export interface SessionOptions {
 }
 
 const StartSession = z.object({
-  agent_id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
+  agent_id: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).optional(),
   customer_email: z.email().max(254),
   order_ids: z.array(z.string().regex(/^[A-Za-z0-9_-]{1,64}$/)).max(20),
   mode: z.enum(["LIVE", "CONTEXT"]).default("LIVE"),
@@ -62,12 +63,14 @@ const StartSession = z.object({
 const Verify = z.object({ code: z.string().regex(/^\d{6}$/) });
 
 function token(row: SessionRow, verifiedPayer: string | null, signingKey: string): string {
+  // A row with a pre-7f agent id gets no tools rather than all of them.
+  const allow = isAgentId(row.agentId) ? [...AGENTS[row.agentId].allow] : [];
   const claims: Capability = {
     session_id: row.id,
     agent_id: row.agentId,
     verified_payer: verifiedPayer,
     orders: row.orderIds,
-    allow: [...TOOLS],
+    allow,
     max_refund_total: MAX_REFUND_TOTAL,
     expires_at: row.expiresAt.toISOString(),
   };
@@ -91,6 +94,10 @@ export function mountSessions(app: Hono, opts: SessionOptions): void {
     if (req.guard_mode === "SHADOW" && req.mode === "LIVE") return c.json({ error: "invalid_request" }, 400);
     // Gauntlet sessions exercise the OTP path, so they can't skip it.
     if (req.customer_authenticated && req.mode === "CONTEXT") return c.json({ error: "invalid_request" }, 400);
+    // Live conversations always start at the entry agent. The Gauntlet may open a
+    // session at the agent it certifies.
+    if (req.mode === "CONTEXT" && req.agent_id !== undefined && !isAgentId(req.agent_id)) return c.json({ error: "invalid_request" }, 400);
+    const agentId = req.mode === "CONTEXT" && req.agent_id !== undefined ? req.agent_id : ENTRY_AGENT;
     const now = opts.now();
     const otp = newOtp(now);
     const email = req.customer_email.toLowerCase();
@@ -104,7 +111,7 @@ export function mountSessions(app: Hono, opts: SessionOptions): void {
     }
     const row: SessionRow = {
       id: opts.newId("ses"),
-      agentId: req.agent_id,
+      agentId,
       claimedEmail: email,
       // Least privilege: only the claimed customer's orders. Until the OTP is
       // verified, payer_verified still blocks every money tool.
@@ -146,5 +153,14 @@ export function mountSessions(app: Hono, opts: SessionOptions): void {
 
     await opts.store.markVerified(row.id, row.claimedEmail);
     return c.json({ session_id: row.id, capability_token: token(row, row.claimedEmail, opts.signingKey) });
+  });
+
+  // After a handoff the merchant backend needs the new agent's token. Never sent through
+  // an MCP tool result, which goes into the model's context.
+  app.post("/v1/sessions/:id/token", async (c) => {
+    if (!authorized(c)) return c.json({ error: "unauthorized" }, 401);
+    const row = await opts.store.get(c.req.param("id"));
+    if (!row || row.expiresAt <= opts.now()) return c.json({ error: "not_found" }, 404);
+    return c.json({ session_id: row.id, agent_id: row.agentId, capability_token: token(row, row.verifiedPayer, opts.signingKey) });
   });
 }

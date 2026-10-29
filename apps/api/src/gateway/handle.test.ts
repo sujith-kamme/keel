@@ -58,7 +58,7 @@ function paypalOrder(orderId: string): OrderDetails {
 
 const cap = (overrides: Partial<Capability> = {}): Capability => ({
   session_id: "ses_1",
-  agent_id: "agt_demo",
+  agent_id: "agt_refund",
   verified_payer: "maya@demo.keel.test",
   orders: ["IN-POLICY", "OLD", "LARGE"],
   allow: ["get_order", "offer_refund", "offer_discount", "state_policy", "escalate_to_human"],
@@ -80,8 +80,9 @@ function fakes(overrides: Partial<GatewayDeps> = {}) {
       ledger.push(entry);
     },
     escalate: vi.fn(async () => {}),
+    handoff: vi.fn(async () => "OK" as const),
     withOrderLock: (_session, _order, fn) => fn(),
-    control: vi.fn(async () => ({ state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" })),
+    control: vi.fn(async () => ({ agent_id: "agt_refund", state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" })),
     assess: vi.fn(async () => ({ score: 0, quarantined: false })),
     notifyHeld: vi.fn(async () => {}),
     now: () => NOW,
@@ -263,7 +264,7 @@ describe("handleTool: other tools", () => {
 });
 
 describe("handleTool: risk gate", () => {
-  const quarantined = { state: "QUARANTINED", agent_frozen: false, score: 90, mode: "LIVE", guard_mode: "ENFORCE" };
+  const quarantined = { agent_id: "agt_refund", state: "QUARANTINED", agent_frozen: false, score: 90, mode: "LIVE", guard_mode: "ENFORCE" };
   const discountCall = { tool: "offer_discount", args: { percent: 5, policy_id: "discount-goodwill" } } as const;
   const orderCall = { tool: "get_order", args: { order_id: "IN-POLICY" } } as const;
 
@@ -290,7 +291,7 @@ describe("handleTool: risk gate", () => {
   it("re-checks quarantine inside the refund lock, without PayPal, with one ledger row", async () => {
     const control = vi
       .fn()
-      .mockResolvedValueOnce({ state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" })
+      .mockResolvedValueOnce({ agent_id: "agt_refund", state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" })
       .mockResolvedValue(quarantined);
     const { deps, ledger } = fakes({ control });
     const r = await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"));
@@ -313,7 +314,7 @@ describe("handleTool: risk gate", () => {
   });
 
   it("records the pre-decision risk score", async () => {
-    const { deps, ledger } = fakes({ control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 42, mode: "LIVE", guard_mode: "ENFORCE" }) });
+    const { deps, ledger } = fakes({ control: async () => ({ agent_id: "agt_refund", state: "ACTIVE", agent_frozen: false, score: 42, mode: "LIVE", guard_mode: "ENFORCE" }) });
     await handleTool(deps, cap(), orderCall);
     expect(ledger[0]).toMatchObject({ mode: "LIVE", payload: { risk_score: 42 } });
   });
@@ -353,5 +354,94 @@ describe("handleTool: risk gate", () => {
 
     const failing = fakes({ control: async () => quarantined, notifyHeld: async () => { throw new Error("q"); } });
     expect(await handleTool(failing.deps, cap(), refundCall("IN-POLICY", "10.00"))).toMatchObject({ decision: "HOLD" });
+  });
+});
+
+describe("handleTool: handoff_to_refund", () => {
+  const policyCap = cap({ agent_id: "agt_policy", allow: ["get_order", "state_policy", "escalate_to_human", "handoff_to_refund"] });
+  const handoffCall = { tool: "handoff_to_refund", args: { order_id: "IN-POLICY", reason: "wants a refund" } } as const;
+  const quarantined = { agent_id: "agt_refund", state: "QUARANTINED", agent_frozen: false, score: 90, mode: "LIVE", guard_mode: "ENFORCE" };
+
+  it("switches the session to the refund agent, records the acting agent, and returns no token", async () => {
+    const { deps, ledger } = fakes();
+    const r = await handleTool(deps, policyCap, handoffCall);
+    expect(r.decision).toBe("ALLOW");
+    expect(deps.handoff).toHaveBeenCalledWith("ses_1", "agt_refund");
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0]!.payload).toMatchObject({ tool: "handoff_to_refund", agent_id: "agt_policy", handoff_to: "agt_refund" });
+    expect(JSON.stringify(r)).not.toMatch(/token|v1\./i);
+  });
+
+  it("blocks a stale-token re-handoff when the session is no longer on the policy agent", async () => {
+    const { deps, ledger } = fakes({ handoff: vi.fn(async () => "NOT_POLICY_AGENT" as const) });
+    expect(await handleTool(deps, policyCap, handoffCall)).toMatchObject({ decision: "BLOCK", reason_code: "CAPABILITY_OUT_OF_SCOPE" });
+    expect(ledger).toHaveLength(1);
+  });
+
+  it("holds when the refund agent is frozen", async () => {
+    const { deps } = fakes({ handoff: vi.fn(async () => "FROZEN" as const) });
+    expect(await handleTool(deps, policyCap, handoffCall)).toMatchObject({ decision: "HOLD", reason_code: "AGENT_FROZEN" });
+  });
+
+  it("holds when the switch fails", async () => {
+    const { deps } = fakes({ handoff: vi.fn(async () => { throw new Error("db"); }) });
+    expect(await handleTool(deps, policyCap, handoffCall)).toMatchObject({ decision: "HOLD", reason_code: "VERIFIER_UNAVAILABLE" });
+  });
+
+  it("holds on a quarantined session, a frozen agent or an unreadable control, without switching", async () => {
+    for (const [control, reason] of [
+      [async () => quarantined, "RISK_THRESHOLD"],
+      [async () => ({ ...quarantined, state: "ACTIVE", agent_frozen: true }), "AGENT_FROZEN"],
+      [async () => { throw new Error("db"); }, "VERIFIER_UNAVAILABLE"],
+    ] as const) {
+      const { deps } = fakes({ control });
+      expect(await handleTool(deps, policyCap, handoffCall)).toMatchObject({ decision: "HOLD", reason_code: reason });
+      expect(deps.handoff).not.toHaveBeenCalled();
+    }
+  });
+
+  it("blocks a handoff from an agent whose scope lacks it, without switching", async () => {
+    const { deps, ledger } = fakes();
+    const refundCap = cap({ agent_id: "agt_refund", allow: ["get_order", "offer_refund", "offer_discount", "state_policy", "escalate_to_human"] });
+    expect(await handleTool(deps, refundCap, handoffCall)).toMatchObject({ decision: "BLOCK", reason_code: "CAPABILITY_OUT_OF_SCOPE" });
+    expect(deps.handoff).not.toHaveBeenCalled();
+    expect(ledger[0]!.payload).toMatchObject({ agent_id: "agt_refund" });
+  });
+
+  it("blocks a policy agent calling a money tool and records it as the policy agent", async () => {
+    const { deps, ledger } = fakes();
+    const r = await handleTool(deps, policyCap, refundCall("IN-POLICY", "20.00"));
+    expect(r).toMatchObject({ decision: "BLOCK", reason_code: "CAPABILITY_OUT_OF_SCOPE" });
+    expect(deps.refundCapture).not.toHaveBeenCalled();
+    expect(ledger[0]!.payload).toMatchObject({ agent_id: "agt_policy" });
+  });
+});
+
+describe("handleTool: token agent must match the session", () => {
+  const legacyCap = cap({ agent_id: "agt_demo_store", allow: ["get_order", "offer_refund", "offer_discount", "state_policy", "escalate_to_human", "handoff_to_refund"] });
+  const onPolicy = { agent_id: "agt_policy", state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" };
+
+  it("blocks a legacy non-registry token even with offer_refund in its allow list, with one ledger row", async () => {
+    const { deps, ledger } = fakes();
+    expect(await handleTool(deps, legacyCap, refundCall("IN-POLICY", "10.00"))).toMatchObject({ decision: "BLOCK", reason_code: "CAPABILITY_OUT_OF_SCOPE" });
+    expect(await handleTool(deps, legacyCap, { tool: "get_order", args: { order_id: "IN-POLICY" } })).toMatchObject({ decision: "BLOCK", reason_code: "CAPABILITY_OUT_OF_SCOPE" });
+    expect(deps.refundCapture).not.toHaveBeenCalled();
+    expect(deps.getOrderDetails).not.toHaveBeenCalled();
+    expect(ledger).toHaveLength(2);
+    expect(ledger[0]!.payload).toMatchObject({ agent_id: "agt_demo_store" });
+  });
+
+  it("blocks a refund-agent token on a session whose current agent is the policy agent", async () => {
+    const { deps, ledger } = fakes({ control: vi.fn(async () => onPolicy) });
+    expect(await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"))).toMatchObject({ decision: "BLOCK", reason_code: "CAPABILITY_OUT_OF_SCOPE" });
+    expect(await handleTool(deps, cap(), { tool: "offer_discount", args: { percent: 5, policy_id: "discount-goodwill" } })).toMatchObject({ decision: "BLOCK", reason_code: "CAPABILITY_OUT_OF_SCOPE" });
+    expect(deps.refundCapture).not.toHaveBeenCalled();
+    expect(ledger).toHaveLength(2);
+  });
+
+  it("allows the refund agent's refund on its own session", async () => {
+    const { deps } = fakes();
+    expect(await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"))).toMatchObject({ decision: "ALLOW", reason_code: "OK" });
+    expect(deps.refundCapture).toHaveBeenCalledTimes(1);
   });
 });

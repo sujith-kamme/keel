@@ -71,8 +71,8 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
       otpExpiresAt: new Date(Date.now() + 60_000),
       expiresAt: new Date(Date.now() + 60_000),
     });
-    await store.appendTurn({ sessionId: id, role: "customer", text: "refund please", decisionIds: [] });
-    await store.appendTurn({ sessionId: id, role: "agent", text: "on it", decisionIds: ["dec_a"] });
+    await store.appendTurn({ sessionId: id, role: "customer", text: "refund please", decisionIds: [], agentId: null });
+    await store.appendTurn({ sessionId: id, role: "agent", text: "on it", decisionIds: ["dec_a"], agentId: "agt_refund" });
 
     const ledger = (tool: string): LedgerContent => ({
       decision_id: `dec_${randomUUID().replaceAll("-", "")}`,
@@ -110,9 +110,9 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     expect(listed!.last_turn_at).toBe((await store.turns(id)).at(-1)!.created_at);
 
     const turns = await store.turns(id);
-    expect(turns.map((t) => [t.role, t.decision_ids])).toEqual([
-      ["customer", []],
-      ["agent", ["dec_a"]],
+    expect(turns.map((t) => [t.role, t.decision_ids, t.agent_id])).toEqual([
+      ["customer", [], null],
+      ["agent", ["dec_a"], "agt_refund"],
     ]);
     const decisions = await store.decisions(id);
     expect(decisions.map((d) => d.tool)).toEqual(["get_order", "offer_refund", "guard", "guard", "guard", "guard"]);
@@ -146,10 +146,17 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     const rows = await createTurnDecisions(db)(a, ids);
     expect(rows).toHaveLength(2);
     expect(rows).toEqual(expect.arrayContaining([
-      { tool: "offer_refund", verdict: "ALLOW", args: { amount: "5.00" } },
-      { tool: "offer_discount", verdict: "BLOCK", args: {}, message: "I can't offer a discount that large." },
+      { decision_id: ids[0], tool: "offer_refund", verdict: "ALLOW", args: { amount: "5.00" } },
+      { decision_id: ids[1], tool: "offer_discount", verdict: "BLOCK", args: {}, message: "I can't offer a discount that large." },
     ]));
     expect(await createTurnDecisions(db)(a, [])).toEqual([]);
+  });
+
+  it("turnDecisions carries the recorded agent_id", async () => {
+    const sid = `ses_test_${randomUUID().replaceAll("-", "")}`;
+    const decision_id = `dec_${randomUUID().replaceAll("-", "")}`;
+    await appendLedger(db, { decision_id, session_id: sid, order_id: null, capture_id: null, dispute_id: null, mode: "LIVE", verdict: "ALLOW", reason_codes: ["OK"], payload: { tool: "handoff_to_refund", args: {}, agent_id: "agt_policy" } });
+    expect(await createTurnDecisions(db)(sid, [decision_id])).toEqual([{ decision_id, tool: "handoff_to_refund", verdict: "ALLOW", args: {}, agent_id: "agt_policy" }]);
   });
 
   it("turnDecisions maps well-formed order_facts and ignores malformed ones", async () => {
@@ -160,8 +167,9 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
       return decision_id;
     };
     const facts = { order_id: "O-1", total: "500.00", currency: "USD", refunded: "35.00", item_prices: ["500.00"] };
-    const rows = await createTurnDecisions(db)(sid, [await mk(facts), await mk({ ...facts, total: 500 }), await mk(undefined)]);
-    expect(rows.filter((r) => r.order_facts)).toEqual([{ tool: "get_order", verdict: "ALLOW", args: {}, order_facts: facts }]);
+    const first = await mk(facts);
+    const rows = await createTurnDecisions(db)(sid, [first, await mk({ ...facts, total: 500 }), await mk(undefined)]);
+    expect(rows.filter((r) => r.order_facts)).toEqual([{ decision_id: first, tool: "get_order", verdict: "ALLOW", args: {}, order_facts: facts }]);
     expect(rows).toHaveLength(3);
   });
 
