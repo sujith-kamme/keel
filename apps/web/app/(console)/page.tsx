@@ -73,7 +73,7 @@ function Kpis({ o, inReview }: { o: Overview; inReview: number | null }) {
         </span>
       </div>
       <div className="kpi">
-        <span className="lbl">Live sessions</span>
+        <span className="lbl">Conversations</span>
         <span className="v">{n(o.sessions.active)}</span>
         <span className="sm dim">
           {n(o.sessions.quarantined)} quarantined
@@ -191,28 +191,13 @@ function RecentActivity({ o }: { o: Overview }) {
   );
 }
 
-function KillSwitch() {
-  return (
-    <div className="pnl row">
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 600 }}>Kill switch</div>
-        <div className="sm mut">Freeze every agent, or one, from the Agents page.</div>
-      </div>
-      <Link className="b" href="/agents">
-        <i className="ic ic-agents s14" aria-hidden="true" />
-        Open Agents
-      </Link>
-    </div>
-  );
-}
-
 async function Body() {
   await connection();
   await requireConsole();
   let o: Overview;
   let inReview: number | null;
   try {
-    // The review count is a nicety on the Live sessions card; the page still shows without it.
+    // The review count is a nicety on the Conversations card; the page still shows without it.
     [o, inReview] = await Promise.all([overview(), reviewQueue().then((q) => q.length, () => null)]);
   } catch (e) {
     return (
@@ -230,7 +215,6 @@ async function Body() {
         <ReasonCodes o={o} />
       </div>
       <RecentActivity o={o} />
-      <KillSwitch />
     </>
   );
 }
@@ -251,7 +235,6 @@ export default function Page() {
       <div className="ph">
         <div>
           <h1>Overview</h1>
-          <p>Decisions on live traffic. Gauntlet test runs are excluded.</p>
         </div>
         <div className="acts">
           <Link className="b pri" href="/context">
