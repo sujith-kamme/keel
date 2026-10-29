@@ -65,6 +65,16 @@ describe.skipIf(!process.env.DATABASE_URL)("dispute store (Postgres)", () => {
     expect(detail?.buyer_messages[0]).toHaveLength(1000);
   });
 
+  it("moves updated_at only when the dispute changed", async () => {
+    const d = paypalDispute(`CAP-${rid()}`);
+    const t0 = new Date(now.getTime() - 60_000);
+    await store.upsert(d, "OPEN", t0);
+    await store.upsert(d, "OPEN", now);
+    expect((await store.detail(d.dispute_id))?.updated_at).toBe(t0.toISOString());
+    await store.upsert({ ...d, status: "UNDER_REVIEW" }, "OPEN", now);
+    expect((await store.detail(d.dispute_id))?.updated_at).toBe(now.toISOString());
+  });
+
   it("finds the order, the live session's ledger rows and its turns", async () => {
     const h = await orderWithHistory();
     const ctx = await store.context(h.captureId);

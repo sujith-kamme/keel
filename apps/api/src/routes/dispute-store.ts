@@ -79,7 +79,14 @@ export function createDisputeStore(db: Db): DisputeStore & DisputeApiStore {
           createdAt: now,
           ...fields,
         })
-        .onConflictDoUpdate({ target: disputes.id, set: fields })
+        // A poll that finds nothing new leaves updated_at alone, so "Updated" means the dispute changed.
+        .onConflictDoUpdate({
+          target: disputes.id,
+          set: {
+            ...fields,
+            updatedAt: sql`case when (${disputes.status}, ${disputes.stage}, ${disputes.outcome}, ${disputes.paypal}->>'update_time') is distinct from (excluded.status, excluded.stage, excluded.outcome, excluded.paypal->>'update_time') then ${now.toISOString()}::timestamptz else ${disputes.updatedAt} end`,
+          },
+        })
         .returning();
       return toRow(row as Row);
     },
