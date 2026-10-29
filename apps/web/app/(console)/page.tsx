@@ -2,7 +2,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
-import { OperatorError, overview } from "@/lib/operator";
+import { OperatorError, overview, requireConsole } from "@/lib/operator";
 import { certSummary, usd, type Overview } from "@/lib/overview-view";
 import { OverviewCharts } from "./overview-charts";
 
@@ -92,6 +92,7 @@ function Cards({ o }: { o: Overview }) {
 
 async function Body() {
   await connection();
+  await requireConsole();
   let o: Overview;
   try {
     o = await overview();

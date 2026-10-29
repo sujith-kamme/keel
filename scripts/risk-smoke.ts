@@ -64,7 +64,7 @@ async function connect(token: string) {
 async function startSession(orderIds: string[]) {
   const s = await merchant<{ session_id: string; demo_otp?: string }>("/v1/sessions", {
     method: "POST",
-    body: JSON.stringify({ agent_id: AGENT, customer_email: "maya@demo.keel.test", order_ids: orderIds }),
+    body: JSON.stringify({ agent_id: AGENT, customer_email: "maya@gmail.com", order_ids: orderIds }),
   });
   if (!s.demo_otp) throw new Error("DEMO_OTP must be enabled on the API");
   const v = await merchant<{ capability_token: string }>(`/v1/sessions/${s.session_id}/verify`, {
@@ -101,7 +101,7 @@ console.log(`health: ${health.status}`);
 let frozen = false;
 let failed = false;
 try {
-  const orders = (await merchant<Orders>("/v1/store/orders?customer_email=maya@demo.keel.test")).orders;
+  const orders = (await merchant<Orders>("/v1/store/orders?customer_email=maya@gmail.com")).orders;
   const inPolicy = [...orders]
     .sort((a, b) => a.scenario.localeCompare(b.scenario))
     .filter((o) => o.scenario.replace(/-\d+$/, "") === "in-policy")

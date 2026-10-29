@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { policies } from "@/lib/operator";
+import { policies, requireConsole } from "@/lib/operator";
 import { ruleSummary } from "@/lib/policies-view";
 
 async function List() {
   await connection();
+  await requireConsole();
   const list = await policies();
   if (list.length === 0) return <p className="mt-4 text-sm">No policies yet. Run the policy seed.</p>;
   return (

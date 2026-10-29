@@ -34,6 +34,8 @@ tags:
     description: Kill switch (operator).
   - name: Settings
     description: Runtime configuration (operator), plus the agent config the storefront reads (merchant).
+  - name: Console
+    description: The console's single sign-in (operator key; the console's web server is the only caller).
   - name: Gauntlet
     description: Context Mode test runs and certification (operator).
   - name: Disputes
@@ -613,6 +615,151 @@ paths:
                   model: { type: string }
                   prompt: { type: string }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/console/login:
+    post:
+      tags: [Console]
+      operationId: consoleLogin
+      summary: Check the console email and password
+      description: |
+        Unknown email and wrong password get the same 401. Each attempt counts against the caller's IP;
+        after 5 failures in 15 minutes the IP gets 429 without its credentials being checked. A success
+        clears that IP's count. Without Redis there is no sign-in (503).
+      security: [{ operatorKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, ip]
+              additionalProperties: false
+              properties:
+                email: { type: string, maxLength: 254 }
+                password: { type: string, minLength: 1, maxLength: 128 }
+                ip: { type: string, minLength: 1, maxLength: 64, description: "The end user's IP, as the console saw it" }
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConsoleSession" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: Wrong key, or wrong credentials (`invalid_credentials`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "429":
+          description: Too many failures from this IP (`locked`)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  retry_after_s: { type: integer }
+        "503":
+          description: The attempt limiter is unavailable (`unavailable`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /v1/console/session:
+    get:
+      tags: [Console]
+      operationId: consoleSession
+      summary: Whether a console cookie's session version is still current
+      security: [{ operatorKey: [] }]
+      parameters:
+        - { name: v, in: query, required: true, schema: { type: integer, minimum: 0 } }
+      responses:
+        "200":
+          description: The account email and whether `v` is current
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  email: { type: string }
+                  valid: { type: boolean }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/console/email:
+    put:
+      tags: [Console]
+      operationId: changeConsoleEmail
+      summary: Change the sign-in email (sessions stay valid; ledgered)
+      security: [{ operatorKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, operator]
+              additionalProperties: false
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                operator: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        "200":
+          description: The new email (lowercased)
+          content:
+            application/json:
+              schema: { type: object, properties: { email: { type: string } } }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/console/password:
+    put:
+      tags: [Console]
+      operationId: changeConsolePassword
+      summary: Change the password; signs out every existing session (ledgered, without password material)
+      security: [{ operatorKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password, operator]
+              additionalProperties: false
+              properties:
+                current_password: { type: string, minLength: 1, maxLength: 128 }
+                new_password: { type: string, minLength: 12, maxLength: 128, description: Must differ from the current password }
+                operator: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        "200":
+          description: The new session version, to re-issue the caller's own session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionVersion" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401":
+          description: Wrong key, or wrong current password (`invalid_credentials`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /v1/console/sessions/revoke:
+    post:
+      tags: [Console]
+      operationId: revokeConsoleSessions
+      summary: Sign out everywhere (ledgered)
+      security: [{ operatorKey: [] }]
+      requestBody: { $ref: "#/components/requestBodies/Operator" }
+      responses:
+        "200":
+          description: The new session version
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionVersion" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
 
   /v1/gauntlet/runs:
     post:
@@ -1293,6 +1440,15 @@ components:
       properties:
         error: { type: string }
       additionalProperties: true
+    ConsoleSession:
+      type: object
+      properties:
+        email: { type: string }
+        session_version: { type: integer }
+    SessionVersion:
+      type: object
+      properties:
+        session_version: { type: integer }
     Health:
       type: object
       properties:

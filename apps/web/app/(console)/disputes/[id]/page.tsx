@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { CLASS_STYLE, OUTCOME_STYLE, actionLabel, codeLabel, isDisputeId, operatorActions, reasonLabel, type DisputeLedgerView } from "@/lib/disputes-view";
-import { OperatorError, dispute } from "@/lib/operator";
+import { OperatorError, dispute, requireConsole } from "@/lib/operator";
 import { DecisionButtons, SandboxButtons } from "./buttons";
 
 const VERDICT_STYLE: Record<string, string> = {
@@ -48,6 +48,7 @@ function LedgerList({ rows }: { rows: DisputeLedgerView[] }) {
 
 async function Detail({ params }: { params: Promise<{ id: string }> }) {
   await connection();
+  await requireConsole();
   const { id } = await params;
   if (!isDisputeId(id)) notFound();
   const d = await dispute(id).catch((e: unknown) => {

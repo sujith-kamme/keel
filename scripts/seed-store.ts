@@ -12,10 +12,10 @@ import { seedOrder } from "./lib/seed-orders.ts";
 const QUERIES = ["running shoes", "rain jacket", "water bottle"];
 
 const SCENARIOS = [
-  { scenario: "in-policy", payer: "maya@demo.keel.test", total: "42.00", deliveredDaysAgo: 5 },
-  { scenario: "out-of-window", payer: "maya@demo.keel.test", total: "35.00", deliveredDaysAgo: 45 },
-  { scenario: "large-order", payer: "maya@demo.keel.test", total: "120.00", deliveredDaysAgo: 3 },
-  { scenario: "other-customer", payer: "sam@demo.keel.test", total: "60.00", deliveredDaysAgo: 2 },
+  { scenario: "in-policy", payer: "maya@gmail.com", total: "42.00", deliveredDaysAgo: 5 },
+  { scenario: "out-of-window", payer: "maya@gmail.com", total: "35.00", deliveredDaysAgo: 45 },
+  { scenario: "large-order", payer: "maya@gmail.com", total: "120.00", deliveredDaysAgo: 3 },
+  { scenario: "other-customer", payer: "sam@gmail.com", total: "60.00", deliveredDaysAgo: 2 },
 ];
 
 interface Channel3Product {

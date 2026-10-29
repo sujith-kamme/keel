@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { KillSwitch } from "@/components/kill-switch";
-import { agentControl, type AgentControl } from "@/lib/operator";
+import { agentControl, type AgentControl, requireConsole } from "@/lib/operator";
 
 function Status({ c }: { c: AgentControl }) {
   return (
@@ -18,6 +18,7 @@ function Status({ c }: { c: AgentControl }) {
 
 async function Agents() {
   await connection();
+  await requireConsole();
   const [agent, all] = await Promise.all([agentControl("agt_demo_store"), agentControl("*")]);
   return (
     <div className="mt-4 flex max-w-xl flex-col gap-6">

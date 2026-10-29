@@ -4,6 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import { secureHeaders } from "hono/secure-headers";
 import { type McpOptions, mountMcp } from "./mcp/server";
 import { type AgentOptions, mountAgents } from "./routes/agents";
+import { type ConsoleOptions, mountConsole } from "./routes/console";
 import { type SettingsOptions, mountSettings } from "./routes/settings";
 import { type DisputesOptions, mountDisputes } from "./routes/disputes";
 import { type GauntletOptions, mountGauntlet } from "./routes/gauntlet";
@@ -26,6 +27,7 @@ export function createApp(deps: {
   agents?: AgentOptions;
   settings?: SettingsOptions;
   checks: Record<string, HealthCheck>;
+  console?: ConsoleOptions;
   disputes?: DisputesOptions;
   gauntlet?: GauntletOptions;
   gridQuery?: GridQueryOptions;
@@ -72,6 +74,7 @@ export function createApp(deps: {
   if (deps.review) mountReview(app, deps.review);
   if (deps.agents) mountAgents(app, deps.agents);
   if (deps.settings) mountSettings(app, deps.settings);
+  if (deps.console) mountConsole(app, deps.console);
   if (deps.gauntlet) mountGauntlet(app, deps.gauntlet);
   if (deps.disputes) mountDisputes(app, deps.disputes);
   if (deps.ledger) mountLedger(app, deps.ledger);

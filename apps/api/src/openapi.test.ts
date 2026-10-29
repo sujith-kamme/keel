@@ -13,6 +13,7 @@ const deps = { operatorKey: "o".repeat(32), merchantKey: "m".repeat(32), signing
 const app = createApp({
   checks: {},
   agents: deps,
+  console: deps,
   disputes: deps,
   gauntlet: deps,
   gridQuery: deps,

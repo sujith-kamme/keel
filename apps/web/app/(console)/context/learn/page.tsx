@@ -3,9 +3,11 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { isSessionId } from "@/lib/review-view";
 import { Editor } from "./editor";
+import { requireConsole } from "@/lib/operator";
 
 async function Body({ search }: { search: Promise<{ session?: string | string[] }> }) {
   await connection();
+  await requireConsole();
   const sp = await search;
   const session = Array.isArray(sp.session) ? sp.session[0] : sp.session;
   return isSessionId(session) ? <Editor sessionId={session} /> : <p className="mt-4 text-sm">Invalid session.</p>;

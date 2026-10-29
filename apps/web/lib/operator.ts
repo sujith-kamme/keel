@@ -1,7 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { CONSOLE_COOKIE, isConsoleSession } from "./console-auth";
+import { CONSOLE_COOKIE, consoleSessionChecker, consoleUser } from "./console-auth";
 import { env } from "./env";
 import type { Certification, Run, RunResult, ScenarioEntry, StartInput } from "./context-view";
 import type { DisputeDetail, DisputeItem } from "./disputes-view";
@@ -15,6 +15,7 @@ export class OperatorError extends Error {
     readonly status: number,
     readonly error?: string,
     readonly reasonCode?: string,
+    readonly retryAfterS?: number,
   ) {
     super(error ?? `Keel API responded ${status}`);
   }
@@ -27,11 +28,19 @@ export interface AgentControl {
   updated_by: string | null;
 }
 
-/** Same check as the proxy; server actions are public endpoints, so they re-verify. */
+let checkSession: ReturnType<typeof consoleSessionChecker> | undefined;
+
+/**
+ * The proxy's cookie check plus the account's current session version, so a password change or
+ * "sign out everywhere" ends older sessions. Server actions are public endpoints, so they re-verify.
+ * `user` is the account email, recorded as the operator on ledgered actions.
+ */
 export async function requireConsole(): Promise<{ user: string }> {
-  const { webSecret, consoleUser } = env();
-  if (!isConsoleSession((await cookies()).get(CONSOLE_COOKIE)?.value, webSecret, new Date())) redirect("/login");
-  return { user: consoleUser };
+  const { webSecret, keelApiUrl, operatorKey } = env();
+  checkSession ??= consoleSessionChecker({ url: keelApiUrl, key: operatorKey });
+  const user = await consoleUser((await cookies()).get(CONSOLE_COOKIE)?.value, webSecret, new Date(), checkSession);
+  if (!user) redirect("/login");
+  return { user };
 }
 
 async function operator<T>(path: string, init?: RequestInit): Promise<T> {
@@ -43,13 +52,16 @@ async function operator<T>(path: string, init?: RequestInit): Promise<T> {
     cache: "no-store",
   });
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: string; reason_code?: string } | null;
-    throw new OperatorError(res.status, body?.error, body?.reason_code);
+    const body = (await res.json().catch(() => null)) as { error?: string; reason_code?: string; retry_after_s?: number } | null;
+    throw new OperatorError(res.status, body?.error, body?.reason_code, body?.retry_after_s);
   }
   return (await res.json()) as T;
 }
 
 const post = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
+
+export const consoleLogin = (email: string, password: string, ip: string) =>
+  operator<{ email: string; session_version: number }>("/v1/console/login", post({ email, password, ip }));
 
 export const reviewQueue = async () => (await operator<{ items: ReviewItem[] }>("/v1/review")).items;
 

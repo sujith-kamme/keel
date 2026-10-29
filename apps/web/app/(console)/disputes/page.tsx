@@ -2,11 +2,12 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { buildDisputeRows } from "@/lib/disputes-view";
-import { disputes } from "@/lib/operator";
+import { disputes, requireConsole } from "@/lib/operator";
 import { DisputeTools, DisputesGrid } from "./disputes-grid";
 
 async function List() {
   await connection();
+  await requireConsole();
   const rows = buildDisputeRows(await disputes());
   if (rows.length === 0) return <p className="mt-4 text-sm">No disputes yet. New PayPal disputes show up here within a few minutes.</p>;
   return <DisputesGrid rows={rows} />;

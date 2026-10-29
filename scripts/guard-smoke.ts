@@ -62,7 +62,7 @@ const pct = (xs: number[], p: number) => {
 const health = await fetch(`${API}/health`, { signal: AbortSignal.timeout(90_000) });
 console.log(`health: ${health.status}`);
 
-const maya = byScenario((await merchant<Orders>("/v1/store/orders?customer_email=maya@demo.keel.test")).orders);
+const maya = byScenario((await merchant<Orders>("/v1/store/orders?customer_email=maya@gmail.com")).orders);
 const inPolicy = maya.get("in-policy");
 const oldOrder = maya.get("out-of-window");
 const large = maya.get("large-order");
@@ -70,7 +70,7 @@ if (!inPolicy || !oldOrder || !large) throw new Error("Demo orders missing; run 
 
 const session = await merchant<{ session_id: string; capability_token: string; demo_otp?: string }>("/v1/sessions", {
   method: "POST",
-  body: JSON.stringify({ agent_id: "agt_smoke", customer_email: "maya@demo.keel.test", order_ids: [inPolicy, oldOrder, large] }),
+  body: JSON.stringify({ agent_id: "agt_smoke", customer_email: "maya@gmail.com", order_ids: [inPolicy, oldOrder, large] }),
 });
 if (!session.demo_otp) throw new Error("DEMO_OTP must be enabled on the API");
 const verified = await merchant<{ capability_token: string }>(`/v1/sessions/${session.session_id}/verify`, {

@@ -1,10 +1,11 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { ledgerPage } from "@/lib/operator";
+import { ledgerPage, requireConsole } from "@/lib/operator";
 import { LedgerGrid } from "./ledger-grid";
 
 async function Entries() {
   await connection();
+  await requireConsole();
   const page = await ledgerPage();
   if (page.rows.length === 0) return <p className="mt-4 text-sm">No ledger entries yet. Every agent decision lands here.</p>;
   return <LedgerGrid initial={page} />;
