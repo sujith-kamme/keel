@@ -91,7 +91,7 @@ ${ids}
 ${SHARED}`;
 }
 
-export function systemPrompt(context: TurnInput["context"], mode: PromptMode = "strict", role: AgentRole = "refund"): string {
+export function systemPrompt(context: TurnInput["context"], mode: PromptMode, role: AgentRole): string {
   const orders = context.orders.map((o) => `- ${escape(o.order_id)}: ${escape(o.total)}, ${o.items.map(escape).join(", ")}`).join("\n") || "- none";
   return `${rules(mode, role)}
 
