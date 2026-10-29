@@ -24,7 +24,7 @@ import { currentCertification, scenarioCatalog, scenariosFor } from "./routes/ga
 import { createGauntletStore } from "./routes/gauntlet-store";
 import { KNOWN_POLICY_IDS } from "./routes/guard";
 import { createReviewStore } from "./routes/review-store";
-import { createOrdersFor, createSessionDecisions, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
+import { createCatalog, createOrdersFor, createSessionDecisions, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
 import { createSettings } from "./settings";
 import type { SettingsStatus } from "./routes/settings";
 
@@ -140,7 +140,7 @@ const app = createApp({
     now,
     newId,
   },
-  store: { merchantKey: KEEL_MERCHANT_KEY, ordersFor: createOrdersFor(db) },
+  store: { merchantKey: KEEL_MERCHANT_KEY, ordersFor: createOrdersFor(db), catalog: createCatalog(db) },
   turns: { merchantKey: KEEL_MERCHANT_KEY, store: turnStore, now, riskDetail: risk.detail, scores: risk.scores },
   guard: {
     merchantKey: KEEL_MERCHANT_KEY,

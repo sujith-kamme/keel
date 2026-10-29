@@ -1,20 +1,48 @@
 import type { Metadata } from "next";
+import { Fraunces, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import Link from "next/link";
+import { BagLink } from "@/components/bag";
+import { AISLES } from "@/lib/aisles";
 import "./globals.css";
 
+const fraunces = Fraunces({ variable: "--font-fraunces", subsets: ["latin"], axes: ["opsz"] });
+const plexSans = IBM_Plex_Sans({ variable: "--font-plex-sans", subsets: ["latin"], weight: ["400", "500", "600"] });
+const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500"] });
+
 export const metadata: Metadata = {
-  title: "Harbor & Pine Outfitters",
-  description: "Support chat",
+  title: "Tidewell",
+  description: "Rain-ready jackets, shoes and bottles.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body className="flex min-h-full">
-        <main className="mx-auto w-full max-w-2xl p-8">
-          <h1 className="text-2xl font-semibold">Harbor &amp; Pine Outfitters</h1>
-          <p className="mb-6 text-sm text-black/60 dark:text-white/60">Support chat</p>
+    <html lang="en" className={`${fraunces.variable} ${plexSans.variable} ${plexMono.variable}`}>
+      <body>
+        <div className="shop">
+          <div className="shop-bar">Free shipping over $50 · Returns within 30 days of delivery</div>
+          <header className="shop-hd">
+            <Link className="shop-logo" href="/">
+              Tidewell
+            </Link>
+            <nav className="shop-nav" aria-label="Shop">
+              {AISLES.map((a) => (
+                <Link key={a.slug} href={`/?aisle=${a.slug}`}>
+                  {a.label}
+                </Link>
+              ))}
+            </nav>
+            <div className="shop-acct">
+              <Link href="/help">Help</Link>
+              <BagLink />
+            </div>
+          </header>
           {children}
-        </main>
+          <footer className="shop-ft">
+            <span>© Tidewell</span>
+            <Link href="/help">Get help</Link>
+            <span style={{ marginLeft: "auto" }}>Payments by PayPal · sandbox</span>
+          </footer>
+        </div>
       </body>
     </html>
   );
