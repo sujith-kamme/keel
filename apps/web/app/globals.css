@@ -58,7 +58,6 @@
   .sb{background:#09090B;border-right:1px solid #1F1F23;flex:0 0 232px;display:flex;flex-direction:column;box-sizing:border-box;color:#A1A1AA;min-height:100%}
   .sb-ws{display:flex;align-items:center;gap:10px;margin:12px 10px 8px;padding:6px 8px;border-radius:6px;color:#F4F4F5;border:0;background:transparent;font:inherit;text-align:left;cursor:pointer}
   .sb-ws:hover{background:#18181B}
-  .sb-logo{width:26px;height:26px;border-radius:6px;background:#F4F4F5;color:#09090B;display:flex;align-items:center;justify-content:center;flex:none}
   .sb-search{margin:4px 12px 10px;display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border-radius:6px;border:1px solid #27272A;background:#111113;color:#71717A;font-size:13px}
   .sb-search kbd{margin-left:auto;font:500 11px var(--mono);color:#71717A;border:1px solid #27272A;border-radius:4px;padding:0 4px}
   .sb-sec{padding:14px 20px 4px;font-size:11px;font-weight:500;color:#71717A}
