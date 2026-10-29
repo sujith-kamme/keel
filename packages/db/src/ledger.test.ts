@@ -56,6 +56,14 @@ describe.skipIf(!process.env.DATABASE_URL)("ledger store (Postgres)", () => {
     expect(older[0]!.seq).toBeGreaterThan(older[1]!.seq);
   });
 
+  it("leaves out CONTEXT rows when asked for live rows only", async () => {
+    const simulated = content();
+    await appendLedger(db, simulated);
+    const live = await readLedgerPage(db, { limit: 2000, live: true });
+    expect(live.some((r) => r.decision_id === simulated.decision_id)).toBe(false);
+    expect(live.every((r) => r.mode !== "CONTEXT")).toBe(true);
+  });
+
   it("clamps the page size to 1..2000", async () => {
     await appendLedger(db, content());
     expect(await readLedgerPage(db, { limit: 0 })).toHaveLength(1);

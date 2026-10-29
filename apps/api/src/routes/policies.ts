@@ -20,6 +20,8 @@ export interface PoliciesOptions {
   insertDraft: (policyId: string, policy: DraftedPolicy) => Promise<number>;
   /** DRAFT → APPROVED plus the ledger row, atomically; false when that version isn't a DRAFT. */
   approve: (policyId: string, version: number, edits: Pick<Policy, "approved_text" | "rules">, entry: LedgerContent) => Promise<boolean>;
+  /** DRAFT → DISCARDED plus the ledger row, atomically. */
+  discard: (policyId: string, version: number, entry: LedgerContent) => Promise<"discarded" | "not_found" | "not_draft">;
   newId: (prefix: string) => string;
 }
 
@@ -36,6 +38,7 @@ const Approve = z.strictObject({
   approved_text: Policy.shape.approved_text,
   rules: Policy.shape.rules,
 });
+const Discard = z.strictObject({ reviewer: Approve.shape.reviewer });
 const Version = z.string().regex(/^[1-9]\d{0,8}$/).transform(Number);
 
 /** Policy drafting and approval (FR-POL-4/5). A drafted version does nothing until an operator approves it. */
@@ -111,5 +114,30 @@ export function mountPolicies(app: Hono, opts: PoliciesOptions): void {
     );
     if (!approved) return c.json({ error: "not_draft" }, 409);
     return c.json({ policy_id: id, version: version.data, status: "APPROVED", decision_id: decisionId });
+  });
+
+  app.post("/v1/policies/:id/versions/:version/discard", async (c) => {
+    const no = denied(c);
+    if (no) return no;
+    const id = c.req.param("id");
+    const version = Version.safeParse(c.req.param("version"));
+    const req = Discard.safeParse(await c.req.json().catch(() => null));
+    if (!POLICY_ID.test(id) || !version.success || !req.success) return c.json({ error: "invalid_request" }, 400);
+
+    const decisionId = opts.newId("dec");
+    const result = await opts.discard(id, version.data, {
+      decision_id: decisionId,
+      session_id: null,
+      order_id: null,
+      capture_id: null,
+      dispute_id: null,
+      mode: "LIVE",
+      verdict: "ALLOW",
+      reason_codes: ["OK"] as ReasonCode[],
+      payload: { tool: "policy_discard", policy_id: id, version: version.data, reviewer: req.data.reviewer },
+    });
+    if (result === "not_found") return c.json({ error: "not_found" }, 404);
+    if (result === "not_draft") return c.json({ error: "not_draft" }, 409);
+    return c.json({ policy_id: id, version: version.data, status: "DISCARDED", decision_id: decisionId });
   });
 }

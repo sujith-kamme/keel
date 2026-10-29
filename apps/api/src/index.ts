@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
 import { agentModel, connectAgentTools, promptMode, runTurn } from "@keel/agent";
-import { activePolicy, appendLedger, approveVersion, createDb, decisionsByDay, disputeOutcomes, dollarsProtected, insertDraft, listPolicies, liveSessions, policyVersions, readChain, readLedgerPage, sql, violations } from "@keel/db";
+import { activePolicy, appendLedger, approveVersion, createDb, discardVersion, decisionsByDay, disputeOutcomes, dollarsProtected, insertDraft, listPolicies, liveSessions, policyVersions, readChain, readLedgerPage, sql, violations } from "@keel/db";
 import { PROMPT_VERSION, draftPolicy, extract } from "@keel/extractor";
 import { type Versions, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
 import { PayPalClient, configFromEnv } from "@keel/paypal";
@@ -217,11 +217,13 @@ const app = createApp({
     operatorKey: KEEL_OPERATOR_KEY,
     merchantKey: KEEL_MERCHANT_KEY,
     certification: () => currentCertification({ store: gauntletStore.runs, versions: currentVersions }),
+    run: (id) => gauntletStore.runs.get(id),
     sessions: () => liveSessions(db),
     violations: (since) => violations(db, { since }),
     dollarsProtected: (since) => dollarsProtected(db, { since }),
     decisionsByDay: () => decisionsByDay(db),
     disputes: () => disputeOutcomes(db),
+    recent: () => readLedgerPage(db, { limit: 6, live: true }),
     now,
   },
   gridQuery: {
@@ -242,6 +244,7 @@ const app = createApp({
       draftPolicy({ parse: (p, o) => anthropic.messages.parse(p, o), model: (await settings.get()).extractor_model, timeoutMs: 45_000 }, input),
     insertDraft: (id, policy) => insertDraft(db, id, policy),
     approve: (id, version, edits, entry) => approveVersion(db, id, version, edits, entry),
+    discard: (id, version, entry) => discardVersion(db, id, version, entry),
     newId,
   },
 });

@@ -128,3 +128,23 @@ export async function approveVersion(
     return true;
   });
 }
+
+/**
+ * DRAFT → DISCARDED and the discard's ledger row, in one transaction. The row stays,
+ * so the version number is never reused; only APPROVED versions reach the engine.
+ */
+export async function discardVersion(db: DbOrTx, policyId: string, version: number, entry: LedgerContent): Promise<"discarded" | "not_found" | "not_draft"> {
+  return db.transaction(async (tx) => {
+    const updated = await tx
+      .update(policies)
+      .set({ status: "DISCARDED" })
+      .where(and(eq(policies.policyId, policyId), eq(policies.version, version), eq(policies.status, "DRAFT")))
+      .returning({ id: policies.id });
+    if (updated.length === 0) {
+      const [found] = await tx.select({ id: policies.id }).from(policies).where(and(eq(policies.policyId, policyId), eq(policies.version, version)));
+      return found ? "not_draft" : "not_found";
+    }
+    await appendLedger(tx, entry);
+    return "discarded";
+  });
+}

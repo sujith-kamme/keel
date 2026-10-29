@@ -1,5 +1,6 @@
 // Shape of GET /v1/overview and how the Overview page words it.
 import { type Certification, certLabel, certStyle } from "./context-view";
+import type { LedgerRow } from "./ledger-view";
 
 export interface Dollars {
   blocked_refunds: string;
@@ -30,13 +31,18 @@ export interface DisputeOutcomes {
   amount_conceded: string;
 }
 
+/** The certifying run's stats are present when certification names a run. */
+export type OverviewCertification = Certification & { leaks?: number; scenarios?: number; finished_at?: string | null };
+
 export interface Overview {
-  certification: Certification | null;
+  certification: OverviewCertification | null;
   sessions: { active: number; quarantined: number };
   violations: { all_time: Violations; last_7_days: Violations };
   dollars_protected: { all_time: Dollars; last_7_days: Dollars };
   decisions_by_day: DayCounts[];
   disputes: DisputeOutcomes;
+  /** The newest live ledger rows, newest first. */
+  recent_activity: LedgerRow[];
 }
 
 /** "$1,234.50" from "1234.5", by string so no float rounding; an em dash for anything else. */

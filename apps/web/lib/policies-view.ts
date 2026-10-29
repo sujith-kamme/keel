@@ -15,7 +15,7 @@ export interface PolicyRow {
   type: string;
   approved_text: string;
   rules: Rule[];
-  status: "DRAFT" | "APPROVED";
+  status: "DRAFT" | "APPROVED" | "DISCARDED";
   created_at: string;
 }
 export type PolicyVersion = PolicyRow & { approved_by: string | null; approved_at: string | null };
