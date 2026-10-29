@@ -85,6 +85,25 @@ export class PayPalClient {
     );
   }
 
+  /** An order the buyer approves in PayPal's own window; the caller prices every line. */
+  createCheckoutOrder(unit: CheckoutUnit, brandName: string, requestId: string) {
+    return this.request<{ id: string; status: string }>(
+      "POST",
+      "/v2/checkout/orders",
+      {
+        intent: "CAPTURE",
+        purchase_units: [unit],
+        payment_source: { paypal: { experience_context: { brand_name: brandName, shipping_preference: "NO_SHIPPING", user_action: "PAY_NOW" } } },
+      },
+      requestId,
+    );
+  }
+
+  /** Captures an approved order. Idempotent per requestId. */
+  captureOrder(orderId: string, requestId: string) {
+    return this.request<OrderDetails>("POST", `/v2/checkout/orders/${resourceId(orderId)}/capture`, {}, requestId);
+  }
+
   async getOrder(orderId: string) {
     return this.request<{ id: string; status: string }>("GET", `/v2/checkout/orders/${resourceId(orderId)}`);
   }
@@ -143,10 +162,23 @@ export interface Refund {
   amount: PayPalAmount;
 }
 
+export interface CheckoutItem {
+  name: string;
+  sku: string;
+  quantity: string;
+  unit_amount: PayPalAmount;
+}
+
+export interface CheckoutUnit {
+  custom_id: string;
+  items: CheckoutItem[];
+  amount: PayPalAmount & { breakdown: { item_total: PayPalAmount; shipping: PayPalAmount } };
+}
+
 export interface OrderDetails {
   id: string;
   status: string;
-  purchase_units: { payments?: { captures?: Capture[]; refunds?: Refund[] } }[];
+  purchase_units: { custom_id?: string; items?: CheckoutItem[]; amount?: PayPalAmount; payments?: { captures?: Capture[]; refunds?: Refund[] } }[];
 }
 
 // PayPal's published sandbox test Visa; it only works against the sandbox.

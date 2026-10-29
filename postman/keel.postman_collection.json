@@ -1,7 +1,7 @@
 {
   "item": [
     {
-      "id": "3f72a7eb-07df-4c47-9c1e-5b7300823dae",
+      "id": "9422e75f-9959-4ac7-bb2c-2643a88533fe",
       "name": "Health",
       "description": {
         "content": "",
@@ -9,7 +9,7 @@
       },
       "item": [
         {
-          "id": "eefd09b4-86f4-4adf-b090-037937834e37",
+          "id": "b52a677a-37a9-4a45-8702-31241e946808",
           "name": "Liveness and dependency checks",
           "request": {
             "name": "Liveness and dependency checks",
@@ -37,7 +37,7 @@
           },
           "response": [
             {
-              "id": "f8849f8e-9850-4226-b6f0-8b30d7db1a1c",
+              "id": "e430f2d0-6895-425a-9962-3945683fc7cc",
               "name": "Every dependency is up",
               "originalRequest": {
                 "url": {
@@ -67,12 +67,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"status\": \"degraded\",\n  \"checks\": {\n    \"key_0\": \"ok\"\n  }\n}",
+              "body": "{\n  \"status\": \"ok\",\n  \"checks\": {\n    \"key_0\": \"ok\",\n    \"key_1\": \"ok\"\n  }\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "df4dca7d-b52c-468f-8b90-be86bfca7f44",
+              "id": "395c1833-6764-4d8c-87c4-058a66ee2d1b",
               "name": "A dependency is down",
               "originalRequest": {
                 "url": {
@@ -102,7 +102,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"status\": \"degraded\",\n  \"checks\": {\n    \"key_0\": \"ok\"\n  }\n}",
+              "body": "{\n  \"status\": \"ok\",\n  \"checks\": {\n    \"key_0\": \"ok\",\n    \"key_1\": \"ok\"\n  }\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             }
@@ -116,7 +116,7 @@
       "event": []
     },
     {
-      "id": "3ce69892-fccc-4cad-a18d-44bde0b0c32d",
+      "id": "7438a6b9-2dc1-4e47-95a6-aeb7b2aa9114",
       "name": "Sessions",
       "description": {
         "content": "Merchant backend. Open a session, verify the customer, record turns.",
@@ -124,7 +124,7 @@
       },
       "item": [
         {
-          "id": "66e1d348-c5b6-43c9-a8ca-a22d1526764d",
+          "id": "2e97fd06-4610-4cf0-9b41-3c26a7312f72",
           "name": "Open a session for a customer and get a capability token",
           "request": {
             "name": "Open a session for a customer and get a capability token",
@@ -176,7 +176,7 @@
           },
           "response": [
             {
-              "id": "8f435a08-2cc5-4448-acb8-40b592d1a37e",
+              "id": "820e7fc6-cf88-42d0-861f-afeb77bed01a",
               "name": "Session opened",
               "originalRequest": {
                 "url": {
@@ -223,12 +223,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"session_id\": \"string\",\n  \"capability_token\": \"string\",\n  \"orders\": [\n    \"string\",\n    \"string\"\n  ],\n  \"expires_at\": \"1974-08-06T11:37:19.246Z\",\n  \"demo_otp\": \"string\"\n}",
+              "body": "{\n  \"session_id\": \"string\",\n  \"capability_token\": \"string\",\n  \"orders\": [\n    \"string\",\n    \"string\"\n  ],\n  \"expires_at\": \"1983-01-01T04:59:27.386Z\",\n  \"demo_otp\": \"string\"\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "83cfaa86-e178-4307-83ec-15d7510d537c",
+              "id": "fc87204f-4c7a-44d8-ba0e-01c214d51ae8",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -280,7 +280,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "50552d13-516c-4018-bf5c-2cbf364dde2c",
+              "id": "0fc2e86c-ccfe-4f0c-a58a-a935eb2181b8",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -338,7 +338,7 @@
           }
         },
         {
-          "id": "1052a6a5-8bba-45b7-9d04-111a4352063a",
+          "id": "51a56fb7-f410-461c-a565-a6bc1e8a1996",
           "name": "List recent sessions, newest first",
           "request": {
             "name": "List recent sessions, newest first",
@@ -399,7 +399,7 @@
           },
           "response": [
             {
-              "id": "fbd09440-6f6a-48a9-98c0-4d2967527404",
+              "id": "c8889b20-68e2-4d88-930c-6ef620007e5b",
               "name": "Sessions",
               "originalRequest": {
                 "url": {
@@ -455,12 +455,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"sessions\": [\n    {\n      \"id\": \"string\",\n      \"agent_id\": \"string\",\n      \"claimed_email\": \"string\",\n      \"verified\": false,\n      \"order_ids\": [\n        \"string\",\n        \"string\"\n      ],\n      \"state\": \"string\",\n      \"mode\": \"string\",\n      \"created_at\": \"2007-05-11T00:41:57.723Z\",\n      \"expires_at\": \"2013-05-29T06:51:09.125Z\",\n      \"risk_score\": 9985.759291842956,\n      \"decision_count\": 5411,\n      \"last_turn_at\": \"2009-06-27T06:45:30.234Z\"\n    },\n    {\n      \"id\": \"string\",\n      \"agent_id\": \"string\",\n      \"claimed_email\": \"string\",\n      \"verified\": false,\n      \"order_ids\": [\n        \"string\",\n        \"string\"\n      ],\n      \"state\": \"string\",\n      \"mode\": \"string\",\n      \"created_at\": \"2025-04-18T11:39:29.772Z\",\n      \"expires_at\": \"1965-06-27T09:58:07.987Z\",\n      \"risk_score\": 6181.028181084182,\n      \"decision_count\": 9818,\n      \"last_turn_at\": \"1987-05-31T09:42:15.399Z\"\n    }\n  ],\n  \"next_before\": \"string\"\n}",
+              "body": "{\n  \"sessions\": [\n    {\n      \"id\": \"string\",\n      \"agent_id\": \"string\",\n      \"claimed_email\": \"string\",\n      \"verified\": true,\n      \"order_ids\": [\n        \"string\",\n        \"string\"\n      ],\n      \"state\": \"string\",\n      \"mode\": \"string\",\n      \"created_at\": \"1970-09-10T10:52:11.800Z\",\n      \"expires_at\": \"2005-03-28T18:31:43.096Z\",\n      \"risk_score\": 2165.934171094057,\n      \"decision_count\": 202,\n      \"last_turn_at\": \"1994-05-02T03:12:39.465Z\"\n    },\n    {\n      \"id\": \"string\",\n      \"agent_id\": \"string\",\n      \"claimed_email\": \"string\",\n      \"verified\": true,\n      \"order_ids\": [\n        \"string\",\n        \"string\"\n      ],\n      \"state\": \"string\",\n      \"mode\": \"string\",\n      \"created_at\": \"1985-10-20T01:55:32.861Z\",\n      \"expires_at\": \"1950-01-30T17:55:06.578Z\",\n      \"risk_score\": 4518.891340178101,\n      \"decision_count\": 1780,\n      \"last_turn_at\": \"1986-07-25T14:47:15.452Z\"\n    }\n  ],\n  \"next_before\": \"string\"\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "96823b08-e164-4242-85a2-753dc903ca76",
+              "id": "563e4f60-a041-45d6-8004-38a4ac99a18a",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -521,7 +521,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "72e73bc4-4c90-4a7c-b934-e7631409ecd1",
+              "id": "9bf4e118-b006-4e7b-98ce-f09f8a3b8a25",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -588,7 +588,7 @@
           }
         },
         {
-          "id": "d5f8c54d-27c7-4f79-87db-66ee175c2553",
+          "id": "db59f6a5-d84a-4f25-aba6-0c2c200f2de6",
           "name": "A session with its turns, ledger decisions and risk score",
           "request": {
             "name": "A session with its turns, ledger decisions and risk score",
@@ -633,7 +633,7 @@
           },
           "response": [
             {
-              "id": "f2f18d84-1c39-4735-936f-500fb2348099",
+              "id": "23c11797-7bb9-486c-8628-54e84b66f05b",
               "name": "Session detail",
               "originalRequest": {
                 "url": {
@@ -681,12 +681,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"session\": {\n    \"id\": \"string\",\n    \"agent_id\": \"string\",\n    \"claimed_email\": \"string\",\n    \"verified\": false,\n    \"order_ids\": [\n      \"string\",\n      \"string\"\n    ],\n    \"state\": \"string\",\n    \"mode\": \"string\",\n    \"created_at\": \"1974-04-30T03:24:07.549Z\",\n    \"expires_at\": \"1989-07-17T14:53:22.631Z\"\n  },\n  \"turns\": [\n    {\n      \"role\": \"agent\",\n      \"text\": \"string\",\n      \"decision_ids\": [\n        \"string\",\n        \"string\"\n      ],\n      \"created_at\": \"1962-09-10T03:05:49.832Z\"\n    },\n    {\n      \"role\": \"customer\",\n      \"text\": \"string\",\n      \"decision_ids\": [\n        \"string\",\n        \"string\"\n      ],\n      \"created_at\": \"1973-08-07T23:49:16.785Z\"\n    }\n  ],\n  \"decisions\": [\n    {\n      \"key_0\": 5584.724106773266,\n      \"key_1\": \"string\",\n      \"key_2\": true\n    },\n    {\n      \"key_0\": 7892,\n      \"key_1\": true,\n      \"key_2\": \"string\"\n    }\n  ],\n  \"risk\": null\n}",
+              "body": "{\n  \"session\": {\n    \"id\": \"string\",\n    \"agent_id\": \"string\",\n    \"claimed_email\": \"string\",\n    \"verified\": true,\n    \"order_ids\": [\n      \"string\",\n      \"string\"\n    ],\n    \"state\": \"string\",\n    \"mode\": \"string\",\n    \"created_at\": \"2000-07-09T09:36:16.085Z\",\n    \"expires_at\": \"1989-10-27T05:23:00.190Z\"\n  },\n  \"turns\": [\n    {\n      \"role\": \"customer\",\n      \"text\": \"string\",\n      \"decision_ids\": [\n        \"string\",\n        \"string\"\n      ],\n      \"created_at\": \"2011-07-21T17:47:52.568Z\"\n    },\n    {\n      \"role\": \"customer\",\n      \"text\": \"string\",\n      \"decision_ids\": [\n        \"string\",\n        \"string\"\n      ],\n      \"created_at\": \"1976-12-20T16:02:24.267Z\"\n    }\n  ],\n  \"decisions\": [\n    {\n      \"key_0\": \"string\"\n    },\n    {\n      \"key_0\": 7155\n    }\n  ],\n  \"risk\": null\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "df59dbdb-1f3c-46db-b69e-2aad0410d4bb",
+              "id": "5b99ef6c-f3e9-458a-8ef4-631723acb274",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -739,7 +739,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "af6780be-d6c9-4136-a207-2fdd11e2a5cf",
+              "id": "8f782989-9ccd-4a3c-95ed-fae925a6d1d3",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -798,7 +798,7 @@
           }
         },
         {
-          "id": "5163bf71-a93d-4cc8-a1c7-67366b44f618",
+          "id": "92978b3b-9b3e-46fc-a1f0-ca39f9e9d02a",
           "name": "Verify the customer's OTP and get a token with a verified payer",
           "request": {
             "name": "Verify the customer's OTP and get a token with a verified payer",
@@ -857,7 +857,7 @@
           },
           "response": [
             {
-              "id": "9a89b343-9a71-4d19-8a99-96acd1fd804c",
+              "id": "348bc5bf-3cb8-41bb-a06c-4c9f2ba67f9a",
               "name": "Verified",
               "originalRequest": {
                 "url": {
@@ -919,7 +919,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "68b62577-f86f-44bc-b91d-9719741110fa",
+              "id": "ed4ef10f-d23d-493d-b139-43fb1fe9843e",
               "name": "Bad request, wrong or expired code, or no attempts left (`locked`)",
               "originalRequest": {
                 "url": {
@@ -981,7 +981,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "d5971f3d-8efd-4779-a049-981fb3dab5c6",
+              "id": "d8da03eb-be15-44b9-a496-4b80614033b3",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -1043,7 +1043,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "8e0791c1-fb01-4b47-923f-59f68ceffefa",
+              "id": "303206ce-b306-410c-a1f6-8996fe9f953f",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -1111,7 +1111,7 @@
           }
         },
         {
-          "id": "b36ffadd-0e08-4695-9024-8172ec0ebdc3",
+          "id": "2265b209-78c3-4823-8701-6001d77134fb",
           "name": "Record a conversation turn",
           "request": {
             "name": "Record a conversation turn",
@@ -1170,7 +1170,7 @@
           },
           "response": [
             {
-              "id": "0ccff808-dd53-4520-92be-eba91d800913",
+              "id": "159fc962-d8dc-4c7d-8c2c-d92478f0581e",
               "name": "Recorded",
               "originalRequest": {
                 "url": {
@@ -1207,7 +1207,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"role\": \"<string>\",\n  \"text\": \"<string>\",\n  \"decision_ids\": [\n    \"dec_RDyFxm9BLktYNJD2dzwTfo79oGvppK5PSSU\",\n    \"dec_DkMXTKnsE2zHFlgP5jOOj5ArjvTW5pV3myuLSZe8E7yerC4c\"\n  ]\n}",
+                  "raw": "{\n  \"role\": \"<string>\",\n  \"text\": \"<string>\",\n  \"decision_ids\": [\n    \"dec_D64C9JconEiXKvvABqBcquVRaYzulEnkhEwzoNvE17EfAJPhokjnb44\",\n    \"dec_ptt8hb6eqLDmj3iCcxkJH6N7VGdfC5b1koTfW2Q93r1uupQy1dsQ4N\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1228,7 +1228,7 @@
               "_postman_previewlanguage": "text"
             },
             {
-              "id": "e605a3ae-53e4-41ce-a21a-babbfe9b785f",
+              "id": "09a24e14-6e5a-4d75-9211-93b5ce7691f7",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -1269,7 +1269,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"role\": \"<string>\",\n  \"text\": \"<string>\",\n  \"decision_ids\": [\n    \"dec_RDyFxm9BLktYNJD2dzwTfo79oGvppK5PSSU\",\n    \"dec_DkMXTKnsE2zHFlgP5jOOj5ArjvTW5pV3myuLSZe8E7yerC4c\"\n  ]\n}",
+                  "raw": "{\n  \"role\": \"<string>\",\n  \"text\": \"<string>\",\n  \"decision_ids\": [\n    \"dec_D64C9JconEiXKvvABqBcquVRaYzulEnkhEwzoNvE17EfAJPhokjnb44\",\n    \"dec_ptt8hb6eqLDmj3iCcxkJH6N7VGdfC5b1koTfW2Q93r1uupQy1dsQ4N\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1290,7 +1290,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "82ac413e-ee90-4a1b-b073-78d7c49286ba",
+              "id": "d53440c5-a1e7-401d-bf34-2ef07d0ecb4f",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -1331,7 +1331,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"role\": \"<string>\",\n  \"text\": \"<string>\",\n  \"decision_ids\": [\n    \"dec_RDyFxm9BLktYNJD2dzwTfo79oGvppK5PSSU\",\n    \"dec_DkMXTKnsE2zHFlgP5jOOj5ArjvTW5pV3myuLSZe8E7yerC4c\"\n  ]\n}",
+                  "raw": "{\n  \"role\": \"<string>\",\n  \"text\": \"<string>\",\n  \"decision_ids\": [\n    \"dec_D64C9JconEiXKvvABqBcquVRaYzulEnkhEwzoNvE17EfAJPhokjnb44\",\n    \"dec_ptt8hb6eqLDmj3iCcxkJH6N7VGdfC5b1koTfW2Q93r1uupQy1dsQ4N\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1352,7 +1352,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "5aaeebda-0d58-4c6f-8a32-88e86b262ec7",
+              "id": "6294bf2b-a063-4f1c-b469-5ba10a497bbd",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -1393,7 +1393,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"role\": \"<string>\",\n  \"text\": \"<string>\",\n  \"decision_ids\": [\n    \"dec_RDyFxm9BLktYNJD2dzwTfo79oGvppK5PSSU\",\n    \"dec_DkMXTKnsE2zHFlgP5jOOj5ArjvTW5pV3myuLSZe8E7yerC4c\"\n  ]\n}",
+                  "raw": "{\n  \"role\": \"<string>\",\n  \"text\": \"<string>\",\n  \"decision_ids\": [\n    \"dec_D64C9JconEiXKvvABqBcquVRaYzulEnkhEwzoNvE17EfAJPhokjnb44\",\n    \"dec_ptt8hb6eqLDmj3iCcxkJH6N7VGdfC5b1koTfW2Q93r1uupQy1dsQ4N\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1414,7 +1414,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "fa7465af-d2aa-4eb9-9f91-88b9db2b7138",
+              "id": "e159cc42-e82b-4641-b3a0-84a2d84b18bd",
               "name": "The session reached its customer turn limit (`turn_limit`)",
               "originalRequest": {
                 "url": {
@@ -1455,7 +1455,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"role\": \"<string>\",\n  \"text\": \"<string>\",\n  \"decision_ids\": [\n    \"dec_RDyFxm9BLktYNJD2dzwTfo79oGvppK5PSSU\",\n    \"dec_DkMXTKnsE2zHFlgP5jOOj5ArjvTW5pV3myuLSZe8E7yerC4c\"\n  ]\n}",
+                  "raw": "{\n  \"role\": \"<string>\",\n  \"text\": \"<string>\",\n  \"decision_ids\": [\n    \"dec_D64C9JconEiXKvvABqBcquVRaYzulEnkhEwzoNvE17EfAJPhokjnb44\",\n    \"dec_ptt8hb6eqLDmj3iCcxkJH6N7VGdfC5b1koTfW2Q93r1uupQy1dsQ4N\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1485,7 +1485,7 @@
       "event": []
     },
     {
-      "id": "16cde0d6-863e-48b8-95cd-116938873e53",
+      "id": "23b6e4c0-2fcd-4fe3-8b8b-3b1b04dc34bc",
       "name": "Guard",
       "description": {
         "content": "Check an agent's draft reply before the customer sees it.",
@@ -1493,7 +1493,7 @@
       },
       "item": [
         {
-          "id": "541da812-1300-4e2c-acc3-a25d29479d75",
+          "id": "2c35d6b7-1be3-4934-abe4-af811f0680fb",
           "name": "Check a draft reply; returns the reply the customer should see",
           "request": {
             "name": "Check a draft reply; returns the reply the customer should see",
@@ -1545,7 +1545,7 @@
           },
           "response": [
             {
-              "id": "d6fc0e84-6c82-4414-bceb-82297a22d4d1",
+              "id": "4258b6cd-6040-4183-9c95-633dd2e8c1b4",
               "name": "Decision",
               "originalRequest": {
                 "url": {
@@ -1576,7 +1576,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"session_id\": \"<string>\",\n  \"draft_reply\": \"<string>\",\n  \"conversation\": [\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    },\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    }\n  ],\n  \"tool_calls_this_turn\": [\n    \"dec_99MeWAYjEzXvzXm96Bgs7yolvnEXCA1fLmg27v9G\",\n    \"dec_aDRs9biN0OIkhi2K2FHO4h2fwIMDUfcOmaGnrt4h1m12xHpv2TWVLI537GgZ\"\n  ]\n}",
+                  "raw": "{\n  \"session_id\": \"<string>\",\n  \"draft_reply\": \"<string>\",\n  \"conversation\": [\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    },\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    }\n  ],\n  \"tool_calls_this_turn\": [\n    \"dec_ugojPXufRKYGFLkrBbMU30xiAUivcLcNlYBR96b0\",\n    \"dec_OxT7L6NHIsDSu\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1592,12 +1592,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"verdict\": \"BLOCK\",\n  \"reason_codes\": [\n    \"FREE_TEXT_COMMITMENT\"\n  ],\n  \"final_reply\": \"string\",\n  \"decision_id\": \"string\",\n  \"session_state\": \"string\",\n  \"shadow\": false\n}",
+              "body": "{\n  \"verdict\": \"BLOCK\",\n  \"reason_codes\": [\n    \"FREE_TEXT_COMMITMENT\"\n  ],\n  \"final_reply\": \"string\",\n  \"decision_id\": \"string\",\n  \"session_state\": \"string\",\n  \"shadow\": true\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "18139808-ce6b-47a3-b86f-9ecd5188427b",
+              "id": "5d63a242-6a3c-4768-bc87-1793cb2c719b",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -1628,7 +1628,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"session_id\": \"<string>\",\n  \"draft_reply\": \"<string>\",\n  \"conversation\": [\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    },\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    }\n  ],\n  \"tool_calls_this_turn\": [\n    \"dec_99MeWAYjEzXvzXm96Bgs7yolvnEXCA1fLmg27v9G\",\n    \"dec_aDRs9biN0OIkhi2K2FHO4h2fwIMDUfcOmaGnrt4h1m12xHpv2TWVLI537GgZ\"\n  ]\n}",
+                  "raw": "{\n  \"session_id\": \"<string>\",\n  \"draft_reply\": \"<string>\",\n  \"conversation\": [\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    },\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    }\n  ],\n  \"tool_calls_this_turn\": [\n    \"dec_ugojPXufRKYGFLkrBbMU30xiAUivcLcNlYBR96b0\",\n    \"dec_OxT7L6NHIsDSu\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1649,7 +1649,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "1f9bd0f8-313e-48ab-9201-d15b373c7e2f",
+              "id": "47199125-28cd-411d-a223-32960eb540d9",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -1680,7 +1680,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"session_id\": \"<string>\",\n  \"draft_reply\": \"<string>\",\n  \"conversation\": [\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    },\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    }\n  ],\n  \"tool_calls_this_turn\": [\n    \"dec_99MeWAYjEzXvzXm96Bgs7yolvnEXCA1fLmg27v9G\",\n    \"dec_aDRs9biN0OIkhi2K2FHO4h2fwIMDUfcOmaGnrt4h1m12xHpv2TWVLI537GgZ\"\n  ]\n}",
+                  "raw": "{\n  \"session_id\": \"<string>\",\n  \"draft_reply\": \"<string>\",\n  \"conversation\": [\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    },\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    }\n  ],\n  \"tool_calls_this_turn\": [\n    \"dec_ugojPXufRKYGFLkrBbMU30xiAUivcLcNlYBR96b0\",\n    \"dec_OxT7L6NHIsDSu\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1701,7 +1701,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "a9ef5591-3077-4d37-955e-76d84f3b5ecc",
+              "id": "612807dc-4de1-4d38-a58e-24d58092191f",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -1732,7 +1732,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"session_id\": \"<string>\",\n  \"draft_reply\": \"<string>\",\n  \"conversation\": [\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    },\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    }\n  ],\n  \"tool_calls_this_turn\": [\n    \"dec_99MeWAYjEzXvzXm96Bgs7yolvnEXCA1fLmg27v9G\",\n    \"dec_aDRs9biN0OIkhi2K2FHO4h2fwIMDUfcOmaGnrt4h1m12xHpv2TWVLI537GgZ\"\n  ]\n}",
+                  "raw": "{\n  \"session_id\": \"<string>\",\n  \"draft_reply\": \"<string>\",\n  \"conversation\": [\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    },\n    {\n      \"role\": \"<string>\",\n      \"text\": \"<string>\"\n    }\n  ],\n  \"tool_calls_this_turn\": [\n    \"dec_ugojPXufRKYGFLkrBbMU30xiAUivcLcNlYBR96b0\",\n    \"dec_OxT7L6NHIsDSu\"\n  ]\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -1762,7 +1762,7 @@
       "event": []
     },
     {
-      "id": "014216b9-1619-4f7c-99d8-4859b7905940",
+      "id": "ab304232-f386-4fbb-97ed-7306bc741ded",
       "name": "MCP",
       "description": {
         "content": "The agent's money tools over MCP (streamable HTTP).",
@@ -1770,7 +1770,7 @@
       },
       "item": [
         {
-          "id": "db6f6bee-9f1e-4ba7-9860-0b4788b52717",
+          "id": "779ae059-0432-432b-bd00-b45fa854feef",
           "name": "MCP JSON-RPC (stateless streamable HTTP)",
           "request": {
             "name": "MCP JSON-RPC (stateless streamable HTTP)",
@@ -1812,7 +1812,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"jsonrpc\": \"<string>\",\n  \"method\": \"<string>\",\n  \"id\": \"<string,integer>\",\n  \"params\": {\n    \"key_0\": 9903.714873179762,\n    \"key_1\": \"string\",\n    \"key_2\": true\n  }\n}",
+              "raw": "{\n  \"jsonrpc\": \"<string>\",\n  \"method\": \"<string>\",\n  \"id\": \"<string,integer>\",\n  \"params\": {\n    \"key_0\": true,\n    \"key_1\": \"string\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1822,7 +1822,7 @@
           },
           "response": [
             {
-              "id": "815efb31-3fac-44c7-beb3-26d15e7783b2",
+              "id": "a93bf561-ce9a-4314-a8b3-cd122af7f6a5",
               "name": "JSON-RPC response",
               "originalRequest": {
                 "url": {
@@ -1869,12 +1869,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"key_0\": 5785,\n  \"key_1\": false,\n  \"key_2\": 9593.375692023714\n}",
+              "body": "{\n  \"key_0\": true\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "56164ce7-21bf-492b-ba86-c5259623bf37",
+              "id": "bac0e549-7f85-4fdb-8c5a-33965d08fbb4",
               "name": "Missing, invalid or expired capability token (`invalid_token`)",
               "originalRequest": {
                 "url": {
@@ -1935,7 +1935,7 @@
       "event": []
     },
     {
-      "id": "c2b04435-4082-4e9c-a6ae-a4c09c09a652",
+      "id": "5210f264-544a-4d1d-a4ab-1624ee369f87",
       "name": "Store",
       "description": {
         "content": "The demo merchant's order list.",
@@ -1943,7 +1943,7 @@
       },
       "item": [
         {
-          "id": "df99b5e0-a881-40a9-a706-3fb8ee0108f5",
+          "id": "30cc0d2f-d130-4635-80f7-288c1c101c4d",
           "name": "A demo-store customer's orders",
           "request": {
             "name": "A demo-store customer's orders",
@@ -1987,7 +1987,7 @@
           },
           "response": [
             {
-              "id": "27a5aa63-af41-4c72-a8b9-2e83718b995e",
+              "id": "8d195e6c-ca4e-4875-8023-809c0cfe350b",
               "name": "Orders",
               "originalRequest": {
                 "url": {
@@ -2032,12 +2032,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"orders\": [\n    {\n      \"order_id\": \"string\",\n      \"scenario\": \"string\",\n      \"total\": {\n        \"value\": \"25.00\",\n        \"currency\": \"USD\"\n      },\n      \"items\": [\n        {\n          \"sku\": \"string\",\n          \"title\": \"string\",\n          \"price\": \"string\"\n        },\n        {\n          \"sku\": \"string\",\n          \"title\": \"string\",\n          \"price\": \"string\"\n        }\n      ],\n      \"delivered_at\": \"1971-02-13T18:01:28.936Z\"\n    },\n    {\n      \"order_id\": \"string\",\n      \"scenario\": \"string\",\n      \"total\": {\n        \"value\": \"25.00\",\n        \"currency\": \"USD\"\n      },\n      \"items\": [\n        {\n          \"sku\": \"string\",\n          \"title\": \"string\",\n          \"price\": \"string\"\n        },\n        {\n          \"sku\": \"string\",\n          \"title\": \"string\",\n          \"price\": \"string\"\n        }\n      ],\n      \"delivered_at\": \"2024-04-14T09:21:12.049Z\"\n    }\n  ]\n}",
+              "body": "{\n  \"orders\": [\n    {\n      \"order_id\": \"string\",\n      \"scenario\": \"string\",\n      \"total\": {\n        \"value\": \"25.00\",\n        \"currency\": \"USD\"\n      },\n      \"items\": [\n        {\n          \"sku\": \"string\",\n          \"title\": \"string\",\n          \"price\": \"string\"\n        },\n        {\n          \"sku\": \"string\",\n          \"title\": \"string\",\n          \"price\": \"string\"\n        }\n      ],\n      \"delivered_at\": \"2025-01-17T14:27:13.770Z\"\n    },\n    {\n      \"order_id\": \"string\",\n      \"scenario\": \"string\",\n      \"total\": {\n        \"value\": \"25.00\",\n        \"currency\": \"USD\"\n      },\n      \"items\": [\n        {\n          \"sku\": \"string\",\n          \"title\": \"string\",\n          \"price\": \"string\"\n        },\n        {\n          \"sku\": \"string\",\n          \"title\": \"string\",\n          \"price\": \"string\"\n        }\n      ],\n      \"delivered_at\": \"1977-10-04T21:55:05.817Z\"\n    }\n  ]\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "54276081-1785-412d-9e97-ab9f1093c9da",
+              "id": "20315d03-d00e-46af-8a5e-188c006942e1",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -2087,7 +2087,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "59ac1f17-cf0e-4aa6-a804-d93898f11daa",
+              "id": "57d5d74f-6762-4972-8a3c-d40d182ad5f6",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -2143,7 +2143,7 @@
           }
         },
         {
-          "id": "18ae29fe-85b8-4ecf-886b-2144af83b63d",
+          "id": "8b8b2537-c16d-4b5c-b83d-979fe2f479bf",
           "name": "The demo store's products",
           "request": {
             "name": "The demo store's products",
@@ -2180,7 +2180,7 @@
           },
           "response": [
             {
-              "id": "1a201f1d-34b5-4b04-b935-7017b711218f",
+              "id": "b6d3d91b-a619-4e76-99e1-cf0a291507b4",
               "name": "Products, by title",
               "originalRequest": {
                 "url": {
@@ -2220,12 +2220,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"items\": [\n    {\n      \"sku\": \"string\",\n      \"title\": \"string\",\n      \"image_url\": \"string\",\n      \"price\": \"string\",\n      \"currency\": \"string\",\n      \"category\": \"Bottles\"\n    },\n    {\n      \"sku\": \"string\",\n      \"title\": \"string\",\n      \"image_url\": \"string\",\n      \"price\": \"string\",\n      \"currency\": \"string\",\n      \"category\": \"Jackets\"\n    }\n  ]\n}",
+              "body": "{\n  \"items\": [\n    {\n      \"sku\": \"string\",\n      \"title\": \"string\",\n      \"image_url\": \"string\",\n      \"price\": \"string\",\n      \"currency\": \"string\",\n      \"category\": \"Bottles\"\n    },\n    {\n      \"sku\": \"string\",\n      \"title\": \"string\",\n      \"image_url\": \"string\",\n      \"price\": \"string\",\n      \"currency\": \"string\",\n      \"category\": \"Other\"\n    }\n  ]\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "56d4a204-4950-4c63-9a5e-ec0e984467ef",
+              "id": "b3b75565-026e-4c89-b36b-c20cf4f74d55",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -2274,12 +2274,606 @@
           "protocolProfileBehavior": {
             "disableBodyPruning": true
           }
+        },
+        {
+          "id": "d2600a9d-0980-4075-882e-26386a25afd0",
+          "name": "Create a PayPal order for a demo-store bag",
+          "request": {
+            "name": "Create a PayPal order for a demo-store bag",
+            "description": {
+              "content": "Every line is priced from the catalog; shipping is $4.00 under $50, free from $50. The buyer approves the order in PayPal's window.",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "v1",
+                "store",
+                "checkout"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": []
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchantKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_email\": \"<email>\",\n  \"items\": [\n    {\n      \"sku\": \"<string>\",\n      \"qty\": \"<integer>\",\n      \"size\": \"<string,null>\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "id": "a9ecf1d2-b906-4578-a70e-4ddd44c707af",
+              "name": "PayPal order created",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "v1",
+                    "store",
+                    "checkout"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: bearer",
+                      "type": "text/plain"
+                    },
+                    "key": "Authorization",
+                    "value": "Bearer <token>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_email\": \"<email>\",\n  \"items\": [\n    {\n      \"sku\": \"<string>\",\n      \"qty\": \"<integer>\",\n      \"size\": \"<string,null>\"\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"order_id\": \"string\",\n  \"total\": {\n    \"value\": \"25.00\",\n    \"currency\": \"USD\"\n  }\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "id": "2f093159-3a59-449b-85d2-b362275e1d15",
+              "name": "Invalid request",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "v1",
+                    "store",
+                    "checkout"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: bearer",
+                      "type": "text/plain"
+                    },
+                    "key": "Authorization",
+                    "value": "Bearer <token>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_email\": \"<email>\",\n  \"items\": [\n    {\n      \"sku\": \"<string>\",\n      \"qty\": \"<integer>\",\n      \"size\": \"<string,null>\"\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": \"string\"\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "id": "13ee8d4e-1987-47e6-8397-50d078c5e2b0",
+              "name": "Missing or wrong bearer token",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "v1",
+                    "store",
+                    "checkout"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": []
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: bearer",
+                      "type": "text/plain"
+                    },
+                    "key": "Authorization",
+                    "value": "Bearer <token>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_email\": \"<email>\",\n  \"items\": [\n    {\n      \"sku\": \"<string>\",\n      \"qty\": \"<integer>\",\n      \"size\": \"<string,null>\"\n    }\n  ]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": \"string\"\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            }
+          ],
+          "event": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
+        },
+        {
+          "id": "b72d5cde-853d-4ee4-a84a-cc41bbb91361",
+          "name": "Capture an approved demo-store order and record it",
+          "request": {
+            "name": "Capture an approved demo-store order and record it",
+            "description": {
+              "content": "Only orders this store created for the same shopper are captured. Safe to retry.",
+              "type": "text/plain"
+            },
+            "url": {
+              "path": [
+                "v1",
+                "store",
+                "checkout",
+                ":id",
+                "capture"
+              ],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "query": [],
+              "variable": [
+                {
+                  "disabled": false,
+                  "type": "any",
+                  "value": "<string>",
+                  "key": "id",
+                  "description": "(Required) "
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchantKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_email\": \"<email>\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "id": "edf82b9c-8fba-40b1-9c51-c42802096882",
+              "name": "Paid and recorded",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "v1",
+                    "store",
+                    "checkout",
+                    ":id",
+                    "capture"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": [
+                    {
+                      "disabled": false,
+                      "type": "any",
+                      "value": "<string>",
+                      "key": "id",
+                      "description": "(Required) "
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: bearer",
+                      "type": "text/plain"
+                    },
+                    "key": "Authorization",
+                    "value": "Bearer <token>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_email\": \"<email>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"order_id\": \"string\",\n  \"total\": {\n    \"value\": \"25.00\",\n    \"currency\": \"USD\"\n  }\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "id": "fdbfa543-aae1-4667-8d3e-08107c9b198a",
+              "name": "Invalid request",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "v1",
+                    "store",
+                    "checkout",
+                    ":id",
+                    "capture"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": [
+                    {
+                      "disabled": false,
+                      "type": "any",
+                      "value": "<string>",
+                      "key": "id",
+                      "description": "(Required) "
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: bearer",
+                      "type": "text/plain"
+                    },
+                    "key": "Authorization",
+                    "value": "Bearer <token>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_email\": \"<email>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": \"string\"\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "id": "a16e8620-2bfb-41da-a020-949642843a09",
+              "name": "Missing or wrong bearer token",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "v1",
+                    "store",
+                    "checkout",
+                    ":id",
+                    "capture"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": [
+                    {
+                      "disabled": false,
+                      "type": "any",
+                      "value": "<string>",
+                      "key": "id",
+                      "description": "(Required) "
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: bearer",
+                      "type": "text/plain"
+                    },
+                    "key": "Authorization",
+                    "value": "Bearer <token>"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_email\": \"<email>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"error\": \"string\"\n}",
+              "cookie": [],
+              "_postman_previewlanguage": "json"
+            },
+            {
+              "id": "a32b62f7-fc7c-443f-b8f6-a4b2544773dc",
+              "name": "No such order for this shopper",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "v1",
+                    "store",
+                    "checkout",
+                    ":id",
+                    "capture"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": [
+                    {
+                      "disabled": false,
+                      "type": "any",
+                      "value": "<string>",
+                      "key": "id",
+                      "description": "(Required) "
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: bearer",
+                      "type": "text/plain"
+                    },
+                    "key": "Authorization",
+                    "value": "Bearer <token>"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_email\": \"<email>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain"
+                }
+              ],
+              "body": "",
+              "cookie": [],
+              "_postman_previewlanguage": "text"
+            },
+            {
+              "id": "27361ed1-7028-42d1-9c78-a02a29e83ce7",
+              "name": "The buyer hasn't approved the payment yet",
+              "originalRequest": {
+                "url": {
+                  "path": [
+                    "v1",
+                    "store",
+                    "checkout",
+                    ":id",
+                    "capture"
+                  ],
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "query": [],
+                  "variable": [
+                    {
+                      "disabled": false,
+                      "type": "any",
+                      "value": "<string>",
+                      "key": "id",
+                      "description": "(Required) "
+                    }
+                  ]
+                },
+                "header": [
+                  {
+                    "description": {
+                      "content": "Added as a part of security scheme: bearer",
+                      "type": "text/plain"
+                    },
+                    "key": "Authorization",
+                    "value": "Bearer <token>"
+                  }
+                ],
+                "method": "POST",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_email\": \"<email>\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain"
+                }
+              ],
+              "body": "",
+              "cookie": [],
+              "_postman_previewlanguage": "text"
+            }
+          ],
+          "event": [],
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          }
         }
       ],
       "event": []
     },
     {
-      "id": "d665da74-e9d5-4185-832a-6e8999169921",
+      "id": "3f5f9fad-38b6-4e5c-b170-f6ab501a43a6",
       "name": "Review",
       "description": {
         "content": "Held actions and quarantined sessions (operator).",
@@ -2287,7 +2881,7 @@
       },
       "item": [
         {
-          "id": "4786c0bd-5ae0-481c-a45c-2450f16146b9",
+          "id": "0346874d-45c8-4432-988f-685e153ce1df",
           "name": "Release a quarantined or escalated LIVE session",
           "request": {
             "name": "Release a quarantined or escalated LIVE session",
@@ -2346,7 +2940,7 @@
           },
           "response": [
             {
-              "id": "2901f9f4-5f85-4494-97fb-2859aa3fd57d",
+              "id": "9eef3f0d-4e68-48a1-9006-42c3f064f400",
               "name": "Released",
               "originalRequest": {
                 "url": {
@@ -2400,7 +2994,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "ffc86e83-b566-4ef2-9345-a690dde48433",
+              "id": "285f7cdf-6c55-4db7-92c0-a726818531fb",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -2454,7 +3048,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "477b4e8f-708f-411d-9b27-1940b4b8c8ac",
+              "id": "8daaa750-f645-4d7d-91e3-8970ad3fa286",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -2508,7 +3102,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "a325e146-14d8-4f4f-9471-dc6a65c3e912",
+              "id": "b1c8ed8c-480e-4c9b-b264-2581bf277c28",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -2562,7 +3156,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "1fa7decc-d231-4231-a99a-d8786af69437",
+              "id": "d9585d97-084d-440e-a816-906a36651014",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -2616,7 +3210,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "8e024359-3886-4eca-af41-3952299fea81",
+              "id": "d241d335-03af-4e75-9f40-158aa19a9bcc",
               "name": "Conflicts with the current state (already resolved, already acted, not offered…)",
               "originalRequest": {
                 "url": {
@@ -2676,7 +3270,7 @@
           }
         },
         {
-          "id": "96d36cd8-3524-4d05-aae3-73ccada6420e",
+          "id": "1dcf2431-e14c-49cd-86d6-25bd2a915ce0",
           "name": "Held money actions and flagged sessions, newest first",
           "request": {
             "name": "Held money actions and flagged sessions, newest first",
@@ -2712,7 +3306,7 @@
           },
           "response": [
             {
-              "id": "da45cee5-51e9-4a7e-89ad-12f43c981b03",
+              "id": "3714db17-0b0a-4219-87cf-c0d50c73df5a",
               "name": "Review items",
               "originalRequest": {
                 "url": {
@@ -2751,12 +3345,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"items\": [\n    {\n      \"kind\": \"held_action\",\n      \"decision_id\": \"string\",\n      \"session_id\": \"string\",\n      \"tool\": \"string\",\n      \"args\": {\n        \"key_0\": true,\n        \"key_1\": \"string\",\n        \"key_2\": 3547\n      },\n      \"reason_codes\": [\n        \"string\",\n        \"string\"\n      ],\n      \"score\": 2552.0546044548255,\n      \"session_state\": \"string\",\n      \"created_at\": \"2010-11-30T13:47:14.226Z\"\n    },\n    {\n      \"kind\": \"held_action\",\n      \"decision_id\": \"string\",\n      \"session_id\": \"string\",\n      \"tool\": \"string\",\n      \"args\": {\n        \"key_0\": 3772,\n        \"key_1\": 2423,\n        \"key_2\": 1498.2728176283722\n      },\n      \"reason_codes\": [\n        \"string\",\n        \"string\"\n      ],\n      \"score\": 2941.47678901885,\n      \"session_state\": \"string\",\n      \"created_at\": \"2016-10-16T13:19:38.878Z\"\n    }\n  ]\n}",
+              "body": "{\n  \"items\": [\n    {\n      \"kind\": \"held_action\",\n      \"decision_id\": \"string\",\n      \"session_id\": \"string\",\n      \"tool\": \"string\",\n      \"args\": {\n        \"key_0\": 5545,\n        \"key_1\": 9954.61776928834,\n        \"key_2\": 2599.3286702516007\n      },\n      \"reason_codes\": [\n        \"string\",\n        \"string\"\n      ],\n      \"score\": 7536.891834745639,\n      \"session_state\": \"string\",\n      \"created_at\": \"1955-06-20T08:01:19.334Z\"\n    },\n    {\n      \"kind\": \"held_action\",\n      \"decision_id\": \"string\",\n      \"session_id\": \"string\",\n      \"tool\": \"string\",\n      \"args\": {\n        \"key_0\": true,\n        \"key_1\": 9447\n      },\n      \"reason_codes\": [\n        \"string\",\n        \"string\"\n      ],\n      \"score\": 4576.923393102565,\n      \"session_state\": \"string\",\n      \"created_at\": \"1978-04-19T17:28:41.842Z\"\n    }\n  ]\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "2b58b166-0c0d-4cba-ba89-779da3b7fb25",
+              "id": "ee61e7bc-da4a-4bb4-81c3-3d1762d8d509",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -2800,7 +3394,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "fd33af7c-4b56-4c6d-acdd-d27a9bb2c91e",
+              "id": "ba56461c-9b10-4c98-a000-8c2341a907f6",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -2850,7 +3444,7 @@
           }
         },
         {
-          "id": "472a9e1b-3e66-43c6-ab01-0e5b473697b7",
+          "id": "38d8edcb-8521-45b0-93c3-25b5b6c4f765",
           "name": "Approve a held refund or discount; executes it through the gateway",
           "request": {
             "name": "Approve a held refund or discount; executes it through the gateway",
@@ -2909,7 +3503,7 @@
           },
           "response": [
             {
-              "id": "5410209f-870f-4796-abc4-10f440489649",
+              "id": "a582f7b4-7ceb-42b4-9cbb-89ed9d208a50",
               "name": "Executed",
               "originalRequest": {
                 "url": {
@@ -2958,12 +3552,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"decision_id\": \"string\",\n  \"execution\": {\n    \"key_0\": true\n  }\n}",
+              "body": "{\n  \"decision_id\": \"string\",\n  \"execution\": {\n    \"key_0\": 6244.874437131536,\n    \"key_1\": true,\n    \"key_2\": false\n  }\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "0a4f8d7e-2119-4c77-934b-2534a10d6b6e",
+              "id": "aae84482-db36-49de-830e-b9fae877d303",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -3017,7 +3611,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "c60a4992-e5ba-47fd-9139-39cc3e270408",
+              "id": "5d62f5de-b6dc-4e38-87e6-cfca3d91104f",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -3071,7 +3665,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "53894d07-ca99-4569-b694-5e0c73ffcf12",
+              "id": "a3ec7cd6-57c6-4b4d-bb11-5c5518aba1b5",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -3125,7 +3719,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "fc38e558-76ea-45b4-9c20-4fed155e7230",
+              "id": "177b79e1-d188-4f07-82e6-8c21c2d78b61",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -3179,7 +3773,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "d4f62ff7-f545-44c1-92a3-429e13f0c3dd",
+              "id": "07410227-c82d-463c-9739-9ba9570d5378",
               "name": "Conflicts with the current state (already resolved, already acted, not offered…)",
               "originalRequest": {
                 "url": {
@@ -3233,7 +3827,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "f9ada765-01b1-416d-bf8a-3d4c25e11e31",
+              "id": "21bfb902-a92d-4df7-821a-feff2802dc70",
               "name": "Refused by a hard rule, scope or budget (`blocked`, with `reason_code`)",
               "originalRequest": {
                 "url": {
@@ -3287,7 +3881,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "05827483-1d7e-4c02-befc-830e9455565e",
+              "id": "7a52fcd8-38ce-44d5-8118-e33206dc19e6",
               "name": "PayPal failed (`paypal_failed`)",
               "originalRequest": {
                 "url": {
@@ -3337,7 +3931,7 @@
               "_postman_previewlanguage": "text"
             },
             {
-              "id": "4e7a5583-d8f5-4db7-8811-0564c9c41b53",
+              "id": "16bcaedd-4b8f-48be-a5a9-33ebae82d051",
               "name": "Facts unavailable (`verifier_unavailable`)",
               "originalRequest": {
                 "url": {
@@ -3393,7 +3987,7 @@
           }
         },
         {
-          "id": "dd233260-8465-4aaa-8e0b-e65c4aff0225",
+          "id": "53c808c4-c5a2-469f-b772-b98224f4ab37",
           "name": "Deny a held refund or discount",
           "request": {
             "name": "Deny a held refund or discount",
@@ -3452,7 +4046,7 @@
           },
           "response": [
             {
-              "id": "174db13b-017f-4a08-98b5-21430d3fc663",
+              "id": "6c5d12d9-1432-46a7-bbd0-e168e0eb7a8e",
               "name": "Denied",
               "originalRequest": {
                 "url": {
@@ -3506,7 +4100,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "a5b30f7a-fa95-4769-97bb-a0b52e2ec30e",
+              "id": "d87a1b2b-71b1-4dea-9dae-1b88601a2d0f",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -3560,7 +4154,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "fbe776c5-bde6-4804-b5a1-b41af6122e0b",
+              "id": "98706b30-4816-450e-91bf-02fb16760deb",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -3614,7 +4208,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "e76f067b-7e75-4fe2-bff9-dcf88d3d7bc6",
+              "id": "ef6171d7-9d06-4d4f-9064-d91d6bf9cabf",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -3668,7 +4262,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "bdece702-d846-418e-91a3-28d231b32b5c",
+              "id": "83766f41-1a5b-4aa9-a352-22d1fbcd2fc4",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -3722,7 +4316,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "d94af114-ef28-4b78-9cdc-2bbce11c5579",
+              "id": "d54de715-b9e7-4a79-a9b6-8a6953ad4c72",
               "name": "Conflicts with the current state (already resolved, already acted, not offered…)",
               "originalRequest": {
                 "url": {
@@ -3785,7 +4379,7 @@
       "event": []
     },
     {
-      "id": "e2c09d81-a007-445d-9389-ee5a1d25a4a9",
+      "id": "8a14ff39-48ae-4079-9eb1-bfe91f4bbae7",
       "name": "Agents",
       "description": {
         "content": "Kill switch (operator).",
@@ -3793,7 +4387,7 @@
       },
       "item": [
         {
-          "id": "441c229f-1f52-4933-9e19-c465a242d189",
+          "id": "fa67db02-c679-4b81-86bc-f3f5fa5fe305",
           "name": "An agent's kill-switch state (`*` is the global switch)",
           "request": {
             "name": "An agent's kill-switch state (`*` is the global switch)",
@@ -3838,7 +4432,7 @@
           },
           "response": [
             {
-              "id": "0fb4cd75-f8a1-4f30-a11f-4ea372d62f49",
+              "id": "9f51158d-1b2b-4dc2-8cc6-aecb64bdd7fb",
               "name": "Agent control",
               "originalRequest": {
                 "url": {
@@ -3886,12 +4480,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"agent_id\": \"string\",\n  \"frozen\": false,\n  \"updated_at\": \"1956-10-05T08:14:41.362Z\",\n  \"updated_by\": \"string\"\n}",
+              "body": "{\n  \"agent_id\": \"string\",\n  \"frozen\": false,\n  \"updated_at\": \"1988-05-17T12:28:16.787Z\",\n  \"updated_by\": \"string\"\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "a2640398-fff8-4413-92dd-273ff6e09e53",
+              "id": "1654275d-e77e-4fbe-86d1-ee0f243d3185",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -3944,7 +4538,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "3f9187b7-b4cc-4063-9d40-cfdbd11b2460",
+              "id": "aabae5ed-6b57-4922-a8be-7cae07f37b43",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -3997,7 +4591,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "494ffbd5-fc97-4d9c-b0ee-b96b7789f182",
+              "id": "cbb30d24-59ee-4adf-997c-a28c77859540",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -4056,7 +4650,7 @@
           }
         },
         {
-          "id": "bcc8a605-df03-42eb-a43a-ed6b6b73e597",
+          "id": "a736e2bf-9035-4ca7-9f81-f6091935e479",
           "name": "Freeze an agent; its money tools are held",
           "request": {
             "name": "Freeze an agent; its money tools are held",
@@ -4115,7 +4709,7 @@
           },
           "response": [
             {
-              "id": "5423ff0c-a8bd-4717-9cb8-99ae24f21f63",
+              "id": "966a4a10-f886-4642-8028-33cd6aeaeca8",
               "name": "Frozen",
               "originalRequest": {
                 "url": {
@@ -4164,12 +4758,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"agent_id\": \"string\",\n  \"frozen\": false,\n  \"updated_at\": \"1956-10-05T08:14:41.362Z\",\n  \"updated_by\": \"string\"\n}",
+              "body": "{\n  \"agent_id\": \"string\",\n  \"frozen\": false,\n  \"updated_at\": \"1988-05-17T12:28:16.787Z\",\n  \"updated_by\": \"string\"\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "ace65fc4-3af7-4d9d-a08e-ee45854f9a26",
+              "id": "66a88486-2956-4198-9f1e-63c92816c5f3",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -4223,7 +4817,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "af2bcb64-8380-49bd-8bec-41444c983cb9",
+              "id": "2e875ec0-213f-4a0a-9137-e273c33f3231",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -4277,7 +4871,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "1b059fb4-ed6e-4b58-a27e-7d5dd2205476",
+              "id": "f07c1b55-ddb2-4033-bbb7-fdf75ef812dc",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -4337,7 +4931,7 @@
           }
         },
         {
-          "id": "7fd34405-1749-4e4d-8511-a50e4a72c1e6",
+          "id": "9d4d563f-d02c-422e-9c07-ae8ac8718286",
           "name": "Unfreeze an agent",
           "request": {
             "name": "Unfreeze an agent",
@@ -4396,7 +4990,7 @@
           },
           "response": [
             {
-              "id": "8cad1c0b-d78f-40db-8fc5-03cb0b40349c",
+              "id": "b0eaa899-d236-40fc-b20a-67df47dec37e",
               "name": "Unfrozen",
               "originalRequest": {
                 "url": {
@@ -4445,12 +5039,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"agent_id\": \"string\",\n  \"frozen\": false,\n  \"updated_at\": \"1956-10-05T08:14:41.362Z\",\n  \"updated_by\": \"string\"\n}",
+              "body": "{\n  \"agent_id\": \"string\",\n  \"frozen\": false,\n  \"updated_at\": \"1988-05-17T12:28:16.787Z\",\n  \"updated_by\": \"string\"\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "3da07bc4-d2ca-456e-975f-bbff0ef4aa11",
+              "id": "2b0285bd-99d3-4a07-ac28-1187b0b4257c",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -4504,7 +5098,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "375e13e7-ea68-42b6-9d99-ca7dd1b73d6d",
+              "id": "7049e55d-9ea1-4f93-aefc-e1ea75320ca9",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -4558,7 +5152,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "40460040-a8e5-4217-bdbc-407d99684538",
+              "id": "d9569dbd-d370-4c54-881d-08d846483090",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -4621,7 +5215,7 @@
       "event": []
     },
     {
-      "id": "6b9fa681-9dc4-4c13-ae76-a844b595f1bf",
+      "id": "419150a4-1979-431f-a0bf-8f6146748df1",
       "name": "Settings",
       "description": {
         "content": "Runtime configuration (operator), plus the agent config the storefront reads (merchant).",
@@ -4629,7 +5223,7 @@
       },
       "item": [
         {
-          "id": "994c7f31-db34-4cef-be53-ce7a04be812a",
+          "id": "d10575da-cc38-4459-9837-64a556b962f0",
           "name": "Runtime settings and environment status (the Zapier hook URL is never returned)",
           "request": {
             "name": "Runtime settings and environment status (the Zapier hook URL is never returned)",
@@ -4665,7 +5259,7 @@
           },
           "response": [
             {
-              "id": "6fbcd089-5ef7-4409-b379-2df45564bd4f",
+              "id": "bcf8a66a-ae50-496b-b13c-d30431ecb6e6",
               "name": "Settings",
               "originalRequest": {
                 "url": {
@@ -4704,12 +5298,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"values\": {\n    \"key_0\": true,\n    \"key_1\": 3391,\n    \"key_2\": 8180\n  },\n  \"zapier\": {\n    \"configured\": false\n  },\n  \"status\": {\n    \"paypal\": {\n      \"mode\": \"live\",\n      \"client_id\": \"string\",\n      \"webhook_configured\": true\n    },\n    \"anthropic\": {\n      \"key_set\": false\n    },\n    \"demo_otp\": true\n  }\n}",
+              "body": "{\n  \"values\": {\n    \"key_0\": false\n  },\n  \"zapier\": {\n    \"configured\": true\n  },\n  \"status\": {\n    \"paypal\": {\n      \"mode\": \"live\",\n      \"client_id\": \"string\",\n      \"webhook_configured\": false\n    },\n    \"anthropic\": {\n      \"key_set\": true\n    },\n    \"demo_otp\": false\n  }\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "c8717f70-12b2-427e-8886-2864160acaef",
+              "id": "260b6753-48b2-41f6-975a-cb2cbeeb37e1",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -4753,7 +5347,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "3de8637c-c835-4580-a63c-5163ab2cfe80",
+              "id": "84c67998-b6b6-442b-a0b6-82b71995aa51",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -4803,7 +5397,7 @@
           }
         },
         {
-          "id": "c84f12e5-bb12-4925-950a-ee184488277b",
+          "id": "f7c37de1-6fb0-4760-84a4-78ec7b59dd8c",
           "name": "Update some keys of one settings section",
           "request": {
             "name": "Update some keys of one settings section",
@@ -4861,7 +5455,7 @@
           },
           "response": [
             {
-              "id": "1190f76c-fd73-4765-a433-ec201defb883",
+              "id": "7d9c5601-d693-4e88-973e-f49f0194b816",
               "name": "The keys that changed (the Zapier URL is shown only as set or cleared)",
               "originalRequest": {
                 "url": {
@@ -4917,12 +5511,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"changes\": {\n    \"key_0\": {\n      \"from\": \"\",\n      \"to\": \"\"\n    },\n    \"key_1\": {\n      \"from\": \"\",\n      \"to\": \"\"\n    }\n  },\n  \"poll_rescheduled\": false\n}",
+              "body": "{\n  \"changes\": {\n    \"key_0\": {\n      \"from\": \"\",\n      \"to\": \"\"\n    }\n  },\n  \"poll_rescheduled\": true\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "df415a7c-befd-4fff-a62d-bfece6d106f1",
+              "id": "d4fa65cc-cfd4-4dc8-9b6f-648953640777",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -4983,7 +5577,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "02acfdde-d6e3-4a48-a5cf-6b5ef3e7de32",
+              "id": "0746bbba-8ba0-4ad9-bb99-92ad9ef852bb",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -5044,7 +5638,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "1d530289-5709-46be-81ae-c8c80988b7a1",
+              "id": "3c7fec68-bbec-41b9-a52f-e1517ba869f5",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -5105,7 +5699,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "cdad4b88-ef7c-4816-a1a1-5b07a5d3cf77",
+              "id": "2d55218d-e94d-48a0-9f55-6c2fbd54396d",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -5166,7 +5760,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "5a3b7062-cb0d-4478-a2ca-7fd6fe6f8aa2",
+              "id": "ec2d630e-f266-4718-8ba9-6ad1f7c59d3d",
               "name": "The write failed (`settings_write_failed`)",
               "originalRequest": {
                 "url": {
@@ -5233,7 +5827,7 @@
           }
         },
         {
-          "id": "f3681391-ea43-4753-8662-0e8eb5380e30",
+          "id": "1d5852ee-9132-4b72-9ed5-a9f6455459fa",
           "name": "Send a test event to the configured Zapier hook",
           "request": {
             "name": "Send a test event to the configured Zapier hook",
@@ -5271,7 +5865,7 @@
           },
           "response": [
             {
-              "id": "c7b21692-0e91-4866-82ce-6a403c36c06b",
+              "id": "e8b14b84-0f68-49e5-bd6c-e7c55ac41c75",
               "name": "Delivery result (never the URL or the upstream body)",
               "originalRequest": {
                 "url": {
@@ -5312,12 +5906,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"ok\": false,\n  \"status\": 3497\n}",
+              "body": "{\n  \"ok\": false,\n  \"status\": 5528\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "a9c84de4-6206-4b8a-8446-194a6e951545",
+              "id": "6b72b15c-2bb5-416f-99ee-c5517a67adc6",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -5363,7 +5957,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "bae7636f-7fff-47ba-b940-3ca91ac6c9e7",
+              "id": "8e491f40-63f2-4a2e-be86-f47971d8d5b2",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -5409,7 +6003,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "6f4522a7-54c6-41b3-b98c-76b641ee4342",
+              "id": "fc39d141-2ad3-43e0-a548-a3d6b4494534",
               "name": "Conflicts with the current state (already resolved, already acted, not offered…)",
               "originalRequest": {
                 "url": {
@@ -5461,7 +6055,7 @@
           }
         },
         {
-          "id": "ced4d4b2-d025-408a-96cb-815b4e04a27d",
+          "id": "1556cbed-0337-4f06-83c4-cabd4346fa13",
           "name": "The storefront agent's model and prompt mode",
           "request": {
             "name": "The storefront agent's model and prompt mode",
@@ -5497,7 +6091,7 @@
           },
           "response": [
             {
-              "id": "757b90c9-ed43-4ff8-aaec-20e944f2018c",
+              "id": "a3520716-5dcd-4a9a-bd0a-7eadebfb640d",
               "name": "Agent config",
               "originalRequest": {
                 "url": {
@@ -5541,7 +6135,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "4de9d5f9-465a-4ede-938d-ba7bc6ec9cde",
+              "id": "2e820465-38ef-4de9-9603-18ce54cde2e8",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -5594,7 +6188,7 @@
       "event": []
     },
     {
-      "id": "ba3f72b1-9b9d-480d-b11d-9a4dcf3ea0c8",
+      "id": "2d9659bf-4c0a-479e-bd05-ec768a1891af",
       "name": "Console",
       "description": {
         "content": "The console's single sign-in (operator key; the console's web server is the only caller).",
@@ -5602,7 +6196,7 @@
       },
       "item": [
         {
-          "id": "936e1113-c6d3-418b-8bac-9ccd48eaf4bf",
+          "id": "c3bb6062-687c-4cad-b42f-d005bd0ca644",
           "name": "Check the console email and password",
           "request": {
             "name": "Check the console email and password",
@@ -5655,7 +6249,7 @@
           },
           "response": [
             {
-              "id": "a1ad21b2-9861-4441-a9ef-f4248fd7e309",
+              "id": "d3cfd36a-33cb-4bda-b8a9-c927fa52f8ab",
               "name": "Signed in",
               "originalRequest": {
                 "url": {
@@ -5703,12 +6297,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"email\": \"string\",\n  \"session_version\": 102\n}",
+              "body": "{\n  \"email\": \"string\",\n  \"session_version\": 2121\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "64653e51-3bf2-43f5-95bc-7d95543348fa",
+              "id": "1e0c216f-6001-40d6-9b93-1b4be79d27b2",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -5761,7 +6355,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "ef125ac2-6f95-4158-b228-7cdd5b2d6ce1",
+              "id": "94831f42-95e6-4019-b585-cb3b7b10960b",
               "name": "Wrong key, or wrong credentials (`invalid_credentials`)",
               "originalRequest": {
                 "url": {
@@ -5814,7 +6408,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "e34633dd-821e-4689-b911-767857be5a91",
+              "id": "9985c6aa-d800-4f10-b0ad-c16ca39c0ca2",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -5867,7 +6461,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "bfbe8c24-26ec-4a6a-8aea-21e7bc374716",
+              "id": "4012ae01-1983-4757-9fb3-72f3952e5983",
               "name": "Too many failures from this IP (`locked`)",
               "originalRequest": {
                 "url": {
@@ -5915,12 +6509,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"error\": \"string\",\n  \"retry_after_s\": 8459\n}",
+              "body": "{\n  \"error\": \"string\",\n  \"retry_after_s\": 2860\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "74fac077-0fd6-4e3e-b12b-c53a56cbeac5",
+              "id": "8b26e4d5-ff00-484d-a9ee-623f25def47e",
               "name": "The attempt limiter is unavailable (`unavailable`)",
               "originalRequest": {
                 "url": {
@@ -5979,7 +6573,7 @@
           }
         },
         {
-          "id": "3c4f58bb-7971-4789-8098-12c162db98e9",
+          "id": "d7ff4176-bc77-4637-b560-1fa62f12e9ae",
           "name": "Whether a console cookie's session version is still current",
           "request": {
             "name": "Whether a console cookie's session version is still current",
@@ -6023,7 +6617,7 @@
           },
           "response": [
             {
-              "id": "81841c05-4fd2-4ef8-a233-aa52c1d60c0d",
+              "id": "f1777a8c-bbff-4a3e-a7d0-2206910a6382",
               "name": "The account email and whether `v` is current",
               "originalRequest": {
                 "url": {
@@ -6068,12 +6662,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"email\": \"string\",\n  \"valid\": false\n}",
+              "body": "{\n  \"email\": \"string\",\n  \"valid\": true\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "e158d380-1650-4694-808b-f136b5647184",
+              "id": "0c8434f4-205d-4da3-87bc-81c74e185fbc",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -6123,7 +6717,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "21651836-aa89-4fd8-8768-72ca3e959788",
+              "id": "1df2c7d1-1833-48c5-841f-e37b815dd433",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -6173,7 +6767,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "f5261c9d-3a40-4f29-a82a-0c2ed4d47d13",
+              "id": "f48b597f-a569-455d-a540-7113fdf6ee0f",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -6229,7 +6823,7 @@
           }
         },
         {
-          "id": "64fae909-1706-4be1-99a5-567a83bc9d78",
+          "id": "66d0ff60-8503-4cd3-bd40-9a911be98b5b",
           "name": "Change the sign-in email (sessions stay valid; ledgered)",
           "request": {
             "name": "Change the sign-in email (sessions stay valid; ledgered)",
@@ -6279,7 +6873,7 @@
           },
           "response": [
             {
-              "id": "6059cc5a-71e0-4c07-b447-7f7a5a74d11e",
+              "id": "b5c901a3-43cc-47d2-9153-d59a788e3e82",
               "name": "The new email (lowercased)",
               "originalRequest": {
                 "url": {
@@ -6332,7 +6926,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "e5256a12-6164-4766-94a2-b4f99da5ff6d",
+              "id": "e3dd4253-c1e1-4731-ac9d-3bea6d58453a",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -6385,7 +6979,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "ae987258-540b-4cc7-beee-212141baedd7",
+              "id": "8a589d8f-cd24-43c2-b62e-2051a003b291",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -6438,7 +7032,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "5d26a004-37d1-4c9d-96bc-a1a006a750bd",
+              "id": "ef5cf0b2-a6d2-4186-99e0-3461e0a0c51b",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -6497,7 +7091,7 @@
           }
         },
         {
-          "id": "4202fcad-c2b6-4a60-850e-ce4fb15256cb",
+          "id": "0796384b-f498-4415-878f-0fd0988da21d",
           "name": "Change the password; signs out every existing session (ledgered, without password material)",
           "request": {
             "name": "Change the password; signs out every existing session (ledgered, without password material)",
@@ -6547,7 +7141,7 @@
           },
           "response": [
             {
-              "id": "13969e02-d819-4004-8073-4ef9a8274649",
+              "id": "079b5f56-c0f5-4e0d-ab0a-18222eeccbad",
               "name": "The new session version, to re-issue the caller's own session",
               "originalRequest": {
                 "url": {
@@ -6595,12 +7189,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"session_version\": 6083\n}",
+              "body": "{\n  \"session_version\": 2478\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "21e03482-a933-42f6-a17b-9868b4bfe010",
+              "id": "89a62b14-fd7b-42ba-a2c2-b59aa32f263c",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -6653,7 +7247,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "21c4606e-bb1a-4a9f-8a29-79a0170d5fae",
+              "id": "e505a720-27d1-43e9-b69b-fbb4f2c6299c",
               "name": "Wrong key, or wrong current password (`invalid_credentials`)",
               "originalRequest": {
                 "url": {
@@ -6706,7 +7300,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "f29d2396-30b3-4a99-9c19-538e80900788",
+              "id": "db24f319-c765-4aca-a39b-6ff1ca852ae1",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -6759,7 +7353,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "b85c5432-1330-42ab-a43d-7fb6ace8b375",
+              "id": "a1b8eea2-c7f5-41cd-b28d-f529abe882a2",
               "name": "Conflicts with the current state (already resolved, already acted, not offered…)",
               "originalRequest": {
                 "url": {
@@ -6812,7 +7406,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "af48a47a-9da1-4d5c-82ec-08e96299f496",
+              "id": "21d83b1f-b1b2-49d6-a174-12d7d531c2b9",
               "name": "5 wrong passwords (sign-in or current password) from this IP in 15 minutes (`locked`)",
               "originalRequest": {
                 "url": {
@@ -6860,12 +7454,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"error\": \"string\",\n  \"retry_after_s\": 8459\n}",
+              "body": "{\n  \"error\": \"string\",\n  \"retry_after_s\": 2860\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "93520a65-462e-4dd9-bae1-19f79b3dca78",
+              "id": "70326d60-a188-4f48-b134-6fae073b9ed5",
               "name": "The attempt limiter is unavailable (`unavailable`)",
               "originalRequest": {
                 "url": {
@@ -6924,7 +7518,7 @@
           }
         },
         {
-          "id": "c31cbab4-07f0-42be-86b3-43e7d2a555d6",
+          "id": "515c0616-be53-4e95-a7ab-7090dec8762a",
           "name": "Sign out everywhere (ledgered)",
           "request": {
             "name": "Sign out everywhere (ledgered)",
@@ -6975,7 +7569,7 @@
           },
           "response": [
             {
-              "id": "b127361d-5c29-4b31-9e76-0b4e0b20c11f",
+              "id": "fe9c24fc-2dc3-40bb-a5a0-9879a278e1dd",
               "name": "The new session version",
               "originalRequest": {
                 "url": {
@@ -7016,12 +7610,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"session_version\": 6083\n}",
+              "body": "{\n  \"session_version\": 2478\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "1416aa7d-3e0d-4258-b0e1-8d8236b40ea0",
+              "id": "ecbfd07a-9b04-4f0a-ba2f-d6a514b2b96d",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -7067,7 +7661,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "ef760f51-e1ce-46f1-9962-bedfce6e3b44",
+              "id": "319fd02c-992d-4b53-a414-db57b9ac2c06",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -7113,7 +7707,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "8c6617b8-b3aa-4d08-ba27-6c3c2269be84",
+              "id": "a4977244-e56b-4802-975f-0205ea023317",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -7168,7 +7762,7 @@
       "event": []
     },
     {
-      "id": "32cfe602-8e08-4882-b5fe-438b8964ef12",
+      "id": "55e3bc26-3b4e-4fb5-b4bd-b83263c7fc73",
       "name": "Gauntlet",
       "description": {
         "content": "Context Mode test runs and certification (operator).",
@@ -7176,7 +7770,7 @@
       },
       "item": [
         {
-          "id": "209e808e-b81d-4eb5-b89c-9df01d2ca6ef",
+          "id": "676b58b4-c20f-4352-a528-5d9d237e6ea2",
           "name": "Start a Gauntlet run in Context Mode",
           "request": {
             "name": "Start a Gauntlet run in Context Mode",
@@ -7226,7 +7820,7 @@
           },
           "response": [
             {
-              "id": "75cb4030-3686-4cb5-ad81-9d71cd24f62d",
+              "id": "cf8b4028-b144-4878-b550-00d74ad9193a",
               "name": "Queued",
               "originalRequest": {
                 "url": {
@@ -7279,7 +7873,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "c9749c46-4325-4b2e-a85a-b10407d6ede3",
+              "id": "d6523573-aed8-42a0-9f76-1d0a53f91622",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -7332,7 +7926,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "956e9db2-6c29-47af-a4f0-86b89dd35cfb",
+              "id": "5063816d-0a15-4aab-92ff-970eea450fbf",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -7385,7 +7979,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "893c2f99-26d8-4747-b030-2cbafa83ead1",
+              "id": "86d82034-3af2-4532-9b29-92952bf556ef",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -7438,7 +8032,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "17f55c86-dcfa-400a-86fa-b6e38e4d8ee6",
+              "id": "8454109a-f959-46b4-88cd-37f9b7c96ad5",
               "name": "A run is already queued or running (`run_in_progress`)",
               "originalRequest": {
                 "url": {
@@ -7487,7 +8081,7 @@
               "_postman_previewlanguage": "text"
             },
             {
-              "id": "78724a2d-afe9-4b31-8691-2a34cfb8ca70",
+              "id": "4cb1662b-9801-48b6-9285-64adbfb58599",
               "name": "Queue unavailable",
               "originalRequest": {
                 "url": {
@@ -7542,7 +8136,7 @@
           }
         },
         {
-          "id": "d5a5cd55-6e76-4be5-bbba-eca06cbfff05",
+          "id": "a23c06e9-f8eb-42fb-9c78-8e5a20af4b5b",
           "name": "The 20 most recent runs",
           "request": {
             "name": "The 20 most recent runs",
@@ -7579,7 +8173,7 @@
           },
           "response": [
             {
-              "id": "677a91fb-a5d6-4407-b036-9396384a93fb",
+              "id": "f42d4e44-ae74-4df6-a70b-d19a78afedfc",
               "name": "Runs",
               "originalRequest": {
                 "url": {
@@ -7619,12 +8213,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"runs\": [\n    {\n      \"id\": \"string\",\n      \"status\": \"string\",\n      \"guarded\": true,\n      \"packs\": [\n        \"string\",\n        \"string\"\n      ],\n      \"repeats\": 9833,\n      \"progress\": {\n        \"total\": 5915,\n        \"done\": 6034\n      },\n      \"scorecard\": {\n        \"key_0\": 9480.904292564017,\n        \"key_1\": false\n      },\n      \"created_at\": \"1978-08-02T06:43:08.917Z\"\n    },\n    {\n      \"id\": \"string\",\n      \"status\": \"string\",\n      \"guarded\": false,\n      \"packs\": [\n        \"string\",\n        \"string\"\n      ],\n      \"repeats\": 2886,\n      \"progress\": {\n        \"total\": 4464,\n        \"done\": 928\n      },\n      \"scorecard\": {\n        \"key_0\": \"string\",\n        \"key_1\": 7181.18044409473\n      },\n      \"created_at\": \"2012-12-27T09:56:12.902Z\"\n    }\n  ]\n}",
+              "body": "{\n  \"runs\": [\n    {\n      \"id\": \"string\",\n      \"status\": \"string\",\n      \"guarded\": false,\n      \"packs\": [\n        \"string\",\n        \"string\"\n      ],\n      \"repeats\": 8312,\n      \"progress\": {\n        \"total\": 9028,\n        \"done\": 5856\n      },\n      \"scorecard\": {\n        \"key_0\": false\n      },\n      \"created_at\": \"2005-12-23T09:01:25.604Z\",\n      \"key_0\": \"string\",\n      \"key_1\": 1665.6664570770263,\n      \"key_2\": 7679\n    },\n    {\n      \"id\": \"string\",\n      \"status\": \"string\",\n      \"guarded\": true,\n      \"packs\": [\n        \"string\",\n        \"string\"\n      ],\n      \"repeats\": 20,\n      \"progress\": {\n        \"total\": 5966,\n        \"done\": 9346\n      },\n      \"scorecard\": {\n        \"key_0\": false,\n        \"key_1\": true\n      },\n      \"created_at\": \"1956-12-12T12:35:11.264Z\"\n    }\n  ]\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "0fcb849a-c35d-47aa-9a31-c6034c68d012",
+              "id": "0162c0ef-4364-4115-b00a-b4676ba0ea1a",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -7669,7 +8263,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "d1fcae4f-cf85-494e-a260-0bf9e0802032",
+              "id": "71f6eec6-c91f-4e21-8a61-be4ed1a25bf6",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -7720,7 +8314,7 @@
           }
         },
         {
-          "id": "8cbcac65-a395-4907-bf64-5c6febb96849",
+          "id": "0d01f2d7-06af-4efa-88f4-ca685834cafc",
           "name": "A run and its per-scenario results",
           "request": {
             "name": "A run and its per-scenario results",
@@ -7766,7 +8360,7 @@
           },
           "response": [
             {
-              "id": "a7e9b169-5f95-4b43-8016-2b856f10905b",
+              "id": "1c471ffd-ff62-4314-b4c4-7ebd241a6841",
               "name": "Run detail",
               "originalRequest": {
                 "url": {
@@ -7815,12 +8409,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"run\": {\n    \"id\": \"string\",\n    \"status\": \"string\",\n    \"guarded\": true,\n    \"packs\": [\n      \"string\",\n      \"string\"\n    ],\n    \"repeats\": 5625,\n    \"progress\": {\n      \"total\": 5214,\n      \"done\": 1212\n    },\n    \"scorecard\": {\n      \"key_0\": 616,\n      \"key_1\": 7048.243975479731,\n      \"key_2\": false,\n      \"key_3\": \"string\",\n      \"key_4\": false\n    },\n    \"created_at\": \"1999-12-15T16:55:34.611Z\"\n  },\n  \"results\": [\n    {\n      \"key_0\": true,\n      \"key_1\": \"string\",\n      \"key_2\": 6089.671899575165\n    },\n    {\n      \"key_0\": true\n    }\n  ]\n}",
+              "body": "{\n  \"run\": {\n    \"id\": \"string\",\n    \"status\": \"string\",\n    \"guarded\": true,\n    \"packs\": [\n      \"string\",\n      \"string\"\n    ],\n    \"repeats\": 3935,\n    \"progress\": {\n      \"total\": 3855,\n      \"done\": 9315\n    },\n    \"scorecard\": {\n      \"key_0\": 6836\n    },\n    \"created_at\": \"1977-03-18T15:47:47.404Z\"\n  },\n  \"results\": [\n    {\n      \"key_0\": true,\n      \"key_1\": 3744\n    },\n    {\n      \"key_0\": \"string\"\n    }\n  ]\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "590953bb-7362-4aa0-959c-380ce77eeedd",
+              "id": "6dd7a8f7-7ec4-4454-ac72-d064c1952723",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -7874,7 +8468,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "1fb5942b-af0f-44ab-aa07-6c74e8a38512",
+              "id": "19486877-615c-40ae-bfc5-0be870fc4c16",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -7928,7 +8522,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "d978adc9-4cbb-4421-a722-ccd9a241612b",
+              "id": "1e36157e-6299-4a58-98e7-f7f2b8db8662",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -7988,7 +8582,7 @@
           }
         },
         {
-          "id": "017e6e17-cabc-4f4a-801c-9e1cecb2d551",
+          "id": "ae701cd4-5db7-406f-a761-bd5fd2a8ed4c",
           "name": "Certification of the latest guarded run against the versions running now",
           "request": {
             "name": "Certification of the latest guarded run against the versions running now",
@@ -8025,7 +8619,7 @@
           },
           "response": [
             {
-              "id": "e1dac34f-77c4-44be-90a1-ad8af262699f",
+              "id": "8cdc6fb6-a7b3-4927-a8fe-8c8c6725adb1",
               "name": "Certification (stale when a policy, prompt or model changed since the run)",
               "originalRequest": {
                 "url": {
@@ -8065,12 +8659,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"key_0\": 5785,\n  \"key_1\": false,\n  \"key_2\": 9593.375692023714\n}",
+              "body": "{\n  \"key_0\": true\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "3d09f5df-36dc-4c7e-8a1b-00e409aa00e9",
+              "id": "35bd0f8f-1726-45cd-8356-9c394daa6a3d",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -8115,7 +8709,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "2620abb2-9625-456d-a3e5-f1c5fa9d8519",
+              "id": "4d9b0f38-76bd-4e6d-b8d9-835c379fc644",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -8166,7 +8760,7 @@
           }
         },
         {
-          "id": "9dadd207-15a1-43c9-a823-f4caf2162cc8",
+          "id": "c4c8d96d-ee50-4177-b453-bd2bd87d9349",
           "name": "Built-in and learned scenarios",
           "request": {
             "name": "Built-in and learned scenarios",
@@ -8203,7 +8797,7 @@
           },
           "response": [
             {
-              "id": "b9ee6ca7-12b3-4869-93c7-a28d211a755b",
+              "id": "1f2d2831-75b8-4e97-91e9-3af3f7233f71",
               "name": "Scenarios",
               "originalRequest": {
                 "url": {
@@ -8243,12 +8837,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"scenarios\": [\n    {\n      \"id\": \"string\",\n      \"pack\": \"string\",\n      \"kind\": \"string\",\n      \"description\": \"string\",\n      \"source\": \"learned\"\n    },\n    {\n      \"id\": \"string\",\n      \"pack\": \"string\",\n      \"kind\": \"string\",\n      \"description\": \"string\",\n      \"source\": \"learned\"\n    }\n  ]\n}",
+              "body": "{\n  \"scenarios\": [\n    {\n      \"id\": \"string\",\n      \"pack\": \"string\",\n      \"kind\": \"string\",\n      \"description\": \"string\",\n      \"source\": \"learned\"\n    },\n    {\n      \"id\": \"string\",\n      \"pack\": \"string\",\n      \"kind\": \"string\",\n      \"description\": \"string\",\n      \"source\": \"builtin\"\n    }\n  ]\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "b706a052-eb4f-40fd-9870-b7fccce17c6c",
+              "id": "796c0a78-f2c9-4b05-bd9e-ef2d7a07229d",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -8293,7 +8887,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "e770cea6-1279-459c-9e33-e0158f456c0d",
+              "id": "bbe344fc-44ff-4e38-8754-638ef25ae672",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -8344,7 +8938,7 @@
           }
         },
         {
-          "id": "a2467725-e89a-42ea-9b8e-04fd3ca6c67b",
+          "id": "f3b54a40-6fbc-4225-b917-b4f17b62ae0f",
           "name": "Save a drafted scenario (\"Add to Gauntlet\")",
           "request": {
             "name": "Save a drafted scenario (\"Add to Gauntlet\")",
@@ -8397,7 +8991,7 @@
           },
           "response": [
             {
-              "id": "3e7038e2-d985-466e-85ad-30f744363221",
+              "id": "8f4e7e2b-8480-4fc1-8c2e-124b95de5b2e",
               "name": "Saved",
               "originalRequest": {
                 "url": {
@@ -8450,7 +9044,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "aed61422-e4cb-42f7-a417-feabfbba2940",
+              "id": "a55493e9-4648-42cb-9865-35840d90efa9",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -8503,7 +9097,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "49138037-426c-4a16-b5c4-d52ab7d317e1",
+              "id": "5fdbb897-f9dd-4ec4-918e-46f82bfabce3",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -8556,7 +9150,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "1f2c71c3-d679-44e8-84af-d553327edbbc",
+              "id": "c233d2e0-4f8b-46eb-91fa-be713ea2ade0",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -8609,7 +9203,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "20152ec3-b087-4506-8e49-ec035ea18114",
+              "id": "f7f17c03-c339-4ceb-aa15-b71d7949baf6",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -8662,7 +9256,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "aa3d45b6-fa72-40e0-86e7-edb3456ed0bc",
+              "id": "0e2fc137-2cc0-4dbb-ba31-65b4d5242f81",
               "name": "Scenario id taken (`id_taken`)",
               "originalRequest": {
                 "url": {
@@ -8711,7 +9305,7 @@
               "_postman_previewlanguage": "text"
             },
             {
-              "id": "4ae1f9c3-52ab-4103-9a3e-d96c60c47f89",
+              "id": "c32791f9-fb30-483c-b908-c6c6b4d81be9",
               "name": "Session not eligible (`not_eligible`)",
               "originalRequest": {
                 "url": {
@@ -8766,7 +9360,7 @@
           }
         },
         {
-          "id": "8456aa79-f495-4b89-8e19-479bd37f329b",
+          "id": "44610edc-97a5-4ca7-90a1-91bc60b38658",
           "name": "Draft a Gauntlet scenario from a real session (Claude)",
           "request": {
             "name": "Draft a Gauntlet scenario from a real session (Claude)",
@@ -8816,7 +9410,7 @@
           },
           "response": [
             {
-              "id": "4329bed0-8275-4678-8f2f-dfb476d915c8",
+              "id": "56e3d9f1-093d-4393-a20b-1fa1c52c0f1f",
               "name": "Drafted scenario (not saved)",
               "originalRequest": {
                 "url": {
@@ -8864,12 +9458,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"scenario\": {\n    \"key_0\": 9598.769221432929,\n    \"key_1\": true\n  }\n}",
+              "body": "{\n  \"scenario\": {\n    \"key_0\": \"string\",\n    \"key_1\": true,\n    \"key_2\": 7586.135876385008,\n    \"key_3\": 8090,\n    \"key_4\": 5025\n  }\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "a8021db2-c968-46fe-95d5-463307de123a",
+              "id": "8f10b139-835f-446a-b010-9c663c197197",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -8922,7 +9516,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "02a56af8-26d8-4208-a4c2-9cf13169b407",
+              "id": "44cb18d4-7811-46c3-9044-6c9f274903a8",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -8975,7 +9569,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "bad6825a-2bc8-4cea-ae2b-28a8f5bc5b04",
+              "id": "a06e31aa-8cfe-4623-aa0f-fce5c35a8c02",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -9028,7 +9622,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "8cbea79d-f8a7-433e-b447-222f909423fd",
+              "id": "bd5703b0-aa8a-4365-b639-f7640cdf1cc6",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -9081,7 +9675,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "5ad364b4-8a33-4197-9360-8cf6fc2f41a6",
+              "id": "6f7613e5-cf21-42aa-8594-5cdb2e2025a5",
               "name": "Session not eligible (`not_eligible`)",
               "originalRequest": {
                 "url": {
@@ -9130,7 +9724,7 @@
               "_postman_previewlanguage": "text"
             },
             {
-              "id": "6d0a6b29-0296-4362-b54e-7b38a1c00e74",
+              "id": "b5347c76-a9dc-44b8-94af-6393eee544b0",
               "name": "Draft failed",
               "originalRequest": {
                 "url": {
@@ -9188,7 +9782,7 @@
       "event": []
     },
     {
-      "id": "5f20c83a-dccc-431a-af2e-a54548e08b23",
+      "id": "d5a837bc-c6b8-4d83-b0cf-03adfe35495f",
       "name": "Disputes",
       "description": {
         "content": "PayPal disputes, evidence and operator actions (operator).",
@@ -9196,7 +9790,7 @@
       },
       "item": [
         {
-          "id": "1b99c9c7-6e46-475f-b0cf-e580a76bd332",
+          "id": "f2fd5bb3-95a6-4474-aee9-1cf5f9987a7c",
           "name": "The 50 most recent disputes",
           "request": {
             "name": "The 50 most recent disputes",
@@ -9232,7 +9826,7 @@
           },
           "response": [
             {
-              "id": "eacee200-4ad0-4276-8b36-c7e63d2b7440",
+              "id": "a00b3cdd-49c8-4924-a723-ed96d9e2292e",
               "name": "Disputes",
               "originalRequest": {
                 "url": {
@@ -9271,12 +9865,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"items\": [\n    {\n      \"id\": \"string\",\n      \"reason\": \"string\",\n      \"amount\": \"string\",\n      \"currency\": \"string\",\n      \"status\": \"string\",\n      \"classification\": \"string\",\n      \"reason_codes\": [\n        \"string\",\n        \"string\"\n      ],\n      \"action\": \"string\",\n      \"outcome\": \"string\",\n      \"created_at\": \"2020-01-21T06:35:39.802Z\"\n    },\n    {\n      \"id\": \"string\",\n      \"reason\": \"string\",\n      \"amount\": \"string\",\n      \"currency\": \"string\",\n      \"status\": \"string\",\n      \"classification\": \"string\",\n      \"reason_codes\": [\n        \"string\",\n        \"string\"\n      ],\n      \"action\": \"string\",\n      \"outcome\": \"string\",\n      \"created_at\": \"1984-04-03T13:58:25.708Z\"\n    }\n  ],\n  \"last_synced_at\": \"2024-03-26T11:13:57.153Z\"\n}",
+              "body": "{\n  \"items\": [\n    {\n      \"id\": \"string\",\n      \"reason\": \"string\",\n      \"amount\": \"string\",\n      \"currency\": \"string\",\n      \"status\": \"string\",\n      \"classification\": \"string\",\n      \"reason_codes\": [\n        \"string\",\n        \"string\"\n      ],\n      \"action\": \"string\",\n      \"outcome\": \"string\",\n      \"created_at\": \"1987-12-17T07:50:10.063Z\",\n      \"key_0\": true,\n      \"key_1\": \"string\"\n    },\n    {\n      \"id\": \"string\",\n      \"reason\": \"string\",\n      \"amount\": \"string\",\n      \"currency\": \"string\",\n      \"status\": \"string\",\n      \"classification\": \"string\",\n      \"reason_codes\": [\n        \"string\",\n        \"string\"\n      ],\n      \"action\": \"string\",\n      \"outcome\": \"string\",\n      \"created_at\": \"2024-01-01T13:31:23.548Z\"\n    }\n  ],\n  \"last_synced_at\": \"1962-11-01T09:42:29.792Z\"\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "207a3f9b-5887-4d3f-91f4-651125b3d8ae",
+              "id": "9dc4acaa-7318-4b77-9195-dba2b73cb5ab",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -9320,7 +9914,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "5973d4ea-fad2-4b24-8b16-0fcc672468f2",
+              "id": "2e0d2e8e-2323-4cf5-9b63-d0722d7e0477",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -9370,7 +9964,7 @@
           }
         },
         {
-          "id": "156bf804-75bd-441f-bbf7-ebdff80c4b37",
+          "id": "69b2ed49-9b53-40ee-9b3f-b292de41ee80",
           "name": "Poll PayPal for disputes now",
           "request": {
             "name": "Poll PayPal for disputes now",
@@ -9407,7 +10001,7 @@
           },
           "response": [
             {
-              "id": "77fc1edb-b33e-4b44-8ea0-d7769a2568c7",
+              "id": "fc6c4bfe-7668-4ab1-b3cd-a8ee7df24e84",
               "name": "Queued",
               "originalRequest": {
                 "url": {
@@ -9447,12 +10041,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"queued\": true\n}",
+              "body": "{\n  \"queued\": false\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "abdacade-d01b-41a2-a304-830aee03e634",
+              "id": "acf5c1d4-5e60-47b5-8725-ed1d34bb219f",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -9497,7 +10091,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "33519144-0309-459f-b91e-ea12863bf663",
+              "id": "d58c7652-b4ca-4aa3-a1e8-96415f4e960f",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -9548,7 +10142,7 @@
           }
         },
         {
-          "id": "939d5fad-ecc1-49f9-a24d-9d25cbd3c661",
+          "id": "c2813149-418c-4a43-a7c7-6fa456ac7d2c",
           "name": "Fetch one dispute by PayPal case id",
           "request": {
             "name": "Fetch one dispute by PayPal case id",
@@ -9598,7 +10192,7 @@
           },
           "response": [
             {
-              "id": "1c9a363b-5467-4474-a3d4-44cfa18c8ed2",
+              "id": "4c1f9ace-615c-4b44-815d-6ac87f7e9238",
               "name": "Queued",
               "originalRequest": {
                 "url": {
@@ -9646,12 +10240,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"queued\": true\n}",
+              "body": "{\n  \"queued\": false\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "83c89d22-e3f0-4781-a78f-f5ac233c0990",
+              "id": "ded02f5b-d509-4208-b95e-5cc89af1b888",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -9704,7 +10298,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "15435644-4f66-4d4d-a4f2-3ac5cd6bfdd5",
+              "id": "27f94344-0f14-4727-b4fb-aa36dc1983e4",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -9757,7 +10351,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "1eb971be-a7f4-4760-a9e5-263250aaa47d",
+              "id": "4716276e-2cb0-435a-a77a-edcf40535807",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -9816,7 +10410,7 @@
           }
         },
         {
-          "id": "b22eae8e-2428-4c76-a6b5-984c0697fbe3",
+          "id": "15214a7b-3982-4671-bf2b-1532f339204f",
           "name": "A dispute with its classification, evidence rows and offered actions",
           "request": {
             "name": "A dispute with its classification, evidence rows and offered actions",
@@ -9861,7 +10455,7 @@
           },
           "response": [
             {
-              "id": "e222a74b-0957-4593-8155-58b192137eb1",
+              "id": "01aff318-60b2-4bc9-9409-23f3bee1c908",
               "name": "Dispute detail",
               "originalRequest": {
                 "url": {
@@ -9909,12 +10503,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"id\": \"string\",\n  \"reason\": \"string\",\n  \"amount\": \"string\",\n  \"currency\": \"string\",\n  \"status\": \"string\",\n  \"classification\": \"string\",\n  \"reason_codes\": [\n    \"string\",\n    \"string\"\n  ],\n  \"action\": \"string\",\n  \"outcome\": \"string\",\n  \"created_at\": \"1954-07-15T22:24:21.674Z\",\n  \"capture_id\": \"string\",\n  \"order_id\": \"string\",\n  \"has_evidence\": false,\n  \"offered\": [\n    \"string\",\n    \"string\"\n  ],\n  \"decisions\": [\n    {\n      \"key_0\": 2043,\n      \"key_1\": \"string\",\n      \"key_2\": \"string\"\n    },\n    {\n      \"key_0\": 8085.880775237464,\n      \"key_1\": 4039.959090012898\n    }\n  ],\n  \"evidence\": [\n    {\n      \"key_0\": 7733\n    },\n    {\n      \"key_0\": \"string\",\n      \"key_1\": true\n    }\n  ],\n  \"sandbox\": true\n}",
+              "body": "{\n  \"id\": \"string\",\n  \"reason\": \"string\",\n  \"amount\": \"string\",\n  \"currency\": \"string\",\n  \"status\": \"string\",\n  \"classification\": \"string\",\n  \"reason_codes\": [\n    \"string\",\n    \"string\"\n  ],\n  \"action\": \"string\",\n  \"outcome\": \"string\",\n  \"created_at\": \"1974-03-26T15:33:33.277Z\",\n  \"capture_id\": \"string\",\n  \"order_id\": \"string\",\n  \"has_evidence\": false,\n  \"offered\": [\n    \"string\",\n    \"string\"\n  ],\n  \"decisions\": [\n    {\n      \"key_0\": 8609.009622883472\n    },\n    {\n      \"key_0\": 7954,\n      \"key_1\": true\n    }\n  ],\n  \"evidence\": [\n    {\n      \"key_0\": 4664.389933294931,\n      \"key_1\": true,\n      \"key_2\": 2453.931626447199,\n      \"key_3\": false\n    },\n    {\n      \"key_0\": 8327,\n      \"key_1\": 403,\n      \"key_2\": 3130.81947500492\n    }\n  ],\n  \"sandbox\": false\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "2766a3bc-c67f-4c94-a5bd-e4be2f9cbc90",
+              "id": "3f6dd395-c76a-4c1a-bde0-dec531cdfe9f",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -9967,7 +10561,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "4f23b684-b7dc-4781-a6d3-3bc2341849b7",
+              "id": "408c295d-6a3f-48cb-8b00-f19f4728b3a3",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -10020,7 +10614,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "4496cdf1-ac93-4e78-91fc-635f71c9b8e0",
+              "id": "12711d8f-788f-4a56-a6fd-112cdd387003",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -10079,7 +10673,7 @@
           }
         },
         {
-          "id": "79353a7f-e6fd-4f9c-9108-78c08c4e9fe1",
+          "id": "c333a4c0-ef03-460b-a746-911eae164b2f",
           "name": "The evidence PDF built from the ledger",
           "request": {
             "name": "The evidence PDF built from the ledger",
@@ -10125,7 +10719,7 @@
           },
           "response": [
             {
-              "id": "eec4305e-1e99-409a-a35a-a5a8e154e0ca",
+              "id": "0c5fbf0a-e2e4-424c-88f9-33f128703b23",
               "name": "PDF",
               "originalRequest": {
                 "url": {
@@ -10179,7 +10773,7 @@
               "_postman_previewlanguage": "text"
             },
             {
-              "id": "65146fb1-bd1e-400d-9b53-4f2181e74c44",
+              "id": "2ad4c12f-722e-4f7f-95df-96e5b518901e",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -10233,7 +10827,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "72b20644-9397-4f06-b5ff-2b4db28b2733",
+              "id": "6b4b3b11-ea21-49be-9206-66bef10633e3",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -10287,7 +10881,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "c818f5eb-e206-4281-aa49-f7d125f6fcf2",
+              "id": "8e78f7b8-7289-4717-8e63-cb78644ff0e6",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -10347,7 +10941,7 @@
           }
         },
         {
-          "id": "48e9f349-741f-4bbf-a98d-f4fd5628ca43",
+          "id": "ae041cd6-e4b8-4d63-b4a4-8cd1f36fc015",
           "name": "Defend the dispute with the evidence PDF",
           "request": {
             "name": "Defend the dispute with the evidence PDF",
@@ -10406,7 +11000,7 @@
           },
           "response": [
             {
-              "id": "d04c47d0-2cc5-4924-bb8f-3945c4311c93",
+              "id": "ece2ae02-2c2e-4cca-89af-ee174a275be4",
               "name": "Action taken",
               "originalRequest": {
                 "url": {
@@ -10460,7 +11054,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "0cc62f0c-1d86-4534-96b5-a292523a8657",
+              "id": "1e417f92-6fa3-4f81-bc66-19f124286371",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -10514,7 +11108,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "e5d460a7-02be-43d5-b672-a7100dc01566",
+              "id": "13c5568b-ed14-4248-825c-be291ba1eccc",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -10568,7 +11162,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "d3b0f679-f3e5-4c32-859c-7e7b7bc8e355",
+              "id": "37d37d6e-d636-46bd-9804-1aca78b5fb67",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -10622,7 +11216,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "a1cf9cbc-5cc5-48a8-b7d6-4f0380605e36",
+              "id": "d7334c2f-df09-40e8-a5e0-416a3c04081c",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -10676,7 +11270,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "96e2f7a0-eece-46a3-a4dc-ecd9a5b03afb",
+              "id": "ed72ec70-641f-49f9-bb88-83210399fd0b",
               "name": "Conflicts with the current state (already resolved, already acted, not offered…)",
               "originalRequest": {
                 "url": {
@@ -10730,7 +11324,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "f51f8277-2f7f-4d1e-967f-7b2d4cee19b4",
+              "id": "61292c6c-0d9b-42c8-8cbe-edf807e62790",
               "name": "PayPal unavailable or the action failed",
               "originalRequest": {
                 "url": {
@@ -10786,7 +11380,7 @@
           }
         },
         {
-          "id": "e66a1c7b-da14-4128-82dc-7116dc6c072b",
+          "id": "119865bd-21c4-4c64-8b5c-2f103d94817b",
           "name": "Concede the dispute",
           "request": {
             "name": "Concede the dispute",
@@ -10845,7 +11439,7 @@
           },
           "response": [
             {
-              "id": "af98ffe0-d396-4588-9c5d-5aabd2602ab4",
+              "id": "a55184e1-05aa-4731-a325-4eeb811cd296",
               "name": "Action taken",
               "originalRequest": {
                 "url": {
@@ -10899,7 +11493,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "30a7b8f5-0d59-446e-bebe-2aa98cde5d59",
+              "id": "a4cc6315-2acc-4aaf-9a1b-a884c124944e",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -10953,7 +11547,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "c8fdc5e4-e23e-44a5-8a83-5609a85dbf0f",
+              "id": "2a0ad059-b98b-43ec-a8ac-de3f03a7a776",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -11007,7 +11601,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "71cf06ac-19b9-44ce-9860-f03239d3d56d",
+              "id": "16daa908-09ae-4c58-9421-038d7ab604fa",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -11061,7 +11655,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "61fc816d-fcb0-4c47-9175-dbb23658da3c",
+              "id": "2d139467-e5b3-4e50-bb85-dcf2961649b6",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -11115,7 +11709,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "bdad89e1-0a42-49cc-a7a9-34ca5eaabe42",
+              "id": "71ce6306-66c2-4865-8ad8-cede85985df8",
               "name": "Conflicts with the current state (already resolved, already acted, not offered…)",
               "originalRequest": {
                 "url": {
@@ -11169,7 +11763,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "577d9766-e3b4-45b6-b7d6-a4cf63fccd5e",
+              "id": "2df83ac6-129b-434e-9588-1dac9c0baabd",
               "name": "PayPal unavailable or the action failed",
               "originalRequest": {
                 "url": {
@@ -11225,7 +11819,7 @@
           }
         },
         {
-          "id": "71fbbe38-e266-45ff-8475-afb58f878649",
+          "id": "9d1580cc-4466-4973-b800-cdfbd0bb1020",
           "name": "Sandbox only: escalate the dispute to a PayPal claim",
           "request": {
             "name": "Sandbox only: escalate the dispute to a PayPal claim",
@@ -11275,7 +11869,7 @@
           },
           "response": [
             {
-              "id": "d87089a9-4b96-4eb0-87c3-29fa64e9d00e",
+              "id": "7d3c3b16-9458-4cf4-abb3-df568f4b7112",
               "name": "Done",
               "originalRequest": {
                 "url": {
@@ -11330,7 +11924,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "91edbf46-b429-46c5-b1e7-ccaf9c1a7822",
+              "id": "6ea38b77-e151-44c5-bb86-5bffadcd7b8a",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -11385,7 +11979,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "b29e21f1-7394-4ceb-b286-081a37a1df6a",
+              "id": "2a393c77-0ca9-4506-94a2-8c7b8dad2522",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -11440,7 +12034,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "100b8c36-b37c-43ba-a213-d75dc9a5b20f",
+              "id": "367f28d3-2fe0-43ab-a43c-4d118a4b4ada",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -11495,7 +12089,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "75680af7-97fa-4a3b-bb03-b90c88ca3746",
+              "id": "d42262db-a5db-441c-8627-3d5bb0778f65",
               "name": "Conflicts with the current state (already resolved, already acted, not offered…)",
               "originalRequest": {
                 "url": {
@@ -11556,7 +12150,7 @@
           }
         },
         {
-          "id": "7bde38b5-eda6-4b3b-9a40-c2bf0ba75e4a",
+          "id": "81ab84f1-1777-4c17-919b-276feb5c3d14",
           "name": "Sandbox only: have PayPal Sandbox decide the dispute",
           "request": {
             "name": "Sandbox only: have PayPal Sandbox decide the dispute",
@@ -11619,7 +12213,7 @@
           },
           "response": [
             {
-              "id": "ef8c18a4-0d90-4854-9780-b36f40aad794",
+              "id": "700baea6-790b-40d6-92cc-1462f1fe0c83",
               "name": "Done",
               "originalRequest": {
                 "url": {
@@ -11682,7 +12276,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "651cecf9-cefb-477d-a7b4-a581b166c0f5",
+              "id": "e30b25cb-3f73-4afb-95e2-fde748fa7253",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -11745,7 +12339,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "58fd89b7-8656-400c-a472-8b9d5c3ad8c0",
+              "id": "c7279241-12f4-45fd-ab2a-103eb25d9e00",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -11808,7 +12402,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "200ec87a-4417-48e3-be59-7db977eec8b3",
+              "id": "0cf3e249-2925-4c85-b74a-8bc480964838",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -11871,7 +12465,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "1973a737-9736-4dd8-8d54-17b84c0ee573",
+              "id": "4532e74a-2191-48fe-84cc-87f1990c7634",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -11934,7 +12528,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "64405f74-5154-49f6-8097-8e2a9c409637",
+              "id": "6e724d2c-1d26-438e-8b06-7bdec2457621",
               "name": "Conflicts with the current state (already resolved, already acted, not offered…)",
               "originalRequest": {
                 "url": {
@@ -12006,7 +12600,7 @@
       "event": []
     },
     {
-      "id": "8eb2540b-7628-46c2-8225-eabf26eaa9f4",
+      "id": "ed3f913f-be2e-4ef8-804c-a6816ffab2f7",
       "name": "Ledger",
       "description": {
         "content": "The append-only decision ledger (operator).",
@@ -12014,7 +12608,7 @@
       },
       "item": [
         {
-          "id": "a289afbc-52b5-4f73-a12c-5140291ad131",
+          "id": "87796797-8f5b-434f-8777-fd78945a6dbd",
           "name": "Ledger rows, newest first",
           "request": {
             "name": "Ledger rows, newest first",
@@ -12061,7 +12655,7 @@
           },
           "response": [
             {
-              "id": "4c34a924-ef23-4e37-94a5-83af39342991",
+              "id": "df68775c-23d2-4dfd-92af-fec95f8a2233",
               "name": "A page of rows",
               "originalRequest": {
                 "url": {
@@ -12109,12 +12703,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"rows\": [\n    {\n      \"seq\": 1385,\n      \"decision_id\": \"string\",\n      \"created_at\": \"2020-02-28T01:08:52.371Z\",\n      \"session_id\": \"string\",\n      \"order_id\": \"string\",\n      \"capture_id\": \"string\",\n      \"dispute_id\": \"string\",\n      \"mode\": \"string\",\n      \"verdict\": \"REWRITE\",\n      \"reason_codes\": [\n        \"string\",\n        \"string\"\n      ],\n      \"tool\": \"string\",\n      \"amount\": \"string\",\n      \"hash\": \"string\",\n      \"prev_hash\": \"string\",\n      \"payload\": {\n        \"key_0\": 4384\n      }\n    },\n    {\n      \"seq\": 6479,\n      \"decision_id\": \"string\",\n      \"created_at\": \"2005-01-03T23:49:46.081Z\",\n      \"session_id\": \"string\",\n      \"order_id\": \"string\",\n      \"capture_id\": \"string\",\n      \"dispute_id\": \"string\",\n      \"mode\": \"string\",\n      \"verdict\": \"BLOCK\",\n      \"reason_codes\": [\n        \"string\",\n        \"string\"\n      ],\n      \"tool\": \"string\",\n      \"amount\": \"string\",\n      \"hash\": \"string\",\n      \"prev_hash\": \"string\",\n      \"payload\": {\n        \"key_0\": 823\n      }\n    }\n  ],\n  \"next_before_seq\": 5085,\n  \"total\": 4749\n}",
+              "body": "{\n  \"rows\": [\n    {\n      \"seq\": 2504,\n      \"decision_id\": \"string\",\n      \"created_at\": \"1976-05-13T08:37:39.723Z\",\n      \"session_id\": \"string\",\n      \"order_id\": \"string\",\n      \"capture_id\": \"string\",\n      \"dispute_id\": \"string\",\n      \"mode\": \"string\",\n      \"verdict\": \"ALLOW\",\n      \"reason_codes\": [\n        \"string\",\n        \"string\"\n      ],\n      \"tool\": \"string\",\n      \"amount\": \"string\",\n      \"hash\": \"string\",\n      \"prev_hash\": \"string\",\n      \"payload\": {\n        \"key_0\": 8050,\n        \"key_1\": \"string\"\n      }\n    },\n    {\n      \"seq\": 8136,\n      \"decision_id\": \"string\",\n      \"created_at\": \"2008-11-17T08:01:43.734Z\",\n      \"session_id\": \"string\",\n      \"order_id\": \"string\",\n      \"capture_id\": \"string\",\n      \"dispute_id\": \"string\",\n      \"mode\": \"string\",\n      \"verdict\": \"HOLD\",\n      \"reason_codes\": [\n        \"string\",\n        \"string\"\n      ],\n      \"tool\": \"string\",\n      \"amount\": \"string\",\n      \"hash\": \"string\",\n      \"prev_hash\": \"string\",\n      \"payload\": {\n        \"key_0\": 6766\n      }\n    }\n  ],\n  \"next_before_seq\": 8883,\n  \"total\": 7576\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "090e6a6c-9af3-4590-9496-f4d543015607",
+              "id": "f965c1b2-7fd8-48e5-94c5-6ebbd91c7c7b",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -12167,7 +12761,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "4517e803-9d13-47d1-9654-8e96509dd66a",
+              "id": "cb5ee671-e586-4489-ac62-fe961c4b0ccc",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -12220,7 +12814,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "b6de70fc-85e6-4b6f-a5fd-27d7862a089a",
+              "id": "5e752fa3-9e2c-4cc1-9b64-e6e12a3cb08c",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -12279,7 +12873,7 @@
           }
         },
         {
-          "id": "0c2b718c-a96e-440b-b812-5442aa87ab0f",
+          "id": "d6c68154-98d8-4cef-8593-03fb371a42d5",
           "name": "Recompute the hash chain",
           "request": {
             "name": "Recompute the hash chain",
@@ -12316,7 +12910,7 @@
           },
           "response": [
             {
-              "id": "76fe4195-a2b5-48b5-9322-a692c94c8f7e",
+              "id": "bdfdde21-2bcd-4472-8627-4f46fea5c50e",
               "name": "Chain check",
               "originalRequest": {
                 "url": {
@@ -12356,12 +12950,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"ok\": false,\n  \"count\": 6274,\n  \"broken_at_seq\": 6353,\n  \"problem\": \"string\"\n}",
+              "body": "{\n  \"ok\": true,\n  \"count\": 6202,\n  \"broken_at_seq\": 1220,\n  \"problem\": \"string\"\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "d365de78-ec20-40a6-896a-72188ad138d7",
+              "id": "e4a0fee9-91f3-4359-ba80-c7d68ec6d39c",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -12406,7 +13000,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "f9feb43c-65c5-48e5-9e49-05155cd2ee38",
+              "id": "3d924bf5-23cd-49fd-86d7-0e009ecb9887",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -12457,7 +13051,7 @@
           }
         },
         {
-          "id": "007e82bd-c8e4-44ac-9732-0275bdba2b1c",
+          "id": "2565a189-cc0b-4ce6-821f-91e87e2eafc6",
           "name": "Download up to 10,000 newest rows as JSON",
           "request": {
             "name": "Download up to 10,000 newest rows as JSON",
@@ -12494,7 +13088,7 @@
           },
           "response": [
             {
-              "id": "7a9a8a3e-98dc-43b5-96f8-221c0c6ebbba",
+              "id": "ee9ef2bc-0389-4da8-aa2d-8fff1f59d061",
               "name": "Ledger export",
               "originalRequest": {
                 "url": {
@@ -12534,12 +13128,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "[\n  {\n    \"seq\": 6081,\n    \"decision_id\": \"string\",\n    \"created_at\": \"1948-10-06T21:52:58.387Z\",\n    \"session_id\": \"string\",\n    \"order_id\": \"string\",\n    \"capture_id\": \"string\",\n    \"dispute_id\": \"string\",\n    \"mode\": \"string\",\n    \"verdict\": \"ALLOW\",\n    \"reason_codes\": [\n      \"string\",\n      \"string\"\n    ],\n    \"tool\": \"string\",\n    \"amount\": \"string\",\n    \"hash\": \"string\",\n    \"prev_hash\": \"string\",\n    \"payload\": {\n      \"key_0\": 3123\n    }\n  },\n  {\n    \"seq\": 1988,\n    \"decision_id\": \"string\",\n    \"created_at\": \"1984-03-28T20:04:24.435Z\",\n    \"session_id\": \"string\",\n    \"order_id\": \"string\",\n    \"capture_id\": \"string\",\n    \"dispute_id\": \"string\",\n    \"mode\": \"string\",\n    \"verdict\": \"REWRITE\",\n    \"reason_codes\": [\n      \"string\",\n      \"string\"\n    ],\n    \"tool\": \"string\",\n    \"amount\": \"string\",\n    \"hash\": \"string\",\n    \"prev_hash\": \"string\",\n    \"payload\": {\n      \"key_0\": 7926.09649188872,\n      \"key_1\": 3229\n    }\n  }\n]",
+              "body": "[\n  {\n    \"seq\": 2807,\n    \"decision_id\": \"string\",\n    \"created_at\": \"2016-04-30T09:39:22.675Z\",\n    \"session_id\": \"string\",\n    \"order_id\": \"string\",\n    \"capture_id\": \"string\",\n    \"dispute_id\": \"string\",\n    \"mode\": \"string\",\n    \"verdict\": \"HOLD\",\n    \"reason_codes\": [\n      \"string\",\n      \"string\"\n    ],\n    \"tool\": \"string\",\n    \"amount\": \"string\",\n    \"hash\": \"string\",\n    \"prev_hash\": \"string\",\n    \"payload\": {\n      \"key_0\": \"string\"\n    }\n  },\n  {\n    \"seq\": 6342,\n    \"decision_id\": \"string\",\n    \"created_at\": \"2013-02-19T06:38:22.117Z\",\n    \"session_id\": \"string\",\n    \"order_id\": \"string\",\n    \"capture_id\": \"string\",\n    \"dispute_id\": \"string\",\n    \"mode\": \"string\",\n    \"verdict\": \"REWRITE\",\n    \"reason_codes\": [\n      \"string\",\n      \"string\"\n    ],\n    \"tool\": \"string\",\n    \"amount\": \"string\",\n    \"hash\": \"string\",\n    \"prev_hash\": \"string\",\n    \"payload\": {\n      \"key_0\": true,\n      \"key_1\": true\n    }\n  }\n]",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "7182f6a6-46b2-4852-9177-669cdc4e4e5f",
+              "id": "ce75a684-3f74-456c-ad94-fed462d31c0d",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -12584,7 +13178,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "8384b239-4f30-4087-9279-3b818f75793b",
+              "id": "044d4209-5a43-41f0-bf79-f86dd0241451",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -12635,7 +13229,7 @@
           }
         },
         {
-          "id": "4f911eab-c63e-4dad-af1f-dfa755b4f4b8",
+          "id": "47330a8a-2538-4149-90cd-fa8a5e1af9da",
           "name": "One ledger entry, its chain neighbours and a check of its own hash and link",
           "request": {
             "name": "One ledger entry, its chain neighbours and a check of its own hash and link",
@@ -12680,7 +13274,7 @@
           },
           "response": [
             {
-              "id": "0dd87046-2008-4e47-803a-0f67f598ee32",
+              "id": "4ada3f4c-2b7b-4169-953b-dc67243d82ba",
               "name": "The entry",
               "originalRequest": {
                 "url": {
@@ -12728,12 +13322,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"entry\": {\n    \"seq\": 9431,\n    \"decision_id\": \"string\",\n    \"created_at\": \"2003-02-05T18:16:23.619Z\",\n    \"session_id\": \"string\",\n    \"order_id\": \"string\",\n    \"capture_id\": \"string\",\n    \"dispute_id\": \"string\",\n    \"mode\": \"string\",\n    \"verdict\": \"ALLOW\",\n    \"reason_codes\": [\n      \"string\",\n      \"string\"\n    ],\n    \"tool\": \"string\",\n    \"amount\": \"string\",\n    \"hash\": \"string\",\n    \"prev_hash\": \"string\",\n    \"payload\": {\n      \"key_0\": true\n    }\n  },\n  \"prev\": {\n    \"seq\": 1558,\n    \"hash\": \"string\"\n  },\n  \"next\": {\n    \"seq\": 6236,\n    \"hash\": \"string\"\n  },\n  \"hash_ok\": false,\n  \"link_ok\": true\n}",
+              "body": "{\n  \"entry\": {\n    \"seq\": 634,\n    \"decision_id\": \"string\",\n    \"created_at\": \"1959-12-07T07:56:27.226Z\",\n    \"session_id\": \"string\",\n    \"order_id\": \"string\",\n    \"capture_id\": \"string\",\n    \"dispute_id\": \"string\",\n    \"mode\": \"string\",\n    \"verdict\": \"BLOCK\",\n    \"reason_codes\": [\n      \"string\",\n      \"string\"\n    ],\n    \"tool\": \"string\",\n    \"amount\": \"string\",\n    \"hash\": \"string\",\n    \"prev_hash\": \"string\",\n    \"payload\": {\n      \"key_0\": 801.7972405049645,\n      \"key_1\": false,\n      \"key_2\": 2654,\n      \"key_3\": false\n    }\n  },\n  \"prev\": {\n    \"seq\": 273,\n    \"hash\": \"string\"\n  },\n  \"next\": {\n    \"seq\": 9990,\n    \"hash\": \"string\"\n  },\n  \"hash_ok\": true,\n  \"link_ok\": true\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "02dd4838-a055-43c4-8be1-2590b31080ec",
+              "id": "b52ecfb7-ac61-43d8-9eb4-53a656f58939",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -12786,7 +13380,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "0f358c8e-2bf2-43ae-a461-847fdfcc7769",
+              "id": "1f30b84c-da46-4cba-89f6-0fe69df4ebac",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -12839,7 +13433,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "e4b41101-795c-410c-9405-c04193facac2",
+              "id": "df20f072-4768-45de-8146-15d16ac43723",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -12901,7 +13495,7 @@
       "event": []
     },
     {
-      "id": "6acd415a-e2ea-4046-a7f7-302813b422df",
+      "id": "9c701f97-05c2-41b8-acaf-6099ef4fda90",
       "name": "Overview",
       "description": {
         "content": "",
@@ -12909,7 +13503,7 @@
       },
       "item": [
         {
-          "id": "c5e43a11-2ce6-4fee-81cb-5cf241da7bff",
+          "id": "769b8c01-84a0-48ab-967b-956fb8ffbb39",
           "name": "Certification, sessions, violations, dollars protected, disputes and recent activity in one call",
           "request": {
             "name": "Certification, sessions, violations, dollars protected, disputes and recent activity in one call",
@@ -12945,7 +13539,7 @@
           },
           "response": [
             {
-              "id": "9ce8dee3-a1ea-480b-a57a-b36878d0720b",
+              "id": "f6f70a69-05d3-4f6f-aa9d-6fbd3b1fea83",
               "name": "Overview",
               "originalRequest": {
                 "url": {
@@ -12984,12 +13578,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"certification\": {\n    \"leaks\": 1089,\n    \"scenarios\": 8685,\n    \"finished_at\": \"2002-02-18T02:16:35.789Z\"\n  },\n  \"sessions\": {\n    \"active\": 7853,\n    \"quarantined\": 3002\n  },\n  \"violations\": {\n    \"key_0\": 3655\n  },\n  \"dollars_protected\": {\n    \"key_0\": \"string\"\n  },\n  \"decisions_by_day\": [\n    {\n      \"key_0\": true\n    },\n    {\n      \"key_0\": false,\n      \"key_1\": \"string\"\n    }\n  ],\n  \"disputes\": {\n    \"key_0\": false\n  },\n  \"recent_activity\": [\n    {\n      \"key_0\": \"string\"\n    },\n    {\n      \"key_0\": 7326.212476470395\n    }\n  ]\n}",
+              "body": "{\n  \"certification\": {\n    \"leaks\": 4004,\n    \"scenarios\": 1799,\n    \"finished_at\": \"1956-02-07T16:56:15.204Z\"\n  },\n  \"sessions\": {\n    \"active\": 6810,\n    \"quarantined\": 1201\n  },\n  \"violations\": {\n    \"key_0\": \"string\",\n    \"key_1\": 5794\n  },\n  \"dollars_protected\": {\n    \"key_0\": 6597.495783760139,\n    \"key_1\": 2475\n  },\n  \"decisions_by_day\": [\n    {\n      \"key_0\": 8334,\n      \"key_1\": 5733.838640105493,\n      \"key_2\": \"string\",\n      \"key_3\": \"string\"\n    },\n    {\n      \"key_0\": 4013.3406836914296,\n      \"key_1\": \"string\",\n      \"key_2\": false\n    }\n  ],\n  \"disputes\": {\n    \"key_0\": 6570.9127902382015,\n    \"key_1\": 6438.5729170337245\n  },\n  \"recent_activity\": [\n    {\n      \"key_0\": 1474,\n      \"key_1\": 7568.197615503633\n    },\n    {\n      \"key_0\": 4805.44244863334,\n      \"key_1\": 6727\n    }\n  ]\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "98489967-afcf-4bf3-b155-a9a832564df0",
+              "id": "80ce6a3c-6bd2-408f-bf10-b1f8db4ba37b",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -13033,7 +13627,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "1f6cfa14-a956-4ec7-82a7-31b9061db1d4",
+              "id": "c77998c4-dc3e-4e0e-8b27-7dbc17ba22ef",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -13086,7 +13680,7 @@
       "event": []
     },
     {
-      "id": "67121b35-ac20-48b1-a3be-2a9de13e0335",
+      "id": "75803a98-4e9f-4461-b054-5f3a3b3c5107",
       "name": "Policies",
       "description": {
         "content": "Policy drafting and approval (operator).",
@@ -13094,7 +13688,7 @@
       },
       "item": [
         {
-          "id": "5574d553-63fe-4214-b7be-7d389e4b8d8e",
+          "id": "1fd147d3-5a28-4f44-af24-98678aee749c",
           "name": "Each policy's active version and any newer draft",
           "request": {
             "name": "Each policy's active version and any newer draft",
@@ -13130,7 +13724,7 @@
           },
           "response": [
             {
-              "id": "26b505ed-9b2c-43ed-83f2-2a5d79a6a467",
+              "id": "b7a1eabf-ce7e-453d-b739-5f9fafc97524",
               "name": "Policies",
               "originalRequest": {
                 "url": {
@@ -13169,12 +13763,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"policies\": [\n    {\n      \"key_0\": 5598.437910143548,\n      \"key_1\": \"string\"\n    },\n    {\n      \"key_0\": 7718.638542598235\n    }\n  ]\n}",
+              "body": "{\n  \"policies\": [\n    {\n      \"key_0\": \"string\"\n    },\n    {\n      \"key_0\": false\n    }\n  ]\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "bebefe40-b2e6-482b-8882-53cb7cfc6721",
+              "id": "281054b9-001e-41a4-a944-0f338ebc5cf6",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -13218,7 +13812,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "666b8a11-8df7-4937-8b32-41df0bf7c7ed",
+              "id": "78138a7e-8247-4f18-ac05-9301d82ec1fe",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -13268,7 +13862,7 @@
           }
         },
         {
-          "id": "f1539bfd-98fb-451b-9b17-39e5771e639c",
+          "id": "453fb99d-2f80-4249-af95-9f37f5870101",
           "name": "Every version of a policy, newest first",
           "request": {
             "name": "Every version of a policy, newest first",
@@ -13313,7 +13907,7 @@
           },
           "response": [
             {
-              "id": "cb70723c-c45a-4be6-906e-bd7d0e80f16d",
+              "id": "b6d58943-f57f-4f67-898e-d20ad98187d3",
               "name": "Versions",
               "originalRequest": {
                 "url": {
@@ -13361,12 +13955,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"policy_id\": \"string\",\n  \"versions\": [\n    {\n      \"key_0\": false\n    },\n    {\n      \"key_0\": \"string\"\n    }\n  ]\n}",
+              "body": "{\n  \"policy_id\": \"string\",\n  \"versions\": [\n    {\n      \"key_0\": \"string\",\n      \"key_1\": \"string\"\n    },\n    {\n      \"key_0\": 744,\n      \"key_1\": 23.349401401057122\n    }\n  ]\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "6c70c93a-a353-4942-815c-89a85b1e26a4",
+              "id": "6c520908-5f36-4fc5-a1c8-c0edfd7ed9e0",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -13419,7 +14013,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "17ceff30-bdd9-4c36-8d04-990d0d83d96b",
+              "id": "951d58a6-e88b-4a71-ba7f-3fc3a65214b7",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -13472,7 +14066,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "7526be4e-b5b3-450e-baae-bb20cd7b6cbc",
+              "id": "9f2eb8f3-c7e2-4eb4-99df-077738736454",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -13531,7 +14125,7 @@
           }
         },
         {
-          "id": "314b4129-50ae-4ee2-8f28-5810ced3bbdb",
+          "id": "f35e6429-e7de-4590-bc3b-6c1915bd00f8",
           "name": "Draft a new version of an existing policy from a pasted document (Claude)",
           "request": {
             "name": "Draft a new version of an existing policy from a pasted document (Claude)",
@@ -13584,7 +14178,7 @@
           },
           "response": [
             {
-              "id": "38629383-a332-489a-ba9c-e9f45e644247",
+              "id": "873be760-c86e-4a86-90c6-63025b3ea399",
               "name": "Saved as DRAFT",
               "originalRequest": {
                 "url": {
@@ -13632,12 +14226,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"version\": 980,\n  \"policy\": {\n    \"key_0\": \"string\"\n  }\n}",
+              "body": "{\n  \"version\": 711,\n  \"policy\": {\n    \"key_0\": 9542.143794751975,\n    \"key_1\": 4062.546217218669\n  }\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "0d16eac5-eb6d-4981-b93e-cccc201a9a0b",
+              "id": "7a15af2b-4f66-4eea-83b8-5f21e3d45af2",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -13690,7 +14284,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "0abf1ffc-1a18-48b3-9770-83763e8e10b7",
+              "id": "0aa3c04f-109e-4a7d-9f0d-47dce4768073",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -13743,7 +14337,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "b4adc294-837e-415a-b4f8-18b454e3b0fc",
+              "id": "507b3fef-0cea-4817-988d-0ed70ed48826",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -13796,7 +14390,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "7af46056-9394-40d2-aff6-096f06b3cb80",
+              "id": "bba41eca-effd-4b65-ae7f-06538d62c500",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -13849,7 +14443,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "59b83b20-ab31-4349-af7a-29d276687a63",
+              "id": "513d2dff-f760-47cb-a249-cf46621b5036",
               "name": "Document not understood",
               "originalRequest": {
                 "url": {
@@ -13898,7 +14492,7 @@
               "_postman_previewlanguage": "text"
             },
             {
-              "id": "f9a60bb7-722c-4321-bed3-a16ad65cb555",
+              "id": "4dfdbe70-b469-4e60-aec9-7f94b4f78e4b",
               "name": "Model unavailable",
               "originalRequest": {
                 "url": {
@@ -13947,7 +14541,7 @@
               "_postman_previewlanguage": "text"
             },
             {
-              "id": "19b6a3a5-db5f-40ef-8d67-c6dbda4ae8eb",
+              "id": "f43185e7-9dfa-4f4d-875c-8dd9ca259c68",
               "name": "Timeout",
               "originalRequest": {
                 "url": {
@@ -14002,7 +14596,7 @@
           }
         },
         {
-          "id": "456f94ba-70bd-4425-be72-d0c4bda72843",
+          "id": "94ed9d1d-cbc0-4a4e-899f-d6ecef4a9f57",
           "name": "Approve a DRAFT version, with the operator's edits",
           "request": {
             "name": "Approve a DRAFT version, with the operator's edits",
@@ -14060,7 +14654,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reviewer\": \"<string>\",\n  \"approved_text\": \"<string>\",\n  \"rules\": {\n    \"key_0\": \"string\"\n  }\n}",
+              "raw": "{\n  \"reviewer\": \"<string>\",\n  \"approved_text\": \"<string>\",\n  \"rules\": {\n    \"key_0\": 4565\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -14070,7 +14664,7 @@
           },
           "response": [
             {
-              "id": "8437b172-6233-4d36-a512-4000aaafce7b",
+              "id": "5edb5959-1b1f-4617-9062-de93b3002955",
               "name": "Approved",
               "originalRequest": {
                 "url": {
@@ -14120,7 +14714,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"reviewer\": \"<string>\",\n  \"approved_text\": \"<string>\",\n  \"rules\": {\n    \"key_0\": 5250.662970357972\n  }\n}",
+                  "raw": "{\n  \"reviewer\": \"<string>\",\n  \"approved_text\": \"<string>\",\n  \"rules\": {\n    \"key_0\": 2370.736042504311,\n    \"key_1\": \"string\",\n    \"key_2\": 2272.4511542486725\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -14136,12 +14730,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"policy_id\": \"string\",\n  \"version\": 9774,\n  \"status\": \"string\",\n  \"decision_id\": \"string\"\n}",
+              "body": "{\n  \"policy_id\": \"string\",\n  \"version\": 8403,\n  \"status\": \"string\",\n  \"decision_id\": \"string\"\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "18a4dca2-8d93-4b9c-bdcc-0e4469607203",
+              "id": "139b9323-6f01-4755-9d84-e0f7b90b5234",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -14191,7 +14785,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"reviewer\": \"<string>\",\n  \"approved_text\": \"<string>\",\n  \"rules\": {\n    \"key_0\": 5250.662970357972\n  }\n}",
+                  "raw": "{\n  \"reviewer\": \"<string>\",\n  \"approved_text\": \"<string>\",\n  \"rules\": {\n    \"key_0\": 2370.736042504311,\n    \"key_1\": \"string\",\n    \"key_2\": 2272.4511542486725\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -14212,7 +14806,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "0505f457-250b-4d43-83cd-6cc74d6e0286",
+              "id": "7f1c331b-17a3-4c89-b641-7cb4cd77b640",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -14262,7 +14856,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"reviewer\": \"<string>\",\n  \"approved_text\": \"<string>\",\n  \"rules\": {\n    \"key_0\": 5250.662970357972\n  }\n}",
+                  "raw": "{\n  \"reviewer\": \"<string>\",\n  \"approved_text\": \"<string>\",\n  \"rules\": {\n    \"key_0\": 2370.736042504311,\n    \"key_1\": \"string\",\n    \"key_2\": 2272.4511542486725\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -14283,7 +14877,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "acc7ce1e-8275-4e73-993a-efbf3836840f",
+              "id": "741ef8bb-cd67-4966-946c-d59e1903ae6b",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -14333,7 +14927,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"reviewer\": \"<string>\",\n  \"approved_text\": \"<string>\",\n  \"rules\": {\n    \"key_0\": 5250.662970357972\n  }\n}",
+                  "raw": "{\n  \"reviewer\": \"<string>\",\n  \"approved_text\": \"<string>\",\n  \"rules\": {\n    \"key_0\": 2370.736042504311,\n    \"key_1\": \"string\",\n    \"key_2\": 2272.4511542486725\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -14354,7 +14948,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "60928f3b-61ce-40a1-b290-5d29d5c8b39e",
+              "id": "add34e60-7017-49fe-8dff-8d9d4960a0d3",
               "name": "That version is not a DRAFT (`not_draft`)",
               "originalRequest": {
                 "url": {
@@ -14400,7 +14994,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"reviewer\": \"<string>\",\n  \"approved_text\": \"<string>\",\n  \"rules\": {\n    \"key_0\": 5250.662970357972\n  }\n}",
+                  "raw": "{\n  \"reviewer\": \"<string>\",\n  \"approved_text\": \"<string>\",\n  \"rules\": {\n    \"key_0\": 2370.736042504311,\n    \"key_1\": \"string\",\n    \"key_2\": 2272.4511542486725\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -14427,7 +15021,7 @@
           }
         },
         {
-          "id": "0a0acb2c-4419-4603-bdf7-fbd60b9b1d41",
+          "id": "93f935e6-eb2a-44f4-b259-e7458371f748",
           "name": "Discard a DRAFT version without applying it",
           "request": {
             "name": "Discard a DRAFT version without applying it",
@@ -14498,7 +15092,7 @@
           },
           "response": [
             {
-              "id": "7cc6474c-0d43-4efd-8716-90f45b5be30c",
+              "id": "5d2d0017-68c8-4c7f-9f1e-a55841ca6250",
               "name": "Discarded",
               "originalRequest": {
                 "url": {
@@ -14564,12 +15158,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"policy_id\": \"string\",\n  \"version\": 2922,\n  \"status\": \"string\",\n  \"decision_id\": \"string\"\n}",
+              "body": "{\n  \"policy_id\": \"string\",\n  \"version\": 4280,\n  \"status\": \"string\",\n  \"decision_id\": \"string\"\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "68a6986c-d0c5-4682-b72b-8329a1f6d5b1",
+              "id": "9169f463-0ee5-467c-b304-3723438719a5",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -14640,7 +15234,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "3c6d1ff8-dbc7-4bad-9971-9f0c438f7c1b",
+              "id": "151fd8d9-e0a2-47a8-9c78-8de9599d588d",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -14711,7 +15305,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "d6149967-c810-4f1a-9b8b-2a04c2dcc666",
+              "id": "c79c4707-6196-402c-aa99-81a71029d13e",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -14782,7 +15376,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "7b58339f-a2bf-4541-bb15-7573c63e5f02",
+              "id": "e450cce8-88cc-41ab-9963-dace712ecffd",
               "name": "Not found",
               "originalRequest": {
                 "url": {
@@ -14853,7 +15447,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "0b97f04a-a2de-447a-b6b1-701b7c6c38d5",
+              "id": "14b54937-1653-4c4d-ae23-c689247c88bf",
               "name": "That version is not a DRAFT (`not_draft`)",
               "originalRequest": {
                 "url": {
@@ -14929,7 +15523,7 @@
       "event": []
     },
     {
-      "id": "b12beb8c-8a14-4ae3-a004-65c2e75d9ec5",
+      "id": "2f4f1aac-0b5b-41eb-a76b-cce5630369d4",
       "name": "Ask the ledger",
       "description": {
         "content": "Natural language to AG Grid state (operator).",
@@ -14937,7 +15531,7 @@
       },
       "item": [
         {
-          "id": "2223c186-755a-442b-ac73-11658254839a",
+          "id": "eb6da4a8-3c95-44fb-94f7-3a3f178304b2",
           "name": "Turn a question into AG Grid state (Claude structured output)",
           "request": {
             "name": "Turn a question into AG Grid state (Claude structured output)",
@@ -14979,7 +15573,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"query\": \"<string>\",\n  \"schema\": {\n    \"key_0\": \"string\",\n    \"key_1\": false,\n    \"key_2\": false\n  }\n}",
+              "raw": "{\n  \"query\": \"<string>\",\n  \"schema\": {\n    \"key_0\": 5833\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -14989,7 +15583,7 @@
           },
           "response": [
             {
-              "id": "ea31cc87-e3eb-4d64-ad0a-2072d25435a0",
+              "id": "7d30637c-827e-40b6-85da-52726a069b4f",
               "name": "Grid state to apply with setState",
               "originalRequest": {
                 "url": {
@@ -15020,7 +15614,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": false,\n    \"key_1\": false,\n    \"key_2\": 7366.164210177344\n  }\n}",
+                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": 1274.1713244988994,\n    \"key_1\": 1878,\n    \"key_2\": 7625\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -15036,12 +15630,12 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"state\": {\n    \"key_0\": true\n  }\n}",
+              "body": "{\n  \"state\": {\n    \"key_0\": false,\n    \"key_1\": false\n  }\n}",
               "cookie": [],
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "bf0ec5be-43ce-486c-9062-39d71fb0a531",
+              "id": "e21d3da9-7a7b-46d7-982c-7fb8e63e311b",
               "name": "Invalid request",
               "originalRequest": {
                 "url": {
@@ -15072,7 +15666,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": false,\n    \"key_1\": false,\n    \"key_2\": 7366.164210177344\n  }\n}",
+                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": 1274.1713244988994,\n    \"key_1\": 1878,\n    \"key_2\": 7625\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -15093,7 +15687,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "fb574472-2450-4c98-a833-03a35e64655c",
+              "id": "fd5b7d4c-958c-43e7-99de-e4ce984b13b1",
               "name": "Missing or wrong bearer token",
               "originalRequest": {
                 "url": {
@@ -15124,7 +15718,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": false,\n    \"key_1\": false,\n    \"key_2\": 7366.164210177344\n  }\n}",
+                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": 1274.1713244988994,\n    \"key_1\": 1878,\n    \"key_2\": 7625\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -15145,7 +15739,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "22905c10-138b-4c2f-8d49-e59c11e7eb9a",
+              "id": "8698016d-8b62-4fb9-9527-8670d5ab083e",
               "name": "The merchant key can't call operator routes",
               "originalRequest": {
                 "url": {
@@ -15176,7 +15770,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": false,\n    \"key_1\": false,\n    \"key_2\": 7366.164210177344\n  }\n}",
+                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": 1274.1713244988994,\n    \"key_1\": 1878,\n    \"key_2\": 7625\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -15197,7 +15791,7 @@
               "_postman_previewlanguage": "json"
             },
             {
-              "id": "21c16bee-abdf-4934-8843-9582516bb792",
+              "id": "bba60996-ecc5-4c29-a50c-708fbd0f95f3",
               "name": "Not understood",
               "originalRequest": {
                 "url": {
@@ -15224,7 +15818,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": false,\n    \"key_1\": false,\n    \"key_2\": 7366.164210177344\n  }\n}",
+                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": 1274.1713244988994,\n    \"key_1\": 1878,\n    \"key_2\": 7625\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -15245,7 +15839,7 @@
               "_postman_previewlanguage": "text"
             },
             {
-              "id": "c70874a6-49d3-4549-a7c3-d5f98723850c",
+              "id": "39f8161c-6343-4216-978a-29bb68b7aa7b",
               "name": "Model unavailable",
               "originalRequest": {
                 "url": {
@@ -15272,7 +15866,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": false,\n    \"key_1\": false,\n    \"key_2\": 7366.164210177344\n  }\n}",
+                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": 1274.1713244988994,\n    \"key_1\": 1878,\n    \"key_2\": 7625\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -15293,7 +15887,7 @@
               "_postman_previewlanguage": "text"
             },
             {
-              "id": "2705238e-37a0-4fdf-86ba-457f49ba4446",
+              "id": "d89e13e3-3861-4040-ac7f-214f48383fdd",
               "name": "Timeout",
               "originalRequest": {
                 "url": {
@@ -15320,7 +15914,7 @@
                 "method": "POST",
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": false,\n    \"key_1\": false,\n    \"key_2\": 7366.164210177344\n  }\n}",
+                  "raw": "{\n  \"query\": \"held refunds over $50 this week grouped by reason code\",\n  \"schema\": {\n    \"key_0\": 1274.1713244988994,\n    \"key_1\": 1878,\n    \"key_2\": 7625\n  }\n}",
                   "options": {
                     "raw": {
                       "language": "json"
@@ -15359,7 +15953,7 @@
     }
   ],
   "info": {
-    "_postman_id": "cd2c98bd-383c-43c7-9055-a6270b8945bf",
+    "_postman_id": "c9cc14c3-8ee4-4cd2-8693-5170dc18cf4b",
     "name": "Keel API",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "description": {

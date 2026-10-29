@@ -1,0 +1,1 @@
+ALTER TABLE "store_orders" ALTER COLUMN "scenario" DROP NOT NULL;
