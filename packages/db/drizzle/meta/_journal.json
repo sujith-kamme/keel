@@ -64,6 +64,13 @@
       "when": 1793240525340,
       "tag": "0008_tough_thunderbolt_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793243716530,
+      "tag": "0009_thankful_jackal",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,8 @@ import { createGatewayDeps } from "./gateway/deps";
 import { newId } from "./id";
 import { handleTool } from "./gateway/handle";
 import { createAgentStore } from "./routes/agent-store";
+import { initConsoleAccount } from "./routes/console";
+import { createConsoleStore } from "./routes/console-store";
 import { createDisputeStore } from "./routes/dispute-store";
 import { currentCertification, scenarioCatalog, scenariosFor } from "./routes/gauntlet";
 import { createGauntletStore } from "./routes/gauntlet-store";
@@ -35,6 +37,9 @@ const db = createDb();
 // Runtime settings live in the DB; env values only seed keys that have no row yet. Read at use time.
 const settings = createSettings(db, process.env);
 await settings.init();
+// The console sign-in lives in the DB; CONSOLE_USER / CONSOLE_PASSWORD only create it on first boot.
+const consoleStore = createConsoleStore(db);
+await initConsoleAccount(consoleStore, process.env);
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379", { lazyConnect: true, maxRetriesPerRequest: 1 });
 const now = () => new Date();
 const consoleUrl = process.env.CONSOLE_URL ?? "http://localhost:3000";
