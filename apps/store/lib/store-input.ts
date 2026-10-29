@@ -5,6 +5,16 @@ export const DEMO_CUSTOMERS = [
   { email: "sam@gmail.com", name: "Sam" },
 ] as const;
 
-export const SessionBody = z.object({ email: z.enum(DEMO_CUSTOMERS.map((c) => c.email) as [string, ...string[]]) });
+export const customerName = (email: string) => DEMO_CUSTOMERS.find((c) => c.email === email)?.name ?? email;
+
+// PayPal order ids; also the store's order numbers.
+export const ORDER_ID = /^[A-Za-z0-9]{1,64}$/;
+
+export const SignInBody = z.object({ email: z.string().trim().toLowerCase().pipe(z.email().max(254)), password: z.string().min(1).max(200) });
+export const SessionBody = z.object({ order_id: z.string().regex(ORDER_ID) });
 export const VerifyBody = z.object({ code: z.string().regex(/^\d{6}$/) });
 export const ChatBody = z.object({ text: z.string().trim().min(1).max(1000) });
+
+/** Where to go after sign-in: a path on this site only, never another origin. */
+export const safeNext = (next: unknown): string =>
+  typeof next === "string" && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") ? next : "/orders";

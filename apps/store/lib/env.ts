@@ -5,6 +5,7 @@ export interface Env {
   merchantKey: string;
   anthropicKey: string;
   cookieSecret: string;
+  demoPassword: string;
 }
 
 let cached: Env | undefined;
@@ -25,6 +26,7 @@ export function env(): Env {
     merchantKey: required("KEEL_MERCHANT_KEY"),
     anthropicKey: required("ANTHROPIC_API_KEY"),
     cookieSecret,
+    demoPassword: required("DEMO_STORE_PASSWORD"),
   };
   return cached;
 }
