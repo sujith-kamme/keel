@@ -107,6 +107,8 @@ export const sessionTurns = pgTable(
     role: text("role").notNull(), // "customer" | "agent"
     text: text("text").notNull(),
     decisionIds: jsonb("decision_ids").$type<string[]>().notNull().default([]),
+    // The agent that wrote an agent turn (null for customer turns and turns before Phase 7f).
+    agentId: text("agent_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("session_turns_session_idx").on(t.sessionId, t.id)],
@@ -125,6 +127,8 @@ export const gauntletRuns = pgTable(
   "gauntlet_runs",
   {
     id: text("id").primaryKey(),
+    // The agent this run certifies (null for runs before Phase 7f, which certify nothing now).
+    agentId: text("agent_id"),
     status: text("status").notNull().default("QUEUED"),
     guarded: boolean("guarded").notNull(),
     packs: jsonb("packs").$type<string[]>().notNull(),
