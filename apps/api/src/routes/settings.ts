@@ -24,7 +24,6 @@ export interface SettingsOptions {
 }
 
 const Update = z.strictObject({ operator: z.string().min(1).max(64), values: z.record(z.string(), z.unknown()) });
-const Operator = z.strictObject({ operator: z.string().min(1).max(64) });
 const isSection = (s: string): s is Section => Object.hasOwn(SECTION_SCHEMAS, s);
 
 /** Runtime settings (operator key) and the agent config the storefront reads (merchant key). */
@@ -49,14 +48,15 @@ export function mountSettings(app: Hono, opts: SettingsOptions): void {
   app.post("/v1/settings/zapier/test", async (c) => {
     const d = denied(c);
     if (d) return d;
-    if (!Operator.safeParse(await c.req.json().catch(() => null)).success) return c.json({ error: "invalid_request" }, 400);
     const hookUrl = await opts.getHookUrl();
     if (!hookUrl) return c.json({ error: "not_configured" }, 409);
     try {
       return c.json({ ok: true, status: (await opts.send(hookUrl)).status });
-    } catch {
-      // Never echo the error: it can carry the URL or the upstream body.
-      return c.json({ ok: false, status: null });
+    } catch (e) {
+      // Log only the name and never echo the error: it can carry the URL or the upstream body.
+      console.error("zapier test failed:", e instanceof Error ? e.name : "unknown");
+      const status = (e as { status?: unknown } | null)?.status;
+      return c.json({ ok: false, status: typeof status === "number" ? status : null });
     }
   });
 
@@ -76,8 +76,15 @@ export function mountSettings(app: Hono, opts: SettingsOptions): void {
       return c.json({ error: "settings_write_failed" }, 500);
     }
     const poll = result.changes.dispute_poll_seconds;
-    if (section === "disputes" && poll) await opts.reschedulePoll(poll.to as number);
-    return c.json({ changes: result.changes });
+    if (section !== "disputes" || !poll) return c.json({ changes: result.changes });
+    // The write is committed: a failed reschedule must not turn into a 500 the client would retry as a no-op.
+    try {
+      await opts.reschedulePoll(poll.to as number);
+      return c.json({ changes: result.changes, poll_rescheduled: true });
+    } catch (e) {
+      console.error("dispute poll reschedule failed:", e instanceof Error ? e.name : "unknown");
+      return c.json({ changes: result.changes, poll_rescheduled: false });
+    }
   });
 
   app.get("/v1/agent-config", async (c) => {

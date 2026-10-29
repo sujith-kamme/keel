@@ -551,6 +551,7 @@ paths:
                 values:
                   type: object
                   description: Keys of the section; unknown keys are rejected.
+                  example: { risk_threshold: 70 }
       responses:
         "200":
           description: The keys that changed (the Zapier URL is shown only as set or cleared)
@@ -566,6 +567,7 @@ paths:
                       properties:
                         from: {}
                         to: {}
+                  poll_rescheduled: { type: boolean, description: "Disputes only, when the poll interval changed. False if rescheduling failed; the write is still saved." }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -581,7 +583,6 @@ paths:
       operationId: testZapier
       summary: Send a test event to the configured Zapier hook
       security: [{ operatorKey: [] }]
-      requestBody: { $ref: "#/components/requestBodies/Operator" }
       responses:
         "200":
           description: Delivery result (never the URL or the upstream body)
@@ -592,7 +593,6 @@ paths:
                 properties:
                   ok: { type: boolean }
                   status: { type: [integer, "null"] }
-        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "409": { $ref: "#/components/responses/Conflict" }

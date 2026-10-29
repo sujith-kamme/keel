@@ -57,6 +57,6 @@ export async function sendNotify(
     redirect: "error",
     signal: AbortSignal.timeout(5000),
   });
-  if (!res.ok) throw new Error(`zapier responded ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(`zapier responded ${res.status}`), { status: res.status });
   return { status: res.status };
 }

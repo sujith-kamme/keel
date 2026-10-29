@@ -168,7 +168,8 @@ const app = createApp({
         { event: "keel.test", session_id: "test", decision_id: "test", reason_codes: ["OK"], console_url: consoleUrl, at: now().toISOString() },
         { hookUrl, fetch },
       );
-      return "status" in res ? res : { status: 0 };
+      if (!("status" in res)) throw new Error("notify skipped");
+      return res;
     },
   },
   gauntlet: {

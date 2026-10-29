@@ -15,7 +15,7 @@ const status: SettingsStatus = {
   demo_otp: false,
 };
 
-function setup(opts: { hook?: string | null; fail?: boolean; send?: (url: string) => Promise<{ status: number }> } = {}) {
+function setup(opts: { hook?: string | null; fail?: boolean; rescheduleFails?: boolean; send?: (url: string) => Promise<{ status: number }> } = {}) {
   let current: Settings = { ...SETTINGS_DEFAULTS, zapier_hook_url: opts.hook ?? null };
   const polls: number[] = [];
   const settings: SettingsService = {
@@ -38,7 +38,10 @@ function setup(opts: { hook?: string | null; fail?: boolean; send?: (url: string
     merchantKey,
     settings,
     status,
-    reschedulePoll: async (s) => void polls.push(s),
+    reschedulePoll: async (s) => {
+      if (opts.rescheduleFails) throw new Error("redis down");
+      polls.push(s);
+    },
     getHookUrl: async () => current.zapier_hook_url,
     send: opts.send ?? (async () => ({ status: 200 })),
   });
@@ -47,7 +50,7 @@ function setup(opts: { hook?: string | null; fail?: boolean; send?: (url: string
 const put = (app: Hono, section: string, body: unknown, headers: Record<string, string> = op) =>
   app.request(`/v1/settings/${section}`, { method: "PUT", headers, body: JSON.stringify(body) });
 const test = (app: Hono, headers: Record<string, string> = op) =>
-  app.request("/v1/settings/zapier/test", { method: "POST", headers, body: JSON.stringify({ operator: "ops" }) });
+  app.request("/v1/settings/zapier/test", { method: "POST", headers });
 
 describe("settings API", () => {
   it("401 without or with a wrong key, 403 for the merchant key on operator routes", async () => {
@@ -74,7 +77,7 @@ describe("settings API", () => {
     expect(body.zapier).toEqual({ configured: true });
     expect(body.values.risk_threshold).toBe(SETTINGS_DEFAULTS.risk_threshold);
     expect(body.status).toEqual(status);
-    expect((await (await setup().app.request("/v1/settings", { headers: op })).json()).zapier).toEqual({ configured: false });
+    expect(((await (await setup().app.request("/v1/settings", { headers: op })).json()) as { zapier: unknown }).zapier).toEqual({ configured: false });
   });
 
   it("PUT returns the changes", async () => {
@@ -105,6 +108,14 @@ describe("settings API", () => {
     expect(polls).toEqual([300]);
   });
 
+  it("still 200 when the poll reschedule fails after the write", async () => {
+    const { app } = setup({ rescheduleFails: true });
+    const res = await put(app, "disputes", { operator: "ops", values: { dispute_poll_seconds: 300 } });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ changes: { dispute_poll_seconds: { from: 120, to: 300 } }, poll_rescheduled: false });
+    expect(await (await put(app, "guard", { operator: "ops", values: { risk_threshold: 70 } })).json()).not.toHaveProperty("poll_rescheduled");
+  });
+
   it("500 settings_write_failed without leaking", async () => {
     const { app } = setup({ fail: true });
     const res = await put(app, "zapier", { operator: "ops", values: { zapier_hook_url: HOOK } });
@@ -124,7 +135,12 @@ describe("settings API", () => {
     const failing = setup({ hook: HOOK, send: async () => { throw new Error(`boom ${HOOK}`); } });
     const bad = await (await test(failing.app)).text();
     expect(JSON.parse(bad)).toEqual({ ok: false, status: null });
-    expect((await app.request("/v1/settings/zapier/test", { method: "POST", headers: op, body: "{}" })).status).toBe(400);
+    expect(bad).not.toContain("secret-token");
+    const gone = setup({ hook: HOOK, send: async () => { throw Object.assign(new Error(`zapier responded 410 ${HOOK}`), { status: 410 }); } });
+    const goneText = await (await test(gone.app)).text();
+    expect(JSON.parse(goneText)).toEqual({ ok: false, status: 410 });
+    expect(goneText).not.toContain("secret-token");
+    expect((await app.request("/v1/settings/zapier/test", { method: "POST", headers: op })).status).toBe(200);
   });
 
   it("agent-config needs the merchant key and returns model and prompt", async () => {
