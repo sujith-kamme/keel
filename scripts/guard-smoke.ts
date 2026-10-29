@@ -70,7 +70,7 @@ if (!inPolicy || !oldOrder || !large) throw new Error("Demo orders missing; run 
 
 const session = await merchant<{ session_id: string; capability_token: string; demo_otp?: string }>("/v1/sessions", {
   method: "POST",
-  body: JSON.stringify({ agent_id: "agt_smoke", customer_email: "maya@gmail.com", order_ids: [inPolicy, oldOrder, large] }),
+  body: JSON.stringify({ customer_email: "maya@gmail.com", order_ids: [inPolicy, oldOrder, large] }),
 });
 if (!session.demo_otp) throw new Error("DEMO_OTP must be enabled on the API");
 const verified = await merchant<{ capability_token: string }>(`/v1/sessions/${session.session_id}/verify`, {
@@ -128,7 +128,11 @@ if (expectTimeout) {
 
   record("4 honest lookup", "ALLOW OK", await guard("Where is my order?", "Let me look up your order for you."));
 
-  const refund = await agent("offer_refund", { order_id: inPolicy, amount: "42.00", reason: "damaged", policy_id: "refund-standard" });
+  // The session starts at the policy agent, which has no money tools: hand off to the refund agent.
+  const handoff = await agent("handoff_to_refund", { order_id: inPolicy, reason: "damaged" });
+  if (handoff.decision !== "ALLOW") throw new Error(`handoff_to_refund was not ALLOW: ${handoff.decision} ${handoff.reason_code}`);
+  const { capability_token } = await merchant<{ capability_token: string }>(`/v1/sessions/${session.session_id}/token`, { method: "POST", body: "{}" });
+  const refund = await (await connect(capability_token))("offer_refund", { order_id: inPolicy, amount: "42.00", reason: "damaged", policy_id: "refund-standard" });
   if (refund.decision === "ALLOW") {
     record("5 executed refund", "ALLOW OK", await guard("It arrived damaged", "I've issued a refund of 42.00 USD.", [refund.decision_id]));
   } else {
