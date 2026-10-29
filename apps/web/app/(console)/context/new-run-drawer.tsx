@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { P0_PACKS, packLabel } from "@/lib/context-view";
+import { useDrawer } from "@/lib/use-drawer";
 import { startRun } from "./actions";
-
-const FOCUSABLE = "a[href],button:not([disabled]),input:not([disabled])";
 
 /** Starts a Gauntlet run (POST /v1/gauntlet/runs), opened from /context?new=1. `packs` carries each pack's scenario count. */
 export function NewRunDrawer({ packs, busy, closeHref }: { packs: { id: string; count: number }[]; busy: boolean; closeHref: string }) {
@@ -20,34 +19,7 @@ export function NewRunDrawer({ packs, busy, closeHref }: { packs: { id: string; 
   const toggle = (p: string) => setPicked((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
   const conversations = packs.filter((p) => picked.includes(p.id)).reduce((s, p) => s + p.count, 0) * repeats;
 
-  useEffect(() => {
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const el = ref.current!;
-    el.querySelector<HTMLElement>("input:not([disabled])")?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        router.push(closeHref, { scroll: false });
-      } else if (e.key === "Tab") {
-        const items = [...el.querySelectorAll<HTMLElement>(FOCUSABLE)];
-        const first = items[0];
-        const last = items[items.length - 1];
-        if (!first || !last) return;
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && (document.activeElement === last || !el.contains(document.activeElement))) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      (opener?.isConnected ? opener : document.getElementById("new-run"))?.focus();
-    };
-  }, [router, closeHref]);
+  useDrawer(ref, { closeHref, initial: "input:not([disabled])", fallbackId: "new-run" });
 
   const submit = () => {
     setError(null);
