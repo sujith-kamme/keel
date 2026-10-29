@@ -73,7 +73,7 @@ const held = (decision_id: string, tool: string, reason: LedgerContent["reason_c
   payload: { tool, args },
 });
 
-function setup(over: Partial<GatewayDeps> = {}, detail: ReviewOptions["detail"] = async () => ({ score: 72 })) {
+function setup(over: Partial<GatewayDeps> = {}, scores: ReviewOptions["scores"] = async (ids) => new Map(ids.map((id) => [id, 72]))) {
   const ledger: Row[] = [];
   let n = 0;
   const sessions = new Map([
@@ -137,7 +137,7 @@ function setup(over: Partial<GatewayDeps> = {}, detail: ReviewOptions["detail"] 
     newId: (prefix) => `${prefix}_${++n}abcdefgh`,
     ...over,
   };
-  const opts: ReviewOptions = { operatorKey, merchantKey, store, gateway, detail };
+  const opts: ReviewOptions = { operatorKey, merchantKey, store, gateway, scores };
   const app = new Hono();
   mountReview(app, opts);
 
@@ -175,7 +175,7 @@ describe("GET /v1/review", () => {
     expect(items[3]).toMatchObject({ kind: "session", session_id: "ses_2", session_state: "ESCALATED", reason_codes: [] });
   });
 
-  it("reports a null score when risk detail fails", async () => {
+  it("reports a null score when risk scoring fails", async () => {
     const { app } = setup({}, async () => Promise.reject(new Error("db")));
     expect((await list(app)).map((i) => i.score)).toEqual([null, null, null, null]);
   });

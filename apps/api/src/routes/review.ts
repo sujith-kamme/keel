@@ -48,7 +48,8 @@ export interface ReviewOptions {
   store: ReviewStore;
   /** Executes approved actions through the same code path as the agent gateway. */
   gateway: GatewayDeps;
-  detail: (sessionId: string) => Promise<{ score: number }>;
+  /** Current risk score per session; a missing id or a failed read shows as no score. */
+  scores: (sessionIds: string[]) => Promise<Map<string, number>>;
 }
 
 export interface ReviewItem {
@@ -93,7 +94,7 @@ export function mountReview(app: Hono, opts: ReviewOptions): void {
     if (no) return no;
     const [held, flagged] = await Promise.all([store.pendingHeld(LIMIT), store.flaggedSessions(LIMIT)]);
     const ids = [...new Set([...held, ...flagged].map((i) => i.session_id))];
-    const scores = new Map(await Promise.all(ids.map(async (id) => [id, await opts.detail(id).then((d) => d.score, () => null)] as const)));
+    const scores = await opts.scores(ids).catch(() => new Map<string, number>());
     const items: ReviewItem[] = [
       ...held.map((h) => ({
         kind: "held_action" as const,

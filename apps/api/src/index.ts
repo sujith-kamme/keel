@@ -62,11 +62,12 @@ const catalog = async () => scenarioCatalog(builtinScenarios, await gauntletStor
 const currentVersions = async (): Promise<Versions> => {
   const policies: Record<string, number> = {};
   // price-catalog isn't a policy the guard checks claims against, but an approved change to it still makes certification stale.
-  for (const id of [...KNOWN_POLICY_IDS, "price-catalog"]) {
-    const version = ((await activePolicy(db, id)) as { version?: unknown } | null)?.version;
+  const ids = [...KNOWN_POLICY_IDS, "price-catalog"];
+  const [active, s] = await Promise.all([Promise.all(ids.map((id) => activePolicy(db, id))), settings.get()]);
+  ids.forEach((id, i) => {
+    const version = (active[i] as { version?: unknown } | null)?.version;
     if (typeof version === "number") policies[id] = version;
-  }
-  const s = await settings.get();
+  });
   return {
     agent_model: s.agent_model,
     agent_prompt: s.agent_prompt,
@@ -159,7 +160,7 @@ const app = createApp({
     newId,
   },
   mcp: { signingKey: KEEL_SIGNING_KEY, now, handle: (cap, call) => handleTool(gateway, cap, call) },
-  review: { operatorKey: KEEL_OPERATOR_KEY, merchantKey: KEEL_MERCHANT_KEY, store: createReviewStore(db), gateway, detail: risk.detail },
+  review: { operatorKey: KEEL_OPERATOR_KEY, merchantKey: KEEL_MERCHANT_KEY, store: createReviewStore(db), gateway, scores: risk.scores },
   agents: { operatorKey: KEEL_OPERATOR_KEY, merchantKey: KEEL_MERCHANT_KEY, store: createAgentStore(db), newId },
   console: { operatorKey: KEEL_OPERATOR_KEY, merchantKey: KEEL_MERCHANT_KEY, store: consoleStore, redis, newId },
   settings: {

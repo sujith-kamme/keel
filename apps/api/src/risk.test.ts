@@ -175,6 +175,17 @@ describe.skipIf(!process.env.DATABASE_URL)("risk service (Postgres)", () => {
     expect(await svc.detail(id)).toEqual({ score: 0, threshold: 60, signals: [] });
   });
 
+  it("scores matches detail per session and leaves out unknown ids", async () => {
+    const [a, b] = [await setup(), await setup()];
+    const { svc } = make();
+    await crossing(a);
+    await appendLedger(db, blocked(b));
+    const scores = await svc.scores([a, b, "ses_missing"]);
+    expect(scores).toEqual(new Map([[a, (await svc.detail(a)).score], [b, (await svc.detail(b)).score]]));
+    expect(scores.get(a)).toBe(70);
+    expect(await svc.scores([])).toEqual(new Map());
+  });
+
   it("control reports a freeze on the agent's own row", async () => {
     const agent = `agent_test_${rid()}`;
     const id = await setup(agent);
