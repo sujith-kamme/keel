@@ -190,7 +190,7 @@ describe.skipIf(!process.env.DATABASE_URL)("risk service (Postgres)", () => {
     const agent = `agent_test_${rid()}`;
     const id = await setup(agent);
     const { svc } = make();
-    expect(await svc.control(id)).toEqual({ state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" });
+    expect(await svc.control(id)).toEqual({ agent_id: agent, state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" });
     await db.insert(agentControls).values({ agentId: agent, frozen: true, updatedBy: "test" });
     try {
       expect((await svc.control(id)).agent_frozen).toBe(true);

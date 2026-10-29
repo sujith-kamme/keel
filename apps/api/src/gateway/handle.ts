@@ -1,5 +1,6 @@
 import type { Commitment, ReasonCode, Verdict } from "@keel/core";
 import { type Capability, type DecisionInput, type LedgerContent, checkScope, decide } from "@keel/engine";
+import { isAgentId } from "@keel/agent";
 import type { OrderDetails } from "@keel/paypal";
 import { gatherFacts } from "@keel/verifiers";
 import { ledgerMode } from "../mode";
@@ -39,7 +40,7 @@ export interface GatewayDeps {
   handoff: (sessionId: string, to: "agt_refund") => Promise<"OK" | "FROZEN" | "NOT_POLICY_AGENT">;
   /** Serializes money decisions: session lock, then order lock (fixed order), held until `fn` resolves. */
   withOrderLock: <T>(sessionId: string, orderId: string, fn: () => Promise<T>) => Promise<T>;
-  control: (sessionId: string) => Promise<{ state: string; agent_frozen: boolean; score: number; mode: string; guard_mode: string }>;
+  control: (sessionId: string) => Promise<{ agent_id: string; state: string; agent_frozen: boolean; score: number; mode: string; guard_mode: string }>;
   assess: (sessionId: string) => Promise<unknown>;
   notifyHeld: (e: { session_id: string; decision_id: string; reason_codes: string[] }) => Promise<void>;
   now: () => Date;
@@ -110,6 +111,9 @@ export async function handleTool(deps: GatewayDeps, cap: Capability, call: ToolC
     outcome = refuse("HOLD", "AGENT_FROZEN");
   } else if (gated && ctl?.state === "QUARANTINED") {
     outcome = refuse("HOLD", "RISK_THRESHOLD");
+  } else if (!isAgentId(cap.agent_id) || (isMoney && ctl?.agent_id !== cap.agent_id)) {
+    // Tokens minted before the agent registry (or for the agent the session has left) carry no authority.
+    outcome = refuse("BLOCK", "CAPABILITY_OUT_OF_SCOPE");
   } else if (!checkScope(cap, { tool: call.tool, order_id: orderId, amount }, "0.00")) {
     outcome = refuse("BLOCK", "CAPABILITY_OUT_OF_SCOPE");
   } else if (call.tool === "offer_refund") {

@@ -131,7 +131,7 @@ function setup(over: Partial<GatewayDeps> = {}, scores: ReviewOptions["scores"] 
     escalate: async () => {},
     handoff: async () => "OK",
     withOrderLock: vi.fn((_session: string, _order: string, fn: () => Promise<unknown>) => fn()) as GatewayDeps["withOrderLock"],
-    control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" }),
+    control: async () => ({ agent_id: "agt_refund", state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" }),
     assess: async () => ({}),
     notifyHeld: async () => {},
     now: () => NOW,
