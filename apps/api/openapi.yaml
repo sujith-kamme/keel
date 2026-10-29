@@ -385,6 +385,33 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /v1/store/catalog:
+    get:
+      tags: [Store]
+      operationId: storeCatalog
+      summary: The demo store's products
+      security: [{ merchantKey: [] }]
+      responses:
+        "200":
+          description: Products, by title
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        sku: { type: string }
+                        title: { type: string }
+                        image_url: { type: [string, "null"] }
+                        price: { type: string }
+                        currency: { type: string }
+                        category: { type: string, enum: [Jackets, Footwear, Bottles, Other] }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /v1/review:
     get:
       tags: [Review]
