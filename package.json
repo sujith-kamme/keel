@@ -18,6 +18,7 @@
     "dev:api": "npm run dev -w @keel/api",
     "dev:worker": "npm run dev -w @keel/worker",
     "dev:web": "npm run dev -w @keel/web",
+    "dev:store": "npm run dev -w @keel/store",
     "paypal:ping": "tsx --env-file=.env scripts/paypal-ping.ts",
     "worker:ping": "tsx --env-file=.env scripts/worker-ping.ts",
     "typecheck": "npm run typecheck --workspaces --if-present",

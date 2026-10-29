@@ -9,7 +9,7 @@ Keel is a commitment gateway between a merchant's AI support agent and PayPal. T
 | | |
 |---|---|
 | Operator console | https://keel-web-fm57.onrender.com (login `admin@tidewell.com`; password: see the Devpost submission) |
-| Demo store (customer chat) | https://keel-web-fm57.onrender.com/store |
+| Demo store (Tidewell) | `tidewell-store` on Render (URL after the first deploy) |
 | API | https://keel-api-y0wq.onrender.com |
 | OpenAPI 3.1 spec | https://keel-api-y0wq.onrender.com/openapi.yaml |
 | Postman | [`postman/`](postman/) |
@@ -100,7 +100,8 @@ Run each in its own terminal:
 ```bash
 npm run dev:api           # http://localhost:8787
 npm run dev:worker        # or set RUN_WORKER=true to run jobs inside the API
-npm run dev:web           # http://localhost:3000
+npm run dev:web           # console, http://localhost:3000
+npm run dev:store         # Tidewell demo store, http://localhost:3001
 ```
 
 Useful checks: `npm run paypal:ping`, `npm run worker:ping`, and the `smoke:*` scripts in `package.json` (`smoke:mcp`, `smoke:guard`, `smoke:risk`, `smoke:dispute`, `smoke:gauntlet`). `render.yaml` is the Render Blueprint for the hosted deployment.
@@ -131,7 +132,8 @@ Anthropic's Claude models power the extractor, the Gauntlet's simulated customer
 | Path | What |
 |---|---|
 | `apps/api` | Hono API: sessions, guard, MCP server, review, Gauntlet, disputes, ledger, policies, OpenAPI spec |
-| `apps/web` | Next.js console and demo store (the demo agent runs here as the merchant backend) |
+| `apps/web` | Next.js operator console |
+| `apps/store` | Tidewell, the demo merchant's store (the demo agent runs here as the merchant backend; merchant key only) |
 | `apps/worker` | BullMQ jobs: Gauntlet runs, dispute sync and evidence PDFs, notifications |
 | `packages/agent` | The demo support agent (Claude) and its MCP client |
 | `packages/core` | Shared types and reason codes |

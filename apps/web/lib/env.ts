@@ -4,7 +4,6 @@ export interface Env {
   keelApiUrl: string;
   merchantKey: string;
   operatorKey: string;
-  anthropicKey: string;
   webSecret: string;
 }
 
@@ -25,7 +24,6 @@ export function env(): Env {
     keelApiUrl: required("KEEL_API_URL"),
     merchantKey: required("KEEL_MERCHANT_KEY"),
     operatorKey: required("KEEL_OPERATOR_KEY"),
-    anthropicKey: required("ANTHROPIC_API_KEY"),
     webSecret,
   };
   return cached;

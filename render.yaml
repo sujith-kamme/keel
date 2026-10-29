@@ -70,7 +70,6 @@ services:
     plan: free
     buildCommand: npm ci && npm run build -w @keel/web
     startCommand: npm run start -w @keel/web
-    # The demo agent runs here as the merchant backend. It never gets PayPal credentials.
     envVars:
       - key: KEEL_API_URL
         value: https://keel-api-y0wq.onrender.com
@@ -78,12 +77,28 @@ services:
         sync: false
       - key: KEEL_OPERATOR_KEY
         sync: false
-      - key: ANTHROPIC_API_KEY
-        sync: false
       - key: KEEL_WEB_SECRET
         sync: false
       # Inlined into the browser bundle at build time: set it before the build. Optional (trial watermark without it).
       - key: NEXT_PUBLIC_AG_GRID_LICENSE_KEY
+        sync: false
+
+  # Tidewell's storefront: the demo merchant's own site. The demo agent runs here as the merchant backend,
+  # reaching Keel only with the merchant key. It never gets PayPal secrets or the operator key.
+  - type: web
+    name: tidewell-store
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build -w @keel/store
+    startCommand: npm run start -w @keel/store
+    envVars:
+      - key: KEEL_API_URL
+        value: https://keel-api-y0wq.onrender.com
+      - key: KEEL_MERCHANT_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: STORE_COOKIE_SECRET
         sync: false
 
   - type: keyvalue

@@ -1,5 +1,4 @@
 import "server-only";
-import { agentConfigReader } from "./agent-config";
 import { env } from "./env";
 
 export class KeelError extends Error {
@@ -9,22 +8,6 @@ export class KeelError extends Error {
   ) {
     super(error ?? `Keel API responded ${status}`);
   }
-}
-
-export interface StoreOrder {
-  order_id: string;
-  scenario: string;
-  total: { value: string; currency: string };
-  items: { sku: string; title: string; price: string }[];
-  delivered_at: string | null;
-}
-
-export interface StartedSession {
-  session_id: string;
-  capability_token: string;
-  orders: string[];
-  expires_at: string;
-  demo_otp?: string;
 }
 
 // Mirrors apps/api/src/routes/turns.ts.
@@ -91,17 +74,6 @@ async function keel<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-const post = (body: unknown): RequestInit => ({ method: "POST", body: JSON.stringify(body) });
-
-export const ordersFor = async (email: string) =>
-  (await keel<{ orders: StoreOrder[] }>(`/v1/store/orders?customer_email=${encodeURIComponent(email)}`)).orders;
-
-export const startSession = (email: string, orderIds: string[]) =>
-  keel<StartedSession>("/v1/sessions", post({ agent_id: "agt_demo_store", customer_email: email, order_ids: orderIds }));
-
-export const verifySession = (id: string, code: string) =>
-  keel<{ session_id: string; capability_token: string }>(`/v1/sessions/${encodeURIComponent(id)}/verify`, post({ code }));
-
 export const sessionDetail = (id: string) => keel<SessionDetail>(`/v1/sessions/${encodeURIComponent(id)}`);
 
 export const listSessions = (opts: { limit: number; state?: string; before?: string }) => {
@@ -110,25 +82,3 @@ export const listSessions = (opts: { limit: number; state?: string; before?: str
   if (opts.before) q.set("before", opts.before);
   return keel<{ sessions: SessionRow[]; next_before: string | null }>(`/v1/sessions?${q}`);
 };
-
-export const appendTurn = (id: string, turn: { role: "customer" | "agent"; text: string; decision_ids: string[] }) =>
-  keel<unknown>(`/v1/sessions/${encodeURIComponent(id)}/turns`, post(turn));
-
-export interface GuardResult {
-  verdict: "ALLOW" | "REWRITE" | "BLOCK" | "HOLD";
-  reason_codes: string[];
-  final_reply: string;
-  decision_id: string;
-  session_state: string;
-}
-
-export const guardReply = (body: {
-  session_id: string;
-  draft_reply: string;
-  conversation: { role: "customer" | "agent"; text: string }[];
-  tool_calls_this_turn: string[];
-}) => keel<GuardResult>("/v1/guard", post(body));
-
-let readAgentConfig: ReturnType<typeof agentConfigReader> | undefined;
-/** The agent model and prompt the Gauntlet certifies, read from the API settings (cached 5 s). */
-export const agentConfig = () => (readAgentConfig ??= agentConfigReader({ url: env().keelApiUrl, key: env().merchantKey }))();
