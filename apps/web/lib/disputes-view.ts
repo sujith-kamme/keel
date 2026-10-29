@@ -1,4 +1,5 @@
 // Shapes from GET /v1/disputes and GET /v1/disputes/:id, and how the console shows them.
+import { reasonLabel as reasonCodeLabel } from "./reason-labels";
 
 export interface DisputeItem {
   id: string;
@@ -81,6 +82,7 @@ const ACTIONS: Record<string, string> = {
 };
 export const actionLabel = (a: string | null) => (a ? (ACTIONS[a] ?? a) : "Classifying…");
 
+// Dispute classifications explained in a sentence; every other code uses the shared short label.
 const CODES: Record<string, string> = {
   DISPUTE_WITHIN_POLICY: "The agent acted within policy; the ledger backs the merchant.",
   DISPUTE_UNHONORED_COMMITMENT: "The ledger shows a refund the customer was owed and never got.",
@@ -89,15 +91,8 @@ const CODES: Record<string, string> = {
   INJECTION_DETECTED: "The buyer's text tries to give instructions; a person should look.",
   EXTRACTOR_UNAVAILABLE: "The buyer's text couldn't be checked, so Keel won't act alone.",
   CURRENCY_MISMATCH: "The disputed currency doesn't match the payment.",
-  OUTSIDE_WINDOW: "Outside the refund window",
-  ABOVE_AUTO_APPROVE: "Above the automatic approval limit",
-  BUDGET_EXCEEDED: "Over the refund budget",
-  AMOUNT_EXCEEDS_CAPTURED: "More than was paid",
-  PAYER_NOT_VERIFIED: "Customer not verified",
-  RISK_THRESHOLD: "Session quarantined",
-  OK: "Within policy",
 };
-export const codeLabel = (c: string) => CODES[c] ?? c;
+export const codeLabel = (c: string) => CODES[c] ?? reasonCodeLabel(c);
 
 export const CLASS_STYLE: Record<string, string> = {
   DEFEND: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
