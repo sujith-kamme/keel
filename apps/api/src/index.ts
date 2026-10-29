@@ -20,9 +20,10 @@ import { createAgentStore } from "./routes/agent-store";
 import { initConsoleAccount } from "./routes/console";
 import { createConsoleStore } from "./routes/console-store";
 import { createDisputeStore } from "./routes/dispute-store";
-import { combinedCertification, scenarioCatalog, scenariosFor } from "./routes/gauntlet";
+import { combinedCertification, scenarioCatalog, scenariosFor, startRun } from "./routes/gauntlet";
 import { createGauntletStore } from "./routes/gauntlet-store";
 import { KNOWN_POLICY_IDS } from "./routes/guard";
+import { createRecertify } from "./recertify";
 import { createReviewStore } from "./routes/review-store";
 import { createCatalog, createOrdersFor, createRecordOrder, createSessionDecisions, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
 import { createSettings } from "./settings";
@@ -71,6 +72,18 @@ const currentVersions = async (agentId: AgentId): Promise<Versions> => {
   });
   return agentVersions(agentId, s, policies, PROMPT_VERSION);
 };
+// Queues a guarded run for each agent whose inputs changed; called after settings writes,
+// policy approvals and finished runs. Runs it queues are attributed to "auto".
+const recertify = createRecertify({
+  latest: (id) => gauntletStore.runs.latest(id),
+  versions: currentVersions,
+  start: async (agent) => {
+    await startRun(
+      { catalog, versions: currentVersions, store: gauntletStore.runs, enqueue: enqueueGauntlet, now, newId },
+      { agent, packs: [...AGENTS[agent].packs], repeats: 1, guarded: true, created_by: "auto" },
+    );
+  },
+});
 // Disputes (Phase 6). dispute_auto_submit acts on DEFEND/CONCEDE without an operator (demo).
 const webhookId = process.env.PAYPAL_WEBHOOK_ID?.trim() || null;
 const disputeStore = createDisputeStore(db);
@@ -181,6 +194,7 @@ const app = createApp({
       if (!("status" in res)) throw new Error("notify skipped");
       return res;
     },
+    onChange: recertify,
   },
   gauntlet: {
     operatorKey: KEEL_OPERATOR_KEY,
@@ -252,6 +266,7 @@ const app = createApp({
     approve: (id, version, edits, entry) => approveVersion(db, id, version, edits, entry),
     discard: (id, version, entry) => discardVersion(db, id, version, entry),
     newId,
+    onChange: recertify,
   },
 });
 
@@ -301,7 +316,7 @@ if (process.env.RUN_WORKER === "true") {
     // concurrency are read once, at run start, so every scenario in a run uses one config.
     gauntlet: async (runId) => {
       const s = await settings.get();
-      return runGauntlet(
+      await runGauntlet(
         {
           store: gauntletStore.runner,
           keel: client,
@@ -323,6 +338,8 @@ if (process.env.RUN_WORKER === "true") {
         },
         runId,
       );
+      // A change made while this run was going is picked up now.
+      await recertify().catch((e: unknown) => console.error("recertify failed:", e instanceof Error ? e.name : "unknown"));
     },
   });
 }

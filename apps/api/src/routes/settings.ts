@@ -22,6 +22,8 @@ export interface SettingsOptions {
   reschedulePoll: (seconds: number) => Promise<void>;
   getHookUrl: () => Promise<string | null>;
   send: (hookUrl: string) => Promise<{ status: number }>;
+  /** Called after a committed write; failures are logged, never returned. */
+  onChange: () => Promise<void>;
 }
 
 const Update = z.strictObject({ operator: z.string().min(1).max(64), values: z.record(z.string(), z.unknown()) });
@@ -76,6 +78,7 @@ export function mountSettings(app: Hono, opts: SettingsOptions): void {
     } catch {
       return c.json({ error: "settings_write_failed" }, 500);
     }
+    opts.onChange().catch((e: unknown) => console.error("recertify failed:", e instanceof Error ? e.name : "unknown"));
     const poll = result.changes.dispute_poll_seconds;
     if (section !== "disputes" || !poll) return c.json({ changes: result.changes });
     // The write is committed: a failed reschedule must not turn into a 500 the client would retry as a no-op.
