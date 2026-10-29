@@ -15,7 +15,7 @@ export const KNOWN_POLICY_IDS = ["refund-standard", "discount-goodwill", "policy
 
 export interface GuardOptions {
   merchantKey: string;
-  session: (id: string) => Promise<{ id: string; state: string; expires_at: string } | null>;
+  session: (id: string) => Promise<{ id: string; state: string; agent_id: string; expires_at: string } | null>;
   /** Only ledger rows belonging to this session. */
   turnDecisions: (sessionId: string, ids: string[]) => Promise<TurnDecision[]>;
   /** Executed refund/discount ALLOWs from this session, which may back a restated commitment. */
@@ -82,7 +82,7 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
         mode: "LIVE",
         verdict: "BLOCK",
         reason_codes: ["VERIFIER_UNAVAILABLE"],
-        payload: { tool: "guard", draft: req.draft_reply, control_error: true },
+        payload: { tool: "guard", agent_id: session.agent_id, draft: req.draft_reply, control_error: true },
       });
       return c.json({ verdict: "BLOCK", reason_codes: ["VERIFIER_UNAVAILABLE"], final_reply: SAFE_FALLBACK, decision_id, session_state: session.state, shadow: false });
     }
@@ -108,7 +108,7 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
         mode: ledgerMode(ctl.mode, "QUARANTINED"),
         verdict: "HOLD",
         reason_codes: ["RISK_THRESHOLD"],
-        payload: { tool: "guard", draft: req.draft_reply, quarantined: true, risk_score },
+        payload: { tool: "guard", agent_id: session.agent_id, draft: req.draft_reply, quarantined: true, risk_score },
       });
       return held(decision_id);
     };
@@ -162,6 +162,7 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
       reason_codes: result.reason_codes,
       payload: {
         tool: "guard",
+        agent_id: session.agent_id,
         input,
         result,
         extractor: { ...extractor, latency_ms },

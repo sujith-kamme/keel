@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createDb } from "@keel/db";
+import { type Db, agentControls, createDb, eq, sessions } from "@keel/db";
 import type { PayPalClient } from "@keel/paypal";
 import { describe, expect, it } from "vitest";
 import type { RiskService } from "../risk";
@@ -38,5 +38,34 @@ describe.skipIf(!process.env.DATABASE_URL)("withOrderLock (Postgres)", () => {
       "b",
       "a:end",
     ]);
+  });
+});
+
+describe.skipIf(!process.env.DATABASE_URL)("handoff (Postgres)", () => {
+  const db = createDb();
+
+  it("switches the session to the refund agent unless it or * is frozen", async () => {
+    // Inside a transaction that is rolled back, so no other test or dev server
+    // sharing this database ever sees an agent frozen.
+    const rollback = new Error("rollback");
+    await expect(
+      db.transaction(async (tx) => {
+        const deps = createGatewayDeps(tx as unknown as Db, {} as PayPalClient, {} as RiskService, async () => {});
+        const id = `ses_${randomUUID()}`;
+        const later = new Date(Date.now() + 600_000);
+        await tx.insert(sessions).values({ id, agentId: "agt_policy", claimedEmail: "a@b.test", orderIds: [], otpHash: "x", otpExpiresAt: later, expiresAt: later });
+        const agentOf = async () => (await tx.select({ a: sessions.agentId }).from(sessions).where(eq(sessions.id, id)))[0]!.a;
+
+        for (const frozen of ["agt_refund", "*"]) {
+          await tx.insert(agentControls).values({ agentId: frozen, frozen: true, updatedBy: "test" }).onConflictDoUpdate({ target: agentControls.agentId, set: { frozen: true } });
+          expect(await deps.handoff(id, "agt_refund")).toBe("FROZEN");
+          expect(await agentOf()).toBe("agt_policy");
+          await tx.update(agentControls).set({ frozen: false }).where(eq(agentControls.agentId, frozen));
+        }
+        expect(await deps.handoff(id, "agt_refund")).toBe("OK");
+        expect(await agentOf()).toBe("agt_refund");
+        throw rollback;
+      }),
+    ).rejects.toBe(rollback);
   });
 });

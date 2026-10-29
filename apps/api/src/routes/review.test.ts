@@ -129,6 +129,7 @@ function setup(over: Partial<GatewayDeps> = {}, scores: ReviewOptions["scores"] 
     policy: async (id) => ({ "refund-standard": refundPolicy, "discount-goodwill": discountPolicy })[id] ?? null,
     appendLedger: async (c) => push(c),
     escalate: async () => {},
+    handoff: async () => "OK",
     withOrderLock: vi.fn((_session: string, _order: string, fn: () => Promise<unknown>) => fn()) as GatewayDeps["withOrderLock"],
     control: async () => ({ state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" }),
     assess: async () => ({}),

@@ -71,8 +71,8 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
       otpExpiresAt: new Date(Date.now() + 60_000),
       expiresAt: new Date(Date.now() + 60_000),
     });
-    await store.appendTurn({ sessionId: id, role: "customer", text: "refund please", decisionIds: [] });
-    await store.appendTurn({ sessionId: id, role: "agent", text: "on it", decisionIds: ["dec_a"] });
+    await store.appendTurn({ sessionId: id, role: "customer", text: "refund please", decisionIds: [], agentId: null });
+    await store.appendTurn({ sessionId: id, role: "agent", text: "on it", decisionIds: ["dec_a"], agentId: "agt_refund" });
 
     const ledger = (tool: string): LedgerContent => ({
       decision_id: `dec_${randomUUID().replaceAll("-", "")}`,
@@ -110,9 +110,9 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     expect(listed!.last_turn_at).toBe((await store.turns(id)).at(-1)!.created_at);
 
     const turns = await store.turns(id);
-    expect(turns.map((t) => [t.role, t.decision_ids])).toEqual([
-      ["customer", []],
-      ["agent", ["dec_a"]],
+    expect(turns.map((t) => [t.role, t.decision_ids, t.agent_id])).toEqual([
+      ["customer", [], null],
+      ["agent", ["dec_a"], "agt_refund"],
     ]);
     const decisions = await store.decisions(id);
     expect(decisions.map((d) => d.tool)).toEqual(["get_order", "offer_refund", "guard", "guard", "guard", "guard"]);

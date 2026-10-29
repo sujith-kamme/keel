@@ -150,7 +150,7 @@ export function createTurnStore(db: Db): TurnStore {
     },
     turns: async (sessionId) => {
       const rows = await db.select().from(sessionTurns).where(eq(sessionTurns.sessionId, sessionId)).orderBy(asc(sessionTurns.id));
-      return rows.map((r) => ({ role: r.role as "customer" | "agent", text: r.text, decision_ids: r.decisionIds, created_at: r.createdAt.toISOString() }));
+      return rows.map((r) => ({ role: r.role as "customer" | "agent", text: r.text, decision_ids: r.decisionIds, agent_id: r.agentId, created_at: r.createdAt.toISOString() }));
     },
     decisions: async (sessionId) => {
       const rows = await db

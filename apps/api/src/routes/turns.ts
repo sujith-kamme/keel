@@ -1,3 +1,4 @@
+import { isAgentId } from "@keel/agent";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import type { SessionMode } from "../mode";
@@ -30,6 +31,8 @@ export interface Turn {
   role: "customer" | "agent";
   text: string;
   decision_ids: string[];
+  /** The agent that wrote an agent turn; null on customer turns and on turns from before the split. */
+  agent_id: string | null;
   created_at: string;
 }
 
@@ -63,7 +66,7 @@ export interface TurnStore {
   turns: (sessionId: string) => Promise<Turn[]>;
   /** Ledger rows for the session, in ledger order. */
   decisions: (sessionId: string) => Promise<DecisionSummary[]>;
-  appendTurn: (turn: { sessionId: string; role: "customer" | "agent"; text: string; decisionIds: string[] }) => Promise<void>;
+  appendTurn: (turn: { sessionId: string; role: "customer" | "agent"; text: string; decisionIds: string[]; agentId: string | null }) => Promise<void>;
   customerTurnCount: (sessionId: string) => Promise<number>;
 }
 
@@ -86,6 +89,7 @@ const AppendTurn = z.object({
   role: z.enum(["customer", "agent"]),
   text: z.string().min(1).max(4000),
   decision_ids: z.array(z.string().regex(/^dec_[A-Za-z0-9]{1,64}$/)).max(10),
+  agent_id: z.string().refine(isAgentId).optional(),
 });
 
 async function body<T>(c: Context, schema: z.ZodType<T>): Promise<T | null> {
@@ -132,7 +136,13 @@ export function mountTurns(app: Hono, opts: TurnOptions): void {
     if (req.role === "customer" && (await opts.store.customerTurnCount(id)) >= MAX_CUSTOMER_TURNS) {
       return c.json({ error: "turn_limit" }, 429);
     }
-    await opts.store.appendTurn({ sessionId: id, role: req.role, text: req.text, decisionIds: req.decision_ids });
+    await opts.store.appendTurn({
+      sessionId: id,
+      role: req.role,
+      text: req.text,
+      decisionIds: req.decision_ids,
+      agentId: req.role === "agent" ? (req.agent_id ?? null) : null,
+    });
     return c.json({}, 201);
   });
 }

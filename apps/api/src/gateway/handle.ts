@@ -10,7 +10,8 @@ export type ToolCall =
   | { tool: "offer_refund"; args: { order_id: string; amount: string; reason: string; policy_id: string } }
   | { tool: "offer_discount"; args: { percent: number; policy_id: string; order_id?: string } }
   | { tool: "state_policy"; args: { policy_id: string } }
-  | { tool: "escalate_to_human"; args: { reason: string } };
+  | { tool: "escalate_to_human"; args: { reason: string } }
+  | { tool: "handoff_to_refund"; args: { order_id: string; reason: string } };
 
 export interface StoreOrder {
   orderId: string;
@@ -34,6 +35,8 @@ export interface GatewayDeps {
   policy: (policyId: string) => Promise<unknown>;
   appendLedger: (content: LedgerContent) => Promise<unknown>;
   escalate: (sessionId: string) => Promise<void>;
+  /** Moves the session to `to` unless that agent (or "*") is frozen. Throws on DB error. */
+  handoff: (sessionId: string, to: "agt_refund") => Promise<"OK" | "FROZEN">;
   /** Serializes money decisions: session lock, then order lock (fixed order), held until `fn` resolves. */
   withOrderLock: <T>(sessionId: string, orderId: string, fn: () => Promise<T>) => Promise<T>;
   control: (sessionId: string) => Promise<{ state: string; agent_frozen: boolean; score: number; mode: string; guard_mode: string }>;
@@ -75,6 +78,8 @@ export async function handleTool(deps: GatewayDeps, cap: Capability, call: ToolC
   const amount = call.tool === "offer_refund" ? call.args.amount : undefined;
 
   const isMoney = call.tool === "offer_refund" || call.tool === "offer_discount";
+  // A handoff leads to money tools, so it fails closed like one.
+  const gated = isMoney || call.tool === "handoff_to_refund";
   let ctl = await deps.control(cap.session_id).catch(() => null);
 
   // Exactly one ledger row per call.
@@ -90,20 +95,20 @@ export async function handleTool(deps: GatewayDeps, cap: Capability, call: ToolC
       mode: ctl ? ledgerMode(ctl.mode, ctl.state) : "LIVE",
       verdict: outcome.verdict,
       reason_codes: [outcome.reason],
-      payload: { tool: call.tool, args: call.args, message, risk_score: ctl?.score ?? null, ...outcome.record },
+      payload: { tool: call.tool, args: call.args, message, risk_score: ctl?.score ?? null, agent_id: cap.agent_id, ...outcome.record },
     });
     return message;
   };
 
-  // Money tools fail closed: an unreadable, frozen or quarantined session holds
-  // before scope, facts or PayPal are touched.
+  // Money tools and the handoff fail closed: an unreadable, frozen or quarantined
+  // session holds before scope, facts or PayPal are touched.
   let outcome: Outcome;
   let message: string | undefined;
-  if (isMoney && !ctl) {
+  if (gated && !ctl) {
     outcome = refuse("HOLD", "VERIFIER_UNAVAILABLE");
-  } else if (isMoney && ctl?.agent_frozen) {
+  } else if (gated && ctl?.agent_frozen) {
     outcome = refuse("HOLD", "AGENT_FROZEN");
-  } else if (isMoney && ctl?.state === "QUARANTINED") {
+  } else if (gated && ctl?.state === "QUARANTINED") {
     outcome = refuse("HOLD", "RISK_THRESHOLD");
   } else if (!checkScope(cap, { tool: call.tool, order_id: orderId, amount }, "0.00")) {
     outcome = refuse("BLOCK", "CAPABILITY_OUT_OF_SCOPE");
@@ -160,6 +165,12 @@ async function run(deps: GatewayDeps, cap: Capability, call: Exclude<ToolCall, {
     case "escalate_to_human":
       await deps.escalate(cap.session_id);
       return ok("I've asked a member of our team to join this conversation.");
+    case "handoff_to_refund": {
+      const r = await deps.handoff(cap.session_id, "agt_refund").catch(() => null);
+      if (r === null) return refuse("HOLD", "VERIFIER_UNAVAILABLE");
+      if (r === "FROZEN") return refuse("HOLD", "AGENT_FROZEN");
+      return ok("A refunds specialist is joining. Tell the customer that in one short line and end your reply.");
+    }
   }
 }
 
