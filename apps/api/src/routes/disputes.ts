@@ -56,6 +56,8 @@ export interface DisputeDetail extends DisputeListItem {
 
 export interface DisputeApiStore {
   list: (limit: number) => Promise<DisputeListItem[]>;
+  /** When a poll last reached PayPal; null before the first one. */
+  lastSyncedAt: () => Promise<string | null>;
   detail: (id: string) => Promise<DisputeDetail | null>;
   row: (id: string) => Promise<DisputeRow | null>;
   pdf: (id: string) => Promise<Uint8Array | null>;
@@ -138,7 +140,8 @@ export function mountDisputes(app: Hono, opts: DisputesOptions): void {
   app.get("/v1/disputes", async (c) => {
     const no = denied(c);
     if (no) return no;
-    return c.json({ items: await opts.store.list(50) });
+    const [items, lastSyncedAt] = await Promise.all([opts.store.list(50), opts.store.lastSyncedAt()]);
+    return c.json({ items, last_synced_at: lastSyncedAt });
   });
 
   app.post("/v1/disputes/sync", async (c) => {

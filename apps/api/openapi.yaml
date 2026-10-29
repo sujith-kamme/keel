@@ -982,6 +982,7 @@ paths:
                 type: object
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/Dispute" } }
+                  last_synced_at: { type: [string, "null"], format: date-time, description: When a poll (scheduled or Sync now) last reached PayPal; null before the first. }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
   /v1/disputes/sync:
@@ -1150,6 +1151,7 @@ paths:
                 properties:
                   rows: { type: array, items: { $ref: "#/components/schemas/LedgerRow" } }
                   next_before_seq: { type: [integer, "null"] }
+                  total: { type: integer, description: Entries in the whole ledger }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -1187,6 +1189,30 @@ paths:
               schema: { type: array, items: { $ref: "#/components/schemas/LedgerRow" } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/ledger/{seq}:
+    get:
+      tags: [Ledger]
+      operationId: ledgerEntry
+      summary: One ledger entry, its chain neighbours and a check of its own hash and link
+      security: [{ operatorKey: [] }]
+      parameters:
+        - { name: seq, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: The entry
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entry: { $ref: "#/components/schemas/LedgerRow" }
+                  prev: { type: ["object", "null"], properties: { seq: { type: integer }, hash: { type: string } } }
+                  next: { type: ["object", "null"], properties: { seq: { type: integer }, hash: { type: string } } }
+                  hash_ok: { type: boolean, description: The entry's hash recomputed from its content and prev_hash matches }
+                  link_ok: { type: boolean, description: prev_hash equals the previous entry's hash (null for the first entry) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/overview:
     get:

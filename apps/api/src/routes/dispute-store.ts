@@ -1,5 +1,5 @@
 import type { DisputeClassification } from "@keel/core";
-import { type Db, activePolicy, and, appendLedger, asc, desc, disputes, eq, inArray, ledgerEntries, sessionTurns, sessions, sql, storeOrders } from "@keel/db";
+import { type Db, activePolicy, and, appendLedger, asc, desc, disputes, eq, inArray, ledgerEntries, readSettings, sessionTurns, sessions, settings, sql, storeOrders } from "@keel/db";
 import type { LedgerContent } from "@keel/engine";
 import type { Dispute } from "@keel/paypal/disputes";
 import type { DisputeAction, DisputeContext, DisputeOutcome, DisputeRow, DisputeStore, LedgerRow } from "@keel/worker/dispute";
@@ -47,6 +47,9 @@ const ledgerRow = (r: typeof ledgerEntries.$inferSelect): LedgerRow => ({
   hash: r.hash,
   created_at: r.createdAt.toISOString(),
 });
+
+// A settings row, but not a setting: it is written by the poll, never by an operator, and has no ledger entry.
+const LAST_SYNCED = "disputes_last_synced_at";
 
 // Keep what the console shows; buyer messages are capped (they're untrusted text).
 function trimmed(d: Dispute): Dispute {
@@ -173,6 +176,16 @@ export function createDisputeStore(db: Db): DisputeStore & DisputeApiStore {
         .orderBy(desc(disputes.updatedAt))
         .limit(50);
       return rows.map((r) => r.id);
+    },
+
+    markSynced: async (at) => {
+      const value = at.toISOString();
+      await db.insert(settings).values({ key: LAST_SYNCED, value }).onConflictDoUpdate({ target: settings.key, set: { value, updatedAt: at } });
+    },
+
+    lastSyncedAt: async () => {
+      const v = (await readSettings(db, [LAST_SYNCED]))[LAST_SYNCED];
+      return typeof v === "string" ? v : null;
     },
 
     row: async (id) => {

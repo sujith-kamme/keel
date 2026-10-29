@@ -1,6 +1,6 @@
 import { chainEntry, type LedgerContent, type LedgerRecord } from "@keel/engine";
 import type { Mode, ReasonCode, Verdict } from "@keel/core";
-import { and, asc, desc, lt, ne, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gt, lt, ne, sql } from "drizzle-orm";
 import type { Db } from "./client";
 import { ledgerEntries } from "./schema";
 
@@ -84,4 +84,23 @@ export async function readLedgerPage(db: Db, opts: { beforeSeq?: number; limit: 
 export async function readChain(db: Db): Promise<{ seq: number; record: LedgerRecord }[]> {
   const rows = await db.select().from(ledgerEntries).orderBy(asc(ledgerEntries.seq));
   return rows.map((row) => ({ seq: row.seq, record: toRecord(row) }));
+}
+
+export async function countLedger(db: Db): Promise<number> {
+  const [row] = await db.select({ n: count() }).from(ledgerEntries);
+  return row?.n ?? 0;
+}
+
+type Neighbour = { seq: number; hash: string } | null;
+
+/** One entry with its chain neighbours, so its hash and link can be checked on their own. */
+export async function readLedgerEntry(db: Db, seq: number): Promise<{ row: LedgerPageRow; prev: Neighbour; next: Neighbour } | null> {
+  const [row] = await db.select().from(ledgerEntries).where(eq(ledgerEntries.seq, seq));
+  if (!row) return null;
+  const near = { seq: ledgerEntries.seq, hash: ledgerEntries.hash };
+  const [[prev], [next]] = await Promise.all([
+    db.select(near).from(ledgerEntries).where(lt(ledgerEntries.seq, seq)).orderBy(desc(ledgerEntries.seq)).limit(1),
+    db.select(near).from(ledgerEntries).where(gt(ledgerEntries.seq, seq)).orderBy(asc(ledgerEntries.seq)).limit(1),
+  ]);
+  return { row: { ...toRecord(row), seq: row.seq, created_at: row.createdAt }, prev: prev ?? null, next: next ?? null };
 }

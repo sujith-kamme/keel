@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { appendLedger, createDb, disputes, eq, ledgerEntries, sessions, sql, storeOrders } from "@keel/db";
+import { appendLedger, createDb, disputes, eq, ledgerEntries, sessions, settings, sql, storeOrders } from "@keel/db";
 import type { Dispute } from "@keel/paypal/disputes";
 import type { Classified, LedgerEntry } from "@keel/worker/dispute";
 import { afterAll, describe, expect, it } from "vitest";
@@ -92,5 +92,18 @@ describe.skipIf(!process.env.DATABASE_URL)("dispute store (Postgres)", () => {
     expect(await store.setAction(d.dispute_id, ["SUBMITTING"], "FAILED", "400 X", now)).toBe(true);
     expect((await store.detail(d.dispute_id))).toMatchObject({ action: "FAILED", action_error: "400 X" });
     expect(await store.openIds()).toContain(d.dispute_id);
+  });
+
+  it("records when a poll last reached PayPal", async () => {
+    const before = await store.lastSyncedAt();
+    const at = new Date("2026-10-28T09:00:00.000Z");
+    try {
+      await store.markSynced(at);
+      expect(await store.lastSyncedAt()).toBe(at.toISOString());
+    } finally {
+      // Leave the real "synced" time as it was.
+      if (before) await store.markSynced(new Date(before));
+      else await db.delete(settings).where(eq(settings.key, "disputes_last_synced_at"));
+    }
   });
 });
