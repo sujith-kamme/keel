@@ -8,7 +8,7 @@ try {
 
 const nextConfig: NextConfig = {
   /* config options here */
-  transpilePackages: ["@keel/agent"],
+  transpilePackages: ["@keel/agent", "@keel/extractor", "@keel/gauntlet"],
   cacheComponents: true,
   partialPrefetching: true,
   async headers() {

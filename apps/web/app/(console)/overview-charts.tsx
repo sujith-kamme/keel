@@ -2,7 +2,7 @@
 
 import { AllCommunityModule, type AgChartOptions, ModuleRegistry } from "ag-charts-community";
 import { AgCharts } from "ag-charts-react";
-import { useEffect, useState } from "react";
+import { useAgTheme } from "@/lib/ag-theme";
 import type { DayCounts, DisputeOutcomes } from "@/lib/overview-view";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -15,22 +15,9 @@ const VERDICTS = [
   { key: "BLOCK", fill: "#dc2626" },
 ] as const;
 
-/** Follows the console's prefers-color-scheme, like the grids do. */
-function useDark() {
-  const [dark, setDark] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => setDark(mq.matches);
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
-  return dark;
-}
-
 export function OverviewCharts({ days, disputes }: { days: DayCounts[]; disputes: DisputeOutcomes }) {
-  const dark = useDark();
-  const base = { theme: dark ? "ag-default-dark" : "ag-default", background: { visible: false } } as const;
+  const { chart } = useAgTheme();
+  const base = { theme: chart, background: { visible: false } } as const;
 
   const decisions: AgChartOptions = {
     ...base,

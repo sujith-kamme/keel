@@ -1,20 +1,16 @@
 "use client";
 
-import { colorSchemeVariable, themeQuartz, type ColDef, type ICellRendererParams } from "ag-grid-community";
+import { type ColDef, type ICellRendererParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { CLASS_STYLE, OUTCOME_STYLE, type DisputeRow } from "@/lib/disputes-view";
 import { relativeTime } from "@/lib/sessions-view";
 import { checkPayPal, lookup } from "./actions";
+import { useAgTheme } from "@/lib/ag-theme";
 
 import "@/lib/ag-grid";
-
-const theme = themeQuartz
-  .withPart(colorSchemeVariable)
-  .withParams({ backgroundColor: "#ffffff", foregroundColor: "#171717" }, "light")
-  .withParams({ backgroundColor: "#0a0a0a", foregroundColor: "#ededed" }, "dark");
 
 const chip = (styles: Record<string, string>) =>
   function Chip({ value }: ICellRendererParams<DisputeRow, string>) {
@@ -42,18 +38,11 @@ const columns: ColDef<DisputeRow>[] = [
 ];
 
 export function DisputesGrid({ rows }: { rows: DisputeRow[] }) {
-  // AG Grid follows data-ag-theme-mode; mirror the console's prefers-color-scheme.
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => document.body.setAttribute("data-ag-theme-mode", mq.matches ? "dark" : "light");
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
+  const { grid } = useAgTheme();
   const defaultColDef = useMemo<ColDef<DisputeRow>>(() => ({ sortable: true, resizable: true }), []);
   return (
     <div className="mt-4">
-      <AgGridReact<DisputeRow> theme={theme} rowData={rows} columnDefs={columns} defaultColDef={defaultColDef} getRowId={(p) => p.data.id} domLayout="autoHeight" />
+      <AgGridReact<DisputeRow> theme={grid} rowData={rows} columnDefs={columns} defaultColDef={defaultColDef} getRowId={(p) => p.data.id} domLayout="autoHeight" />
     </div>
   );
 }

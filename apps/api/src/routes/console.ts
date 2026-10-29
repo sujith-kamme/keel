@@ -69,7 +69,7 @@ const Operator = z.string().min(1).max(64);
 const Login = z.strictObject({ email: z.string().min(1).max(254), password: z.string().min(1).max(128), ip: z.string().min(1).max(64) });
 const EmailChange = z.strictObject({ email: z.string().max(254).transform((e) => e.toLowerCase()).pipe(Email), operator: Operator });
 const PasswordChange = z
-  .strictObject({ current_password: z.string().min(1).max(128), new_password: Password, operator: Operator })
+  .strictObject({ current_password: z.string().min(1).max(128), new_password: Password, operator: Operator, ip: z.string().min(1).max(64).optional() })
   .refine((b) => b.new_password !== b.current_password);
 const Revoke = z.strictObject({ operator: Operator });
 const Version = /^\d{1,9}$/;
@@ -180,8 +180,22 @@ export function mountConsole(app: Hono, opts: ConsoleOptions): void {
     safely(async (c) => {
       const req = PasswordChange.safeParse(await c.req.json().catch(() => null));
       if (!req.success) return c.json({ error: "invalid_request" }, 400);
+      // Wrong current passwords count against the same per-IP limit as sign-in. A caller without an IP shares one counter.
+      const ip = req.data.ip ?? "unknown";
+      let gate: Awaited<ReturnType<typeof attempt>>;
+      try {
+        gate = await attempt(ip);
+      } catch {
+        return c.json({ error: "unavailable" }, 503);
+      }
+      if (!gate.allowed) return c.json({ error: "locked", retry_after_s: gate.retryAfterS }, 429);
       const a = await account();
       if (!(await verifyPassword(req.data.current_password, a.passwordHash))) return c.json({ error: "invalid_credentials" }, 401);
+      try {
+        await redis.del(failKey(ip));
+      } catch {
+        return c.json({ error: "unavailable" }, 503);
+      }
       const version = await store.setPassword(
         a.passwordHash,
         await hashPassword(req.data.new_password),

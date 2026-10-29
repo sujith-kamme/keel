@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { CONSOLE_COOKIE, consoleSessionChecker, consoleUser } from "./console-auth";
 import { env } from "./env";
 import type { Certification, Run, RunResult, ScenarioEntry, StartInput } from "./context-view";
@@ -28,20 +29,34 @@ export interface AgentControl {
   updated_by: string | null;
 }
 
+/** Env-derived API status from GET /v1/settings; never holds a secret. */
+export interface SettingsStatus {
+  paypal: { mode: "sandbox" | "live"; client_id: string | null; webhook_configured: boolean };
+  anthropic: { key_set: boolean };
+  demo_otp: boolean;
+}
+
+export interface Settings {
+  values: Record<string, unknown>;
+  zapier: { configured: boolean };
+  status: SettingsStatus;
+}
+
 let checkSession: ReturnType<typeof consoleSessionChecker> | undefined;
 
 /**
  * The proxy's cookie check plus the account's current session version, so a password change or
  * "sign out everywhere" ends older sessions. Server actions are public endpoints, so they re-verify.
  * `user` is the account email, recorded as the operator on ledgered actions.
+ * Deduplicated per server render, since the console layout's slots and the page each call it.
  */
-export async function requireConsole(): Promise<{ user: string }> {
+export const requireConsole = cache(async (): Promise<{ user: string }> => {
   const { webSecret, keelApiUrl, operatorKey } = env();
   checkSession ??= consoleSessionChecker({ url: keelApiUrl, key: operatorKey });
   const user = await consoleUser((await cookies()).get(CONSOLE_COOKIE)?.value, webSecret, new Date(), checkSession);
   if (!user) redirect("/login");
   return { user };
-}
+});
 
 async function operator<T>(path: string, init?: RequestInit): Promise<T> {
   const { keelApiUrl, operatorKey } = env();
@@ -129,6 +144,32 @@ export const ledgerPage = (beforeSeq?: number) =>
 export const verifyLedger = () => operator<ChainResult>("/v1/ledger/verify");
 
 export const overview = () => operator<Overview>("/v1/overview");
+
+export const settings = () => operator<Settings>("/v1/settings");
+
+const put = (body: unknown): RequestInit => ({ method: "PUT", body: JSON.stringify(body) });
+
+export const saveSettings = (section: string, values: Record<string, unknown>, operatorName: string) =>
+  operator<{ changes: Record<string, unknown>; poll_rescheduled?: boolean }>(`/v1/settings/${encodeURIComponent(section)}`, put({ operator: operatorName, values }));
+
+/** Posts a `keel.test` event to the saved hook. `status` is null when Zapier could not be reached. */
+export const testZapierHook = () => operator<{ ok: boolean; status: number | null }>("/v1/settings/zapier/test", { method: "POST" });
+
+/** Account changes drop the cached session answers, so the new email or session version applies at once. */
+async function accountChange<T>(path: string, init: RequestInit): Promise<T> {
+  const r = await operator<T>(path, init);
+  checkSession = undefined;
+  return r;
+}
+
+export const changeConsoleEmail = (email: string, operatorName: string) => accountChange<{ email: string }>("/v1/console/email", put({ email, operator: operatorName }));
+
+/** Wrong current passwords count against `ip`'s sign-in limit. */
+export const changeConsolePassword = (current: string, next: string, operatorName: string, ip: string) =>
+  accountChange<{ session_version: number }>("/v1/console/password", put({ current_password: current, new_password: next, operator: operatorName, ip }));
+
+export const revokeConsoleSessions = (operatorName: string) =>
+  accountChange<{ session_version: number }>("/v1/console/sessions/revoke", post({ operator: operatorName }));
 
 /** Natural language → AG Grid state ("Ask the ledger"). Only the query and the grid's schema are sent, never rows. */
 export const gridQuery = async (query: string, schema: Record<string, unknown>) =>

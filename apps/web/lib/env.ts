@@ -30,3 +30,7 @@ export function env(): Env {
   };
   return cached;
 }
+
+/** The API's rule for its PayPal client (unset means sandbox), for pages that render before sign-in. */
+export const paypalSandbox = (): boolean =>
+  new URL(process.env.PAYPAL_BASE_URL || "https://api-m.sandbox.paypal.com").hostname === "api-m.sandbox.paypal.com";

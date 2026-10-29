@@ -201,6 +201,37 @@ describe("console API: changes", () => {
     for (const secret of [PASSWORD, NEW_PASSWORD, "scrypt"]) expect(text).not.toContain(secret);
   });
 
+  it("password change locks an IP after 5 wrong current passwords, sharing the sign-in counter", async () => {
+    const { app, ledger, redis } = await setup();
+    const change = (body: Record<string, unknown>) =>
+      send(app, "PUT", "/v1/console/password", { current_password: PASSWORD, new_password: NEW_PASSWORD, operator: EMAIL, ip: "1.2.3.4", ...body });
+    for (let i = 0; i < 5; i++) expect((await change({ current_password: "wrong-password-123" })).status).toBe(401);
+    const locked = await change({});
+    expect(locked.status).toBe(429);
+    expect(await locked.json()).toEqual({ error: "locked", retry_after_s: LOCK_SECONDS });
+    expect((await login(app, {})).status).toBe(429);
+    expect(ledger).toHaveLength(0);
+    expect((await change({ ip: "5.6.7.8" })).status).toBe(200);
+    expect(redis.keys.has(failKey("5.6.7.8"))).toBe(false);
+    expect((await change({ ip: "x".repeat(65) })).status).toBe(400);
+  });
+
+  it("password change without an IP is limited on a shared counter", async () => {
+    const { app, redis } = await setup();
+    await send(app, "PUT", "/v1/console/password", { current_password: "wrong-password-123", new_password: NEW_PASSWORD, operator: EMAIL });
+    expect(redis.keys.get(failKey("unknown"))?.n).toBe(1);
+  });
+
+  it("password change is 503 without Redis, and changes nothing", async () => {
+    const { app, ledger, redis } = await setup();
+    redis.down = true;
+    const res = await send(app, "PUT", "/v1/console/password", { current_password: PASSWORD, new_password: NEW_PASSWORD, operator: EMAIL, ip: "1.2.3.4" });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "unavailable" });
+    expect(ledger).toHaveLength(0);
+    expect(await valid(app, 1)).toBe(true);
+  });
+
   it("email change lowercases, ledgers from/to and keeps the session version", async () => {
     const { app, ledger } = await setup();
     expect((await send(app, "PUT", "/v1/console/email", { email: "not-an-email", operator: EMAIL })).status).toBe(400);
