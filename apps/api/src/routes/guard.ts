@@ -5,7 +5,11 @@ import type { ExtractInput, ExtractorModel } from "@keel/extractor";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import { ledgerMode } from "../mode";
+import { within } from "../within";
 import { merchantAuth } from "./merchant-auth";
+
+/** The settings read is a cached DB read; one that hangs this long fails closed. */
+const SETTINGS_READ_MS = 1000;
 
 export const KNOWN_POLICY_IDS = ["refund-standard", "discount-goodwill", "policy-returns", "policy-bereavement", "policy-shipping"];
 
@@ -120,13 +124,13 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
     }
     const customer_message = req.conversation.findLast((t) => t.role === "customer")?.text ?? null;
 
-    // A failed settings read is an extractor failure: fail closed like any other.
+    // A failed or hung settings read is an extractor failure: fail closed like any other.
     let extractor: { model: string | null; prompt_version: string | null } = { model: null, prompt_version: null };
     let extraction: Extraction | null = null;
     let extractor_error: string | undefined;
     const started = performance.now();
     try {
-      const { timeout_ms, ...stamp } = await opts.extractor();
+      const { timeout_ms, ...stamp } = await within(opts.extractor(), SETTINGS_READ_MS);
       extractor = stamp;
       extraction = await opts.extract({ draft: req.draft_reply, customer_message, policy_ids: KNOWN_POLICY_IDS }, { model: stamp.model, timeout_ms });
     } catch (e) {

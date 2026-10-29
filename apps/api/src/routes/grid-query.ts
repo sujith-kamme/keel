@@ -2,6 +2,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import type { Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
+import { within } from "../within";
 import { operatorAuth } from "./operator-auth";
 
 export interface GridQueryOptions {
@@ -76,10 +77,10 @@ export function mountGridQuery(app: Hono, opts: GridQueryOptions): void {
       const req = GridQuery.safeParse(await c.req.json().catch(() => null));
       if (!req.success) return c.json({ error: "invalid_request" }, 400);
 
-      // Read before the timeout starts, so its rejection always has a listener.
+      // Read before the model timeout starts, bounded by the same limit.
       let model: string;
       try {
-        model = await opts.model();
+        model = await within(opts.model(), opts.timeoutMs);
       } catch {
         console.warn("grid query failed: settings unavailable");
         return c.json({ error: "model_unavailable" }, 502);

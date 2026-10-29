@@ -1,7 +1,8 @@
 import { createDb, readSettings } from "@keel/db";
 import { startWorker } from "./worker";
 
-// The standalone worker only sends notifications: it reads the hook from the settings table per job.
+// The standalone worker only sends notifications: it reads the hook per job from the settings table the API
+// seeds, so ZAPIER_HOOK_URL in this worker's own env is not used.
 const db = createDb();
 startWorker({
   hookUrl: async () => {

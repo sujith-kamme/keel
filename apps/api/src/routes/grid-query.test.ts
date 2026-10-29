@@ -134,6 +134,14 @@ describe("grid-query route", () => {
     expect(complete).not.toHaveBeenCalled();
   });
 
+  it("maps a hung model setting read to 502 within the timeout", async () => {
+    const complete = vi.fn<GridQueryOptions["complete"]>(async () => reply("{}"));
+    const res = await post(setup({ complete, model: () => new Promise(() => {}) }).app, { query: "held refunds", schema });
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "model_unavailable" });
+    expect(complete).not.toHaveBeenCalled();
+  });
+
   it("is not cut off by the app's 64 KB body limit", async () => {
     const complete = vi.fn<GridQueryOptions["complete"]>(async () => reply("{}"));
     const app = createApp({

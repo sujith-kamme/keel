@@ -239,6 +239,15 @@ describe("POST /v1/guard", () => {
     expect((ledger[0]!.payload as { extractor_error: string }).extractor_error).toBe("Error");
   });
 
+  it("fails closed when the extractor settings read hangs", async () => {
+    const { app, ledger, calls } = setup({ extractor: () => new Promise(() => {}) });
+    const res = (await (await post(app, valid)).json()) as { verdict: string; reason_codes: string[] };
+    expect(res).toMatchObject({ verdict: "BLOCK", reason_codes: ["EXTRACTOR_UNAVAILABLE"] });
+    expect(calls.extract).toHaveLength(0);
+    expect(ledger).toHaveLength(1);
+    expect((ledger[0]!.payload as { extractor_error: string }).extractor_error).toBe("TimeoutError");
+  });
+
   it("takes session_state from the session row", async () => {
     const { app } = setup({ session: async (id) => ({ id, state: "HELD", expires_at: "2026-10-27T12:30:00.000Z" }) });
     expect(((await (await post(app, valid)).json()) as { session_state: string }).session_state).toBe("HELD");
