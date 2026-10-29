@@ -86,7 +86,7 @@ services:
   # Tidewell's storefront: the demo merchant's own site. The demo agent runs here as the merchant backend,
   # reaching Keel only with the merchant key. It never gets PayPal secrets or the operator key.
   - type: web
-    name: tidewell-store
+    name: keel-store
     runtime: node
     plan: free
     buildCommand: npm ci && npm run build -w @keel/store
