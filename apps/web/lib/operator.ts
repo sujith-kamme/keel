@@ -6,7 +6,7 @@ import { CONSOLE_COOKIE, consoleSessionChecker, consoleUser } from "./console-au
 import { env } from "./env";
 import type { Certification, Run, RunResult, ScenarioEntry, StartInput } from "./context-view";
 import type { DisputeDetail, DisputeList } from "./disputes-view";
-import type { ChainResult, LedgerPage } from "./ledger-view";
+import type { ChainResult, LedgerPage, LedgerEntry } from "./ledger-view";
 import type { Overview } from "./overview-view";
 import type { PolicyRow, PolicySummary, PolicyVersion, Rule } from "./policies-view";
 import { errorMessage, type ReviewItem } from "./review-view";
@@ -142,6 +142,8 @@ export const ledgerPage = (beforeSeq?: number) =>
   operator<LedgerPage>(`/v1/ledger?limit=2000${beforeSeq === undefined ? "" : `&before_seq=${beforeSeq}`}`);
 
 export const verifyLedger = () => operator<ChainResult>("/v1/ledger/verify");
+
+export const ledgerEntry = (seq: number) => operator<LedgerEntry>(`/v1/ledger/${seq}`);
 
 export const overview = () => operator<Overview>("/v1/overview");
 
