@@ -175,6 +175,10 @@
   .ic-more{--i:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.7'/%3E%3Ccircle cx='12' cy='12' r='1.7'/%3E%3Ccircle cx='19' cy='12' r='1.7'/%3E%3C/svg%3E")}
   .ic-spark{--i:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linejoin='round'%3E%3Cpath d='M12 3l1.8 4.6L18 9l-4.2 1.4L12 15l-1.8-4.6L6 9l4.2-1.4z'/%3E%3C/svg%3E")}
 
+  /* Not in the boards: sign-out and the phone menu button, drawn in the same style. */
+  .ic-logout{--i:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'/%3E%3Cpath d='M16 17l5-5-5-5M21 12H9'/%3E%3C/svg%3E")}
+  .ic-menu{--i:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6h16M4 12h16M4 18h16'/%3E%3C/svg%3E")}
+
   /* Sidebar workspace label (not a switcher). */
   .sb-ws.static{cursor:default}
   .sb-ws.static:hover{background:transparent}
@@ -196,4 +200,20 @@
   .facts div:last-child{border-bottom:0}
   .facts dt{color:var(--text-3)}
   .facts dd{margin:0;text-align:right}
+
+  /* Console shell: sticky sidebar; at phone width it collapses behind a top bar with a menu button. */
+  .shell{display:flex;flex:1;min-width:0;min-height:100vh}
+  .shell>.sb{position:sticky;top:0;height:100vh;min-height:0;overflow-y:auto}
+  .sb-mbar{display:none}
+  @media (max-width:767px){
+    .shell{flex-direction:column}
+    .sb-mbar{display:flex;align-items:center;gap:10px;height:52px;padding:0 8px 0 16px;background:#09090B;color:#F4F4F5;font-size:13px;font-weight:600;position:sticky;top:0;z-index:20}
+    .sb-mbar .ib{margin-left:auto;color:#A1A1AA}
+    .sb-mbar .ib:hover{background:#18181B;color:#F4F4F5}
+    .shell>.sb{display:none;flex:none;top:52px;height:auto;max-height:calc(100vh - 52px);border-right:0;z-index:20}
+    .shell.open>.sb{display:flex}
+    .shell>.sb .sb-ws{display:none}
+    .tb{padding:0 16px}
+    .pg{padding:16px 16px 32px}
+  }
 }

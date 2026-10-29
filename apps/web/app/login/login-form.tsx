@@ -4,20 +4,36 @@ import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
 import { login } from "./actions";
 
+const field = { display: "flex", flexDirection: "column", gap: 6 } as const;
+
 export function LoginForm() {
   const [state, action, pending] = useActionState(login, {});
   const next = useSearchParams().get("next") ?? "";
-  const field = "rounded border border-black/20 bg-transparent px-3 py-2 text-sm dark:border-white/20";
   return (
-    <form action={action} className="flex w-72 flex-col gap-3">
-      <img src="/keel-logo-on-light-transparent.svg" alt="Keel" className="h-10 w-auto self-start dark:hidden" />
-      <img src="/keel-logo-on-dark-transparent.svg" alt="Keel" className="hidden h-10 w-auto self-start dark:block" />
-      <h1 className="text-lg font-semibold">Keel console</h1>
+    <form
+      action={action}
+      className="pnl"
+      style={{ width: "100%", padding: 24, display: "flex", flexDirection: "column", gap: 16, boxSizing: "border-box", boxShadow: "0 1px 2px rgba(0,0,0,.04)" }}
+    >
       <input type="hidden" name="next" value={next} />
-      <input name="email" type="email" placeholder="Email" autoComplete="username" required className={field} />
-      <input name="password" type="password" placeholder="Password" autoComplete="current-password" required className={field} />
-      {state.error && <p role="alert" className="text-sm text-red-600">{state.error}</p>}
-      <button disabled={pending} className="rounded bg-black px-3 py-2 text-sm text-white disabled:opacity-50 dark:bg-white dark:text-black">
+      <div style={field}>
+        <label htmlFor="email" className="lbl" style={{ color: "var(--text)" }}>
+          Email
+        </label>
+        <input id="email" name="email" type="email" className="in" autoComplete="username" required style={{ height: 36, width: "100%" }} />
+      </div>
+      <div style={field}>
+        <label htmlFor="password" className="lbl" style={{ color: "var(--text)" }}>
+          Password
+        </label>
+        <input id="password" name="password" type="password" className="in" autoComplete="current-password" required style={{ height: 36, width: "100%" }} />
+      </div>
+      {state.error && (
+        <p role="alert" className="sm" style={{ margin: 0, color: "var(--bad)" }}>
+          {state.error}
+        </p>
+      )}
+      <button type="submit" className="b pri" disabled={pending} style={{ height: 36, width: "100%", opacity: pending ? 0.6 : undefined }}>
         Sign in
       </button>
     </form>

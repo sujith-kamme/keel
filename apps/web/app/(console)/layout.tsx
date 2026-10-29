@@ -1,12 +1,27 @@
-import { Nav } from "@/components/nav";
+import { Suspense } from "react";
+import { ConsoleShell, UserLabel } from "@/components/shell";
+import { ConsoleUser, ReviewCount, SandboxBadge } from "./shell-data";
 
 export default function ConsoleLayout({ children }: LayoutProps<"/">) {
   return (
-    <div className="flex min-h-full flex-1">
-      <aside className="w-56 shrink-0 border-r border-black/10 dark:border-white/10">
-        <Nav />
-      </aside>
-      <main className="flex-1 p-8">{children}</main>
-    </div>
+    <ConsoleShell
+      user={
+        <Suspense fallback={<UserLabel email={null} />}>
+          <ConsoleUser />
+        </Suspense>
+      }
+      reviewCount={
+        <Suspense>
+          <ReviewCount />
+        </Suspense>
+      }
+      env={
+        <Suspense>
+          <SandboxBadge />
+        </Suspense>
+      }
+    >
+      {children}
+    </ConsoleShell>
   );
 }
