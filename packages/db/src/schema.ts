@@ -204,3 +204,11 @@ export const disputes = pgTable(
   },
   (t) => [index("disputes_capture_idx").on(t.captureId), index("disputes_updated_idx").on(t.updatedAt)],
 );
+
+// Runtime settings (Phase 7c1). Env values only seed missing keys on first boot. updated_by is null for the seed.
+export const settings = pgTable("settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedBy: text("updated_by"),
+});
