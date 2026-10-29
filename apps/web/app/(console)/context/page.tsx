@@ -8,7 +8,8 @@ import { NewRunDrawer } from "./new-run-drawer";
 import { ResultsGrid } from "./results-grid";
 import { RunPicker } from "./run-picker";
 import { RunTabs } from "./run-tabs";
-import { ByPack, Kpis, Progress, RunHistory } from "./run-view";
+import { ByPack, RunHistory } from "./run-grids";
+import { Kpis, Progress } from "./run-view";
 
 type Search = Promise<{ run?: string | string[]; added?: string | string[]; new?: string | string[] }>;
 
@@ -108,7 +109,7 @@ async function Body({ search }: { search: Search }) {
             count: runs.length,
             panel:
               runs.length > 0 ? (
-                <RunHistory runs={runs} selectedId={selectedId} latestId={latestId} cert={cert} />
+                <RunHistory runs={runs} latestId={latestId} cert={cert} />
               ) : (
                 <p className="pnl-b mut" style={{ margin: 0 }}>
                   No runs yet.

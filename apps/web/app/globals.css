@@ -145,7 +145,6 @@
   .t tr:last-child td{border-bottom:0}
   .t tbody tr:hover td{background:var(--hover)}
   .t .r{text-align:right}
-  .t tr.selr td{background:var(--sel)}
   .tfoot{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-top:1px solid var(--line);font-size:12px;color:var(--text-2)}
   .srr{position:absolute;left:-9999px}
 

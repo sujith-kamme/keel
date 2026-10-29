@@ -6,6 +6,7 @@ import { activity, certStrip, usd, VERDICT_SERIES, type Overview } from "@/lib/o
 import { reasonLabel } from "@/lib/reason-labels";
 import { REVIEW_LIMIT } from "@/lib/review-view";
 import { DecisionsChart } from "./overview-charts";
+import { RecentGrid } from "./recent-grid";
 
 const n = (x: number) => x.toLocaleString("en-US");
 
@@ -150,38 +151,7 @@ function RecentActivity({ o }: { o: Overview }) {
           No live activity yet.
         </p>
       ) : (
-        <div className="tw">
-          <table className="t" style={{ minWidth: 760 }}>
-            <thead>
-              <tr>
-                <th scope="col">Time (UTC)</th>
-                <th scope="col">Event</th>
-                <th scope="col">Reference</th>
-                <th scope="col" className="r">
-                  Amount
-                </th>
-                <th scope="col">Decision</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.seq}>
-                  <td className="mut">{r.time}</td>
-                  <td>
-                    <Link href={`/ledger/${r.seq}`} style={{ color: "var(--text)" }}>
-                      {r.event}
-                    </Link>
-                  </td>
-                  <td className="mono">{r.reference ?? "—"}</td>
-                  <td className="r">{r.amount ?? "—"}</td>
-                  <td>
-                    <span className={`st ${r.decision.tone}`}>{r.decision.label}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RecentGrid rows={rows} />
       )}
     </section>
   );

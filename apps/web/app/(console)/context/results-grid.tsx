@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AskGrid } from "@/components/ask-grid";
 import { outcomeBadge, packLabel, type RunResult } from "@/lib/context-view";
+import { gridFrame } from "@/components/list-grid";
 import { useAgTheme } from "@/lib/ag-theme";
 
 import "@/lib/ag-grid";
@@ -111,15 +112,17 @@ export function ResultsGrid({ rows }: { rows: RunResult[] }) {
           </select>
         </span>
       </div>
-      <AgGridReact<RunResult>
-        theme={theme}
-        rowData={rows}
-        columnDefs={columns}
-        defaultColDef={defaultColDef}
-        getRowId={(p) => `${p.data.scenario_id}:${p.data.repeat}`}
-        domLayout="autoHeight"
-        onGridReady={(e) => setApi(e.api)}
-      />
+      <div style={gridFrame(rows.length).style}>
+        <AgGridReact<RunResult>
+          theme={theme}
+          rowData={rows}
+          columnDefs={columns}
+          defaultColDef={defaultColDef}
+          getRowId={(p) => `${p.data.scenario_id}:${p.data.repeat}`}
+          domLayout={gridFrame(rows.length).domLayout}
+          onGridReady={(e) => setApi(e.api)}
+        />
+      </div>
     </>
   );
 }
