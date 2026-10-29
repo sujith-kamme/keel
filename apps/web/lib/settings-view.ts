@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { Rule } from "./policies-view";
 
 // Mirrors apps/api/src/settings-schema.ts (that module pulls in worker code, so it is not imported here).
-// The API validates again; these keep a bad value from making the round trip.
+// The API validates again; these keep a bad value from making the round trip. apps/api/src/web-mirror.test.ts checks they match.
 const int = (min: number, max: number) => z.number().int().min(min).max(max);
 
 /** worker notify's HOOK_PREFIX: the API only stores (and the worker only posts to) Zapier hook URLs. */

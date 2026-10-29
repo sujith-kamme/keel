@@ -7,7 +7,8 @@ import { type GatewayDeps, type Outcome, type ToolCall, offerDiscount, offerRefu
 import { operatorAuth } from "./operator-auth";
 import { MAX_REFUND_TOTAL } from "./sessions";
 
-const LIMIT = 200;
+/** The most items GET /v1/review returns (the console shows "200+" at this count). */
+export const LIMIT = 200;
 
 export interface HeldEntry {
   decision_id: string;
