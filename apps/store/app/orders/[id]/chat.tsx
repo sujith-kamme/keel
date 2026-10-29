@@ -25,13 +25,16 @@ export function SupportChat({ orderId }: { orderId: string }) {
   const [notice, setNotice] = useState<string>();
   const log = useRef<HTMLDivElement>(null);
 
-  // Resolves to whether support could be reached.
+  // Resolves to the agent's greeting, or null when support can't be reached.
   const open = () =>
     post("session", { order_id: orderId })
-      .then((res) => res.ok)
-      .catch(() => false);
+      .then(async (res) => (res.ok ? ((await res.json()) as { greeting: string }).greeting : null))
+      .catch(() => null);
 
-  const apply = (ok: boolean) => setState(ok ? "ready" : "failed");
+  const apply = (greeting: string | null) => {
+    setMessages(greeting ? [{ role: "agent", text: greeting }] : []);
+    setState(greeting ? "ready" : "failed");
+  };
 
   function start() {
     setState("connecting");
@@ -112,7 +115,6 @@ export function SupportChat({ orderId }: { orderId: string }) {
         )}
         {state === "ready" && (
           <>
-            <div style={bubble("agent")}>Hi, I can help with order {orderId}. What&apos;s going on?</div>
             {messages.map((m, i) =>
               m.role === "marker" ? (
                 <p key={i} role="status" className="small dim" style={{ textAlign: "center", margin: "4px 0" }}>

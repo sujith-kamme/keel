@@ -1,7 +1,7 @@
 import { ENTRY_AGENT } from "@keel/agent";
 import { NextResponse } from "next/server";
 import { currentCustomer } from "@/lib/customer";
-import { ordersFor, startSession } from "@/lib/keel";
+import { appendTurn, ordersFor, startSession } from "@/lib/keel";
 import { SessionBody } from "@/lib/store-input";
 import { writeChatCookie } from "../cookie";
 
@@ -24,7 +24,10 @@ export async function POST(request: Request) {
       expires_at: started.expires_at,
       orders: [{ order_id: order.order_id, total: `${order.total.currency} ${order.total.value}`, items: order.items.map((i) => i.title) }],
     });
-    return NextResponse.json({ ok: true });
+    // Saved as the first agent turn so the agent knows it already greeted the shopper about this order.
+    const greeting = `Hi, I can help with order ${order.order_id}. What's going on?`;
+    await appendTurn(started.session_id, { role: "agent", text: greeting, decision_ids: [], agent_id: ENTRY_AGENT });
+    return NextResponse.json({ greeting });
   } catch (err) {
     console.error("store session failed:", err instanceof Error ? err.message : "unknown");
     return NextResponse.json({ error: "unavailable" }, { status: 502 });
