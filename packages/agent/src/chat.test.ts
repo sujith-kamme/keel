@@ -52,10 +52,48 @@ describe("chatTurn", () => {
       ["agent", "agt_policy"],
       ["agent", "agt_refund"],
     ]);
-    // Same customer message, not stored twice; the refund agent sees the handoff line last.
+    // Same customer message, not stored twice; the refund agent gets the history from before it.
     expect(seen[1]!.customerText).toBe("refund please");
-    expect(seen[1]!.history.map((h) => h.text)).toEqual(["agt_policy with tok_policy"]);
-    expect(seen[1]!.history[0]!.decisions!.map((d) => [d.tool, d.verdict])).toEqual([["handoff_to_refund", "ALLOW"]]);
+    expect(seen[1]!.history).toEqual([]);
+    // The refund hop's guard sees the conversation in real order.
+    expect(vi.mocked(keel.guard).mock.calls[1]![0].conversation).toEqual([{ role: "customer", text: "refund please" }]);
+  });
+
+  it("gives the refund agent alternating messages on a later message", async () => {
+    const { keel, turns, decide } = fakeKeel();
+    turns.push({ role: "customer", text: "hi", decision_ids: [] }, { role: "agent", text: "hello", decision_ids: [] });
+    const seen: TurnInput[] = [];
+    const agent = vi.fn(async (id: string) => ({
+      turn: async (t: TurnInput) => {
+        seen.push(t);
+        return { reply: id, decision_ids: id === "agt_policy" ? [decide(handoff("ALLOW"))] : [] };
+      },
+      close: async () => {},
+    }));
+    await chatTurn({ keel, agent, followHandoff: true, fallback: "HANDOFF" }, input);
+    const roles = (t: TurnInput) => [...t.history.map((h) => h.role), "customer"];
+    expect(roles(seen[0]!)).toEqual(["customer", "agent", "customer"]);
+    expect(seen[1]!.history).toEqual(seen[0]!.history);
+    expect(roles(seen[1]!)).toEqual(["customer", "agent", "customer"]);
+    expect(seen[1]!.customerText).toBe("refund please");
+    expect(vi.mocked(keel.guard).mock.calls[1]![0].conversation.map((c) => c.text)).toEqual(["hi", "hello", "refund please"]);
+  });
+
+  it("runs the session's current agent with a fresh token when the caller holds the old one", async () => {
+    const { keel, decide } = fakeKeel();
+    decide(handoff("ALLOW"));
+    const agent = vi.fn(async (id: string, token: string) => ({ turn: async () => ({ reply: `${id} with ${token}`, decision_ids: [] }), close: async () => {} }));
+    const out = await chatTurn({ keel, agent, followHandoff: true, fallback: "HANDOFF" }, input);
+    expect(agent).toHaveBeenCalledTimes(1);
+    expect(agent).toHaveBeenCalledWith("agt_refund", "tok_refund");
+    expect(out).toEqual({ replies: [{ agent_id: "agt_refund", text: "agt_refund with tok_refund" }], agentId: "agt_refund", token: "tok_refund" });
+  });
+
+  it("throws when the token minted after an allowed handoff is not the refund agent's", async () => {
+    const { keel, decide } = fakeKeel();
+    keel.token = vi.fn(async () => ({ agent_id: "agt_policy", capability_token: "tok_x" }));
+    const agent = vi.fn(async () => ({ turn: async () => ({ reply: "joining", decision_ids: [decide(handoff("ALLOW"))] }), close: async () => {} }));
+    await expect(chatTurn({ keel, agent, followHandoff: true, fallback: "HANDOFF" }, input)).rejects.toThrow();
   });
 
   it("stays with the policy agent when Keel did not allow the handoff, whatever the reply says", async () => {

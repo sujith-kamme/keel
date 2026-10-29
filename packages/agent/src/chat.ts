@@ -3,7 +3,7 @@ import { type AgentId, isAgentId } from "./agents";
 
 type Role = "customer" | "agent";
 type Decision = HistoryDecision & { decision_id: string };
-type Detail = { turns: { role: Role; text: string; decision_ids: string[] }[]; decisions: Decision[] };
+type Detail = { session: { agent_id: string }; turns: { role: Role; text: string; decision_ids: string[] }[]; decisions: Decision[] };
 
 export interface ChatDeps {
   keel: {
@@ -35,7 +35,7 @@ export interface ChatOutput {
 }
 
 /** The session's turns, each with the decisions it links to, as the agent's history. */
-export function chatHistory({ turns, decisions }: Detail): TurnInput["history"] {
+export function chatHistory({ turns, decisions }: Pick<Detail, "turns" | "decisions">): TurnInput["history"] {
   const byId = new Map(decisions.map((d) => [d.decision_id, d]));
   return turns.map(({ role, text, decision_ids }) => ({
     role,
@@ -50,6 +50,7 @@ export function chatHistory({ turns, decisions }: Detail): TurnInput["history"] 
 /**
  * One customer message: append it, run the current agent, guard and append its reply.
  * If Keel allowed that agent's handoff, run the refund agent on the same message with its own token.
+ * If Keel already switched the session's agent, run that agent with a freshly minted token.
  */
 export async function chatTurn(deps: ChatDeps, input: ChatInput): Promise<ChatOutput> {
   const { sessionId, context, customerText } = input;
@@ -59,7 +60,15 @@ export async function chatTurn(deps: ChatDeps, input: ChatInput): Promise<ChatOu
   const replies: ChatOutput["replies"] = [];
   let agentId = input.agentId;
   let token = input.token;
-  let history = chatHistory(first);
+  // The caller may hold the old agent's token if the last turn failed after Keel switched the session.
+  if (first.session.agent_id !== agentId) {
+    const minted = await deps.keel.token(sessionId);
+    if (!isAgentId(minted.agent_id)) throw new Error(`Unknown agent ${minted.agent_id}`);
+    agentId = minted.agent_id;
+    token = minted.capability_token;
+  }
+  // The history from before this customer message; every agent this turn gets the same one.
+  const history = chatHistory(first);
 
   for (let hop = 0; hop < 2; hop++) {
     const agent = await deps.agent(agentId, token);
@@ -93,13 +102,9 @@ export async function chatTurn(deps: ChatDeps, input: ChatInput): Promise<ChatOu
       break;
     }
     const minted = await deps.keel.token(sessionId);
-    if (!isAgentId(minted.agent_id) || minted.agent_id === agentId) break;
+    if (minted.agent_id !== "agt_refund") throw new Error(`Handoff allowed but Keel minted a token for ${minted.agent_id}`);
     agentId = minted.agent_id;
     token = minted.capability_token;
-    // `after` ends with [this customer message, the handoff line]. runTurn appends
-    // customerText itself, so drop the stored copy to avoid sending it twice.
-    const all = chatHistory(after);
-    history = [...all.slice(0, -2), all.at(-1)!];
   }
   return { replies, agentId, token };
 }
