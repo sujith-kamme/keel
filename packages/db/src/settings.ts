@@ -24,21 +24,23 @@ export type SettingChanges = Record<string, { from: unknown; to: unknown }>;
 /**
  * Under a lock, diff `values` against the stored rows, upsert only the keys that change, and append the
  * ledger row built from those changes, in one transaction. Nothing changes: no write, no ledger row.
+ * Only the changed key names are returned: values can be secrets and belong in the ledger entry alone.
  */
 export async function writeSettings(
   db: Db,
   values: Record<string, unknown>,
   operator: string,
   buildEntry: (changes: SettingChanges) => LedgerContent,
-): Promise<{ changes: SettingChanges }> {
+): Promise<{ changedKeys: string[] }> {
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext('keel_settings'))`);
     const current = await readSettings(tx, Object.keys(values));
     const changes: SettingChanges = {};
     for (const [key, to] of Object.entries(values)) {
-      if (current[key] !== to) changes[key] = { from: current[key] ?? null, to };
+      const from = current[key] ?? null;
+      if (from !== to) changes[key] = { from, to };
     }
-    if (Object.keys(changes).length === 0) return { changes };
+    if (Object.keys(changes).length === 0) return { changedKeys: [] };
     for (const [key, { to }] of Object.entries(changes)) {
       await tx
         .insert(settings)
@@ -46,6 +48,6 @@ export async function writeSettings(
         .onConflictDoUpdate({ target: settings.key, set: { value: json(to), updatedAt: sql`now()`, updatedBy: operator } });
     }
     await appendLedger(tx, buildEntry(changes));
-    return { changes };
+    return { changedKeys: Object.keys(changes) };
   });
 }

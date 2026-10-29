@@ -60,6 +60,15 @@ describe.skipIf(!process.env.DATABASE_URL)("settings (Postgres)", () => {
     expect(row?.updatedBy).toBeNull();
   });
 
+  it("a null patch for a missing row is not a change", async () => {
+    const k = key();
+    const id = `dec_${rid()}`;
+    const res = await writeSettings(db, { [k]: null }, "op@test", () => entry(id));
+    expect(res.changedKeys).toEqual([]);
+    expect(await readSettings(db, [k])).toEqual({});
+    expect(await ledgerCount(id)).toBe(0);
+  });
+
   it("rolls the change back when the ledger append throws", async () => {
     const k = key();
     await seedSettings(db, { [k]: "before" });

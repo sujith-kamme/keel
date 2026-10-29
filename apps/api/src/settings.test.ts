@@ -106,6 +106,16 @@ describe.skipIf(!process.env.DATABASE_URL)("settings service (Postgres)", () => 
     expect(await settingsEntries()).toBe(before);
   });
 
+  it("a failed write throws a sanitized error without the URL", async () => {
+    const failing = Object.assign(Object.create(db), {
+      transaction: () => Promise.reject(new Error(`insert failed, params: ${HOOK}`)),
+    });
+    const err = await createSettings(failing, {}).update("zapier", { zapier_hook_url: HOOK }, "op@test").catch((e: Error) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).not.toContain("hooks.zapier.com");
+    expect((err as Error).cause).toBeUndefined();
+  });
+
   it("ledgers a zapier change as set / cleared, never the URL", async () => {
     await reset();
     const s = createSettings(db, {});

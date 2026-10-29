@@ -55,6 +55,9 @@ export function createSettings(
             payload: { tool: "settings_update", section, changes: redacted, operator },
           };
         });
+      } catch {
+        // A driver error can carry the bound parameters, which may be the Zapier URL: surface none of it.
+        throw new Error("settings write failed");
       } finally {
         generation++;
         cache = null;
