@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attachDecisions, relativeTime, riskLevel, riskWidth, signalLabel } from "./sessions-view";
+import { attachDecisions, matchesSearch, relativeTime, riskLevel, riskWidth, sessionState, sessionsHref, signalKind } from "./sessions-view";
 import type { DecisionSummary, Turn } from "./keel";
 
 const turn = (role: Turn["role"], text: string, decision_ids: string[] = []): Turn => ({
@@ -62,6 +62,34 @@ describe("risk helpers", () => {
     const now = new Date("2026-01-01T00:10:00Z");
     expect(relativeTime("2026-01-01T00:09:30Z", now)).toBe("just now");
     expect(relativeTime("2026-01-01T00:08:00Z", now)).toBe("2 min ago");
-    expect(signalLabel({ kind: "INJECTION", weight: 40, at: "2026-01-01T00:08:00Z" }, now)).toBe("INJECTION +40 · 2 min ago");
+    expect(signalKind("INJECTION")).toBe("Prompt injection");
+    expect(signalKind("NEW_KIND")).toBe("NEW_KIND");
+  });
+});
+
+describe("sessionState", () => {
+  it("labels and tones known states, neutral for others", () => {
+    expect(sessionState("QUARANTINED")).toEqual({ label: "Quarantined", tone: "bad" });
+    expect(sessionState("ACTIVE")).toEqual({ label: "Active", tone: "ok" });
+    expect(sessionState("CLOSED")).toEqual({ label: "Closed", tone: "" });
+  });
+});
+
+describe("matchesSearch", () => {
+  const row = { claimed_email: "Maya@gmail.com", id: "ses_abc123", order_ids: ["5B20868483426524D"] };
+  it("matches email, session id or order id, ignoring case", () => {
+    expect(matchesSearch(row, "maya")).toBe(true);
+    expect(matchesSearch(row, "ABC1")).toBe(true);
+    expect(matchesSearch(row, "5b2086")).toBe(true);
+    expect(matchesSearch(row, " ")).toBe(true);
+    expect(matchesSearch(row, "sam")).toBe(false);
+  });
+});
+
+describe("sessionsHref", () => {
+  it("keeps the state and the page cursors", () => {
+    expect(sessionsHref(null, [])).toBe("/sessions");
+    expect(sessionsHref("QUARANTINED", [])).toBe("/sessions?state=QUARANTINED");
+    expect(sessionsHref(null, ["ses_a", "ses_b"])).toBe("/sessions?pages=ses_a%2Cses_b");
   });
 });

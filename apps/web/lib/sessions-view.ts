@@ -1,4 +1,4 @@
-import type { DecisionSummary, Turn } from "./keel";
+import type { DecisionSummary, SessionRow, Turn } from "./keel";
 
 export function attachDecisions(turns: Turn[], decisions: DecisionSummary[]) {
   const byId = new Map(decisions.map((d) => [d.decision_id, d]));
@@ -40,5 +40,39 @@ export function relativeTime(iso: string, now: Date): string {
   return `${Math.floor(hours / 24)} d ago`;
 }
 
-export const signalLabel = (s: { kind: string; weight: number; at: string }, now: Date) =>
-  `${s.kind} +${s.weight} · ${relativeTime(s.at, now)}`;
+
+const SIGNALS: Record<string, string> = {
+  INJECTION: "Prompt injection",
+  REPEATED_AFTER_BLOCK: "Asked again after a block",
+  FOREIGN_ORDER: "Asked about another customer's order",
+};
+export const signalKind = (kind: string) => SIGNALS[kind] ?? kind;
+
+/** The states the list filters by (GET /v1/sessions `state`), in tab order. */
+export const SESSION_STATES = ["ACTIVE", "ESCALATED", "QUARANTINED"] as const;
+
+const STATE_TONE: Record<string, string> = { ACTIVE: "ok", ESCALATED: "warn", QUARANTINED: "bad" };
+
+/** Status dot class and wording for a session state. */
+export function sessionState(state: string): { label: string; tone: string } {
+  return { label: state.charAt(0) + state.slice(1).toLowerCase(), tone: STATE_TONE[state] ?? "" };
+}
+
+/** Case-insensitive match on customer email, session id or any order id. */
+export function matchesSearch(row: Pick<SessionRow, "claimed_email" | "id" | "order_ids">, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return [row.claimed_email, row.id, ...row.order_ids].some((v) => v.toLowerCase().includes(q));
+}
+
+/**
+ * The list URL. `pages` holds the cursor of every page after the first that led here, so Previous drops
+ * the last one; the last is the current page's `before`.
+ */
+export function sessionsHref(state: string | null, pages: string[]): string {
+  const q = new URLSearchParams();
+  if (state) q.set("state", state);
+  if (pages.length > 0) q.set("pages", pages.join(","));
+  const s = q.toString();
+  return s ? `/sessions?${s}` : "/sessions";
+}

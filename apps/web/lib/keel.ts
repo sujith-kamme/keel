@@ -33,10 +33,17 @@ export interface SessionSummary {
   agent_id: string;
   claimed_email: string;
   verified: boolean;
+  order_ids: string[];
   state: string;
   mode: "LIVE" | "CONTEXT";
   created_at: string;
   expires_at: string;
+}
+
+export interface SessionRow extends SessionSummary {
+  risk_score: number | null;
+  decision_count: number;
+  last_turn_at: string | null;
 }
 
 export interface Turn {
@@ -96,8 +103,12 @@ export const verifySession = (id: string, code: string) =>
 
 export const sessionDetail = (id: string) => keel<SessionDetail>(`/v1/sessions/${encodeURIComponent(id)}`);
 
-export const listSessions = async (limit: number) =>
-  (await keel<{ sessions: SessionSummary[] }>(`/v1/sessions?limit=${encodeURIComponent(String(limit))}&mode=LIVE`)).sessions;
+export const listSessions = (opts: { limit: number; state?: string; before?: string }) => {
+  const q = new URLSearchParams({ limit: String(opts.limit), mode: "LIVE" });
+  if (opts.state) q.set("state", opts.state);
+  if (opts.before) q.set("before", opts.before);
+  return keel<{ sessions: SessionRow[]; next_before: string | null }>(`/v1/sessions?${q}`);
+};
 
 export const appendTurn = (id: string, turn: { role: "customer" | "agent"; text: string; decision_ids: string[] }) =>
   keel<unknown>(`/v1/sessions/${encodeURIComponent(id)}/turns`, post(turn));
