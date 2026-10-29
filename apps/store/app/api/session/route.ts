@@ -18,11 +18,11 @@ export async function POST(request: Request) {
       session_id: started.session_id,
       token: started.capability_token,
       email,
-      verified: false,
+      verified: true,
       expires_at: started.expires_at,
       orders: [{ order_id: order.order_id, total: `${order.total.currency} ${order.total.value}`, items: order.items.map((i) => i.title) }],
     });
-    return NextResponse.json({ demo_otp: started.demo_otp });
+    return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("store session failed:", err instanceof Error ? err.message : "unknown");
     return NextResponse.json({ error: "unavailable" }, { status: 502 });

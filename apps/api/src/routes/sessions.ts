@@ -56,6 +56,8 @@ const StartSession = z.object({
   order_ids: z.array(z.string().regex(/^[A-Za-z0-9_-]{1,64}$/)).max(20),
   mode: z.enum(["LIVE", "CONTEXT"]).default("LIVE"),
   guard_mode: z.enum(["ENFORCE", "SHADOW"]).default("ENFORCE"),
+  // The merchant has already signed this customer in, so no OTP is needed.
+  customer_authenticated: z.boolean().default(false),
 });
 const Verify = z.object({ code: z.string().regex(/^\d{6}$/) });
 
@@ -87,6 +89,8 @@ export function mountSessions(app: Hono, opts: SessionOptions): void {
     if (!req) return c.json({ error: "invalid_request" }, 400);
     // A shadow guard never blocks, so it is only for simulated (CONTEXT) sessions.
     if (req.guard_mode === "SHADOW" && req.mode === "LIVE") return c.json({ error: "invalid_request" }, 400);
+    // Gauntlet sessions exercise the OTP path, so they can't skip it.
+    if (req.customer_authenticated && req.mode === "CONTEXT") return c.json({ error: "invalid_request" }, 400);
     const now = opts.now();
     const otp = newOtp(now);
     const email = req.customer_email.toLowerCase();
@@ -105,7 +109,7 @@ export function mountSessions(app: Hono, opts: SessionOptions): void {
       // Least privilege: only the claimed customer's orders. Until the OTP is
       // verified, payer_verified still blocks every money tool.
       orderIds: await opts.store.customerOrders(req.order_ids, email),
-      verifiedPayer: null,
+      verifiedPayer: req.customer_authenticated ? email : null,
       otpHash: otp.hash,
       otpExpiresAt: new Date(otp.expires_at),
       otpAttempts: 0,
@@ -117,11 +121,11 @@ export function mountSessions(app: Hono, opts: SessionOptions): void {
     return c.json(
       {
         session_id: row.id,
-        capability_token: token(row, null, opts.signingKey),
+        capability_token: token(row, row.verifiedPayer, opts.signingKey),
         orders: row.orderIds,
         expires_at: row.expiresAt.toISOString(),
         // Simulated customers have no inbox, so CONTEXT sessions always get the code.
-        ...(opts.demoOtp || row.mode === "CONTEXT" ? { demo_otp: otp.code } : {}),
+        ...((opts.demoOtp && !row.verifiedPayer) || row.mode === "CONTEXT" ? { demo_otp: otp.code } : {}),
       },
       201,
     );

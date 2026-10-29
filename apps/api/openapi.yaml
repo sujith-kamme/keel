@@ -74,7 +74,9 @@ paths:
       summary: Open a session for a customer and get a capability token
       description: |
         The token is scoped to the customer's own orders. Money tools stay blocked until
-        the OTP is verified. `demo_otp` is returned only in demo mode or for CONTEXT sessions.
+        the OTP is verified, unless `customer_authenticated` is true: the merchant has already
+        signed the customer in, so the session starts verified. `demo_otp` is returned only
+        in demo mode for unverified sessions, or for CONTEXT sessions.
       security: [{ merchantKey: [] }]
       requestBody:
         required: true
@@ -96,6 +98,10 @@ paths:
                   enum: [ENFORCE, SHADOW]
                   default: ENFORCE
                   description: SHADOW is only allowed with mode CONTEXT.
+                customer_authenticated:
+                  type: boolean
+                  default: false
+                  description: The merchant has signed this customer in; the session starts verified. Not allowed with mode CONTEXT.
       responses:
         "201":
           description: Session opened

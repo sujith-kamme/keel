@@ -73,7 +73,7 @@ export default async function OrderPage({ params }: PageProps<"/orders/[id]">) {
             </div>
           </section>
         </div>
-        <SupportChat orderId={order.order_id} email={email} />
+        <SupportChat orderId={order.order_id} />
       </div>
     </main>
   );
