@@ -91,6 +91,8 @@ npm run seed:store        # demo catalog (Channel3) and PayPal Sandbox orders
 npm run seed:context      # Gauntlet fixture orders
 ```
 
+Runtime settings (`DEMO_AGENT_MODEL/PROMPT`, `EXTRACTOR_*`, `RISK_*`, `GAUNTLET_CUSTOMER_MODEL`, `GAUNTLET_CONCURRENCY`, `DISPUTE_AUTO_SUBMIT`, `DISPUTE_POLL_SECONDS`, `ZAPIER_HOOK_URL`) are first-boot defaults only: once the API has started they live in the settings table and are changed from the console; later env changes are ignored. The storefront agent reads its model and prompt from the API (`GET /v1/agent-config`).
+
 Run each in its own terminal:
 
 ```bash
