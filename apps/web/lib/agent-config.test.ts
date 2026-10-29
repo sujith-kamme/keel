@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { agentConfigReader } from "./agent-config";
 
-const reply = (status: number, body: unknown) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
+const reply = (status: number, body: unknown) =>
+  vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify(body), { status }));
 
 describe("agentConfigReader", () => {
   it("returns the validated model and prompt", async () => {
