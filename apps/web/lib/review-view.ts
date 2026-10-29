@@ -1,3 +1,6 @@
+import { toolLabel, usd } from "./overview-view";
+import { reasonLabel } from "./reason-labels";
+
 export interface ReviewItem {
   kind: "held_action" | "session";
   decision_id?: string;
@@ -10,17 +13,21 @@ export interface ReviewItem {
   created_at: string;
 }
 
+export type ReviewTab = "held" | "quarantined" | "escalated";
+
 export interface ReviewRow {
   id: string;
   kind: ReviewItem["kind"];
-  kindLabel: string;
+  tab: ReviewTab;
   decisionId: string | null;
   sessionId: string;
-  tool: string;
+  /** "Refund", "Discount", or the flagged session's state. */
+  action: string;
+  /** Dollar amount as sent ("12.50"), "10%" for a discount, "" for a session. */
   amount: string;
+  order: string;
+  /** Reason labels, comma-separated. */
   reasons: string;
-  score: number | null;
-  state: string;
   createdAt: string;
   canRelease: boolean;
 }
@@ -42,22 +49,41 @@ function amountOf(args: Record<string, unknown> | undefined): string {
   return "";
 }
 
+/** "$12.50" for a dollar amount, the percent as is, "—" when there is none. */
+export const amountText = (amount: string) => (amount === "" ? "—" : amount.endsWith("%") ? amount : usd(amount));
+
+const str = (v: unknown) => (typeof v === "string" ? v : "");
+
 export function buildRows(items: ReviewItem[]): ReviewRow[] {
-  return items.map((i) => ({
-    id: i.kind === "held_action" && i.decision_id ? i.decision_id : `session:${i.session_id}`,
-    kind: i.kind,
-    kindLabel: i.kind === "held_action" ? "Held action" : "Session",
-    decisionId: i.decision_id ?? null,
-    sessionId: i.session_id,
-    tool: i.tool ?? "",
-    amount: amountOf(i.args),
-    reasons: i.reason_codes.join(", "),
-    score: i.score,
-    state: i.session_state,
-    createdAt: i.created_at,
-    canRelease: i.kind === "session" && canRelease(i.session_state),
-  }));
+  return items.map((i) => {
+    const held = i.kind === "held_action";
+    return {
+      id: held && i.decision_id ? i.decision_id : `session:${i.session_id}`,
+      kind: i.kind,
+      tab: held ? "held" : i.session_state === "ESCALATED" ? "escalated" : "quarantined",
+      decisionId: i.decision_id ?? null,
+      sessionId: i.session_id,
+      action: held ? toolLabel(i.tool ?? "") : i.session_state === "ESCALATED" ? "Escalated session" : "Quarantined session",
+      amount: amountOf(i.args),
+      order: str(i.args?.order_id),
+      reasons: i.reason_codes.map(reasonLabel).join(", "),
+      createdAt: i.created_at,
+      canRelease: !held && canRelease(i.session_state),
+    };
+  });
 }
+
+/** Reason codes a policy rule produces: the item page links these to the policy the action cited. */
+const POLICY_REASONS = new Set([
+  "AMOUNT_EXCEEDS_CAPTURED",
+  "OUTSIDE_WINDOW",
+  "PAYER_NOT_VERIFIED",
+  "BUDGET_EXCEEDED",
+  "ABOVE_AUTO_APPROVE",
+  "DISCOUNT_EXCEEDS_LIMIT",
+  "PRICE_BELOW_MIN",
+]);
+export const fromPolicy = (code: string) => POLICY_REASONS.has(code);
 
 /** Short inline message for a failed operator call. */
 /** GET /v1/review returns at most this many items (LIMIT in apps/api/src/routes/review.ts). */
