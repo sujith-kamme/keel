@@ -219,11 +219,3 @@ export function parseEdits(v: unknown): Edits | null {
 export function canLearn(state: string, verdicts: string[]): boolean {
   return state === "QUARANTINED" || state === "ESCALATED" || verdicts.some((v) => v === "BLOCK" || v === "HOLD");
 }
-
-const CERT = {
-  CERTIFIED: { label: "Certified", tone: "ok" },
-  STALE: { label: "Stale", tone: "warn" },
-  NOT_CERTIFIED: { label: "Not certified", tone: "" },
-};
-/** Wording and badge class for a certification status. */
-export const certBadge = (s: Certification["status"]) => CERT[s] ?? CERT.NOT_CERTIFIED;
