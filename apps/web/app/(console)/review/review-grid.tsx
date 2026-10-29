@@ -142,15 +142,16 @@ export function ReviewGrid({ rows }: { rows: ReviewRow[] }) {
         <div style={{ padding: "0 16px 12px", borderBottom: "1px solid var(--line)" }}>
           <AskGrid api={api} examples={ASK_EXAMPLES} schemaParams={ASK_SCHEMA} />
         </div>
-        <AgGridReact<ReviewRow>
-          theme={theme}
-          rowData={shown}
-          columnDefs={columnDefs}
-          defaultColDef={defaultColDef}
-          getRowId={(p) => p.data.id}
-          domLayout="autoHeight"
-          onGridReady={(e) => setApi(e.api)}
-        />
+        <div style={{ height: 640 }}>
+          <AgGridReact<ReviewRow>
+            theme={theme}
+            rowData={shown}
+            columnDefs={columnDefs}
+            defaultColDef={defaultColDef}
+            getRowId={(p) => p.data.id}
+            onGridReady={(e) => setApi(e.api)}
+          />
+        </div>
         <div className="tfoot">
           <span>
             {shown.length} {noun}
