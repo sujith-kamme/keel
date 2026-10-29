@@ -32,6 +32,8 @@ tags:
     description: Held actions and quarantined sessions (operator).
   - name: Agents
     description: Kill switch (operator).
+  - name: Settings
+    description: Runtime configuration (operator), plus the agent config the storefront reads (merchant).
   - name: Gauntlet
     description: Context Mode test runs and certification (operator).
   - name: Disputes
@@ -510,6 +512,107 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+
+  /v1/settings:
+    get:
+      tags: [Settings]
+      operationId: getSettings
+      summary: Runtime settings and environment status (the Zapier hook URL is never returned)
+      security: [{ operatorKey: [] }]
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Settings" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/settings/{section}:
+    put:
+      tags: [Settings]
+      operationId: updateSettings
+      summary: Update some keys of one settings section
+      security: [{ operatorKey: [] }]
+      parameters:
+        - name: section
+          in: path
+          required: true
+          schema: { type: string, enum: [guard, agent, gauntlet, disputes, zapier] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [operator, values]
+              additionalProperties: false
+              properties:
+                operator: { type: string, minLength: 1, maxLength: 64 }
+                values:
+                  type: object
+                  description: Keys of the section; unknown keys are rejected.
+      responses:
+        "200":
+          description: The keys that changed (the Zapier URL is shown only as set or cleared)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  changes:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        from: {}
+                        to: {}
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500":
+          description: The write failed (`settings_write_failed`)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /v1/settings/zapier/test:
+    post:
+      tags: [Settings]
+      operationId: testZapier
+      summary: Send a test event to the configured Zapier hook
+      security: [{ operatorKey: [] }]
+      requestBody: { $ref: "#/components/requestBodies/Operator" }
+      responses:
+        "200":
+          description: Delivery result (never the URL or the upstream body)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  status: { type: [integer, "null"] }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /v1/agent-config:
+    get:
+      tags: [Settings]
+      operationId: getAgentConfig
+      summary: The storefront agent's model and prompt mode
+      security: [{ merchantKey: [] }]
+      responses:
+        "200":
+          description: Agent config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  model: { type: string }
+                  prompt: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
 
   /v1/gauntlet/runs:
     post:
@@ -1224,6 +1327,28 @@ components:
         text: { type: string }
         decision_ids: { type: array, items: { type: string } }
         created_at: { type: string, format: date-time }
+    Settings:
+      type: object
+      properties:
+        values: { type: object, additionalProperties: true }
+        zapier:
+          type: object
+          properties:
+            configured: { type: boolean }
+        status:
+          type: object
+          properties:
+            paypal:
+              type: object
+              properties:
+                mode: { type: string, enum: [sandbox, live] }
+                client_id: { type: [string, "null"], description: "Masked to the first 4 and last 3 characters" }
+                webhook_configured: { type: boolean }
+            anthropic:
+              type: object
+              properties:
+                key_set: { type: boolean }
+            demo_otp: { type: boolean }
     AgentControl:
       type: object
       properties:
