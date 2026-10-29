@@ -1,10 +1,10 @@
 "use client";
 
-import { colorSchemeVariable, themeQuartz, type ColDef, type GridApi, type ICellRendererParams, type StructuredSchemaParams } from "ag-grid-community";
+import { type ColDef, type GridApi, type ICellRendererParams, type StructuredSchemaParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { AddToGauntlet } from "@/components/add-to-gauntlet";
 import { AskGrid } from "@/components/ask-grid";
 import { ReleaseButton } from "@/components/release-button";
@@ -12,13 +12,9 @@ import { amountValue } from "@/lib/ledger-view";
 import { relativeTime } from "@/lib/sessions-view";
 import type { ReviewRow } from "@/lib/review-view";
 import { approve, deny } from "./actions";
+import { useAgTheme } from "@/lib/ag-theme";
 
 import "@/lib/ag-grid";
-
-const theme = themeQuartz
-  .withPart(colorSchemeVariable)
-  .withParams({ backgroundColor: "#ffffff", foregroundColor: "#171717" }, "light")
-  .withParams({ backgroundColor: "#0a0a0a", foregroundColor: "#ededed" }, "dark");
 
 function HeldActions({ row }: { row: ReviewRow }) {
   const router = useRouter();
@@ -107,14 +103,7 @@ const ASK_SCHEMA: StructuredSchemaParams = {
 };
 
 export function ReviewGrid({ rows }: { rows: ReviewRow[] }) {
-  // AG Grid follows data-ag-theme-mode; mirror the console's prefers-color-scheme.
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => document.body.setAttribute("data-ag-theme-mode", mq.matches ? "dark" : "light");
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
+  const { grid } = useAgTheme();
   const defaultColDef = useMemo<ColDef<ReviewRow>>(() => ({ sortable: true, resizable: true }), []);
   const [api, setApi] = useState<GridApi<ReviewRow> | null>(null);
   return (
@@ -122,7 +111,7 @@ export function ReviewGrid({ rows }: { rows: ReviewRow[] }) {
       <AskGrid api={api} examples={ASK_EXAMPLES} schemaParams={ASK_SCHEMA} />
       <div className="mt-3">
         <AgGridReact<ReviewRow>
-          theme={theme}
+          theme={grid}
           rowData={rows}
           columnDefs={columns}
           defaultColDef={defaultColDef}

@@ -1,18 +1,14 @@
 "use client";
 
-import { colorSchemeVariable, themeQuartz, type ColDef, type GridApi, type ICellRendererParams, type StructuredSchemaParams } from "ag-grid-community";
+import { type ColDef, type GridApi, type ICellRendererParams, type StructuredSchemaParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AskGrid } from "@/components/ask-grid";
 import { outcomeStyle, type RunResult } from "@/lib/context-view";
+import { useAgTheme } from "@/lib/ag-theme";
 
 import "@/lib/ag-grid";
-
-const theme = themeQuartz
-  .withPart(colorSchemeVariable)
-  .withParams({ backgroundColor: "#ffffff", foregroundColor: "#171717" }, "light")
-  .withParams({ backgroundColor: "#0a0a0a", foregroundColor: "#ededed" }, "dark");
 
 const set = { filter: "agSetColumnFilter", enableRowGroup: true } as const;
 
@@ -55,13 +51,7 @@ const ASK_SCHEMA: StructuredSchemaParams = {
 };
 
 export function ResultsGrid({ rows }: { rows: RunResult[] }) {
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => document.body.setAttribute("data-ag-theme-mode", mq.matches ? "dark" : "light");
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
+  const { grid } = useAgTheme();
   const defaultColDef = useMemo<ColDef<RunResult>>(() => ({ sortable: true, resizable: true }), []);
   const [api, setApi] = useState<GridApi<RunResult> | null>(null);
   return (
@@ -69,7 +59,7 @@ export function ResultsGrid({ rows }: { rows: RunResult[] }) {
       <AskGrid api={api} examples={ASK_EXAMPLES} schemaParams={ASK_SCHEMA} />
       <div className="mt-3">
         <AgGridReact<RunResult>
-          theme={theme}
+          theme={grid}
           rowData={rows}
           columnDefs={columns}
           defaultColDef={defaultColDef}

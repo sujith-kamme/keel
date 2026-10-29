@@ -1,19 +1,15 @@
 "use client";
 
-import { colorSchemeVariable, themeQuartz, type ColDef, type GridApi, type ICellRendererParams, type StructuredSchemaParams } from "ag-grid-community";
+import { type ColDef, type GridApi, type ICellRendererParams, type StructuredSchemaParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import Link from "next/link";
 import { AskGrid } from "@/components/ask-grid";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { VERDICT_STYLE, amountValue, chainMessage, type ChainResult, type LedgerPage, type LedgerRow } from "@/lib/ledger-view";
 import { loadOlder, verify } from "./actions";
+import { useAgTheme } from "@/lib/ag-theme";
 
 import "@/lib/ag-grid";
-
-const theme = themeQuartz
-  .withPart(colorSchemeVariable)
-  .withParams({ backgroundColor: "#ffffff", foregroundColor: "#171717" }, "light")
-  .withParams({ backgroundColor: "#0a0a0a", foregroundColor: "#ededed" }, "dark");
 
 const link = (base: string) =>
   function IdLink({ value }: ICellRendererParams<LedgerRow, string | null>) {
@@ -88,14 +84,7 @@ const ASK_FILTERS = ["created_at", "verdict", "tool", "reason_codes", "amount", 
 const btn = "rounded border border-black/20 px-3 py-1 text-sm hover:bg-black/5 disabled:opacity-50 dark:border-white/20 dark:hover:bg-white/10";
 
 export function LedgerGrid({ initial }: { initial: LedgerPage }) {
-  // AG Grid follows data-ag-theme-mode; mirror the console's prefers-color-scheme.
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => document.body.setAttribute("data-ag-theme-mode", mq.matches ? "dark" : "light");
-    apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
-  }, []);
+  const { grid } = useAgTheme();
   const gridRef = useRef<AgGridReact<LedgerRow>>(null);
   const [api, setApi] = useState<GridApi<LedgerRow> | null>(null);
   const [rows, setRows] = useState(initial.rows);
@@ -153,7 +142,7 @@ export function LedgerGrid({ initial }: { initial: LedgerPage }) {
       <div className="mt-3" style={{ height: 640 }}>
         <AgGridReact<LedgerRow>
           ref={gridRef}
-          theme={theme}
+          theme={grid}
           rowData={rows}
           columnDefs={columns}
           defaultColDef={defaultColDef}
