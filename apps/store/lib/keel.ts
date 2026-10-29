@@ -26,7 +26,6 @@ export interface StartedSession {
   capability_token: string;
   orders: string[];
   expires_at: string;
-  demo_otp?: string;
 }
 
 export interface Turn {
@@ -95,10 +94,8 @@ export const ordersFor = async (email: string) =>
   (await keel<{ orders: StoreOrder[] }>(`/v1/store/orders?customer_email=${encodeURIComponent(email)}`)).orders;
 
 export const startSession = (email: string, orderIds: string[]) =>
-  keel<StartedSession>("/v1/sessions", post({ customer_email: email, order_ids: orderIds }));
-
-export const verifySession = (id: string, code: string) =>
-  keel<{ session_id: string; capability_token: string }>(`/v1/sessions/${encodeURIComponent(id)}/verify`, post({ code }));
+  // The shopper is signed in to the store, so the session starts verified.
+  keel<StartedSession>("/v1/sessions", post({ customer_email: email, order_ids: orderIds, customer_authenticated: true }));
 
 export const sessionDetail = (id: string) => keel<SessionDetail>(`/v1/sessions/${encodeURIComponent(id)}`);
 

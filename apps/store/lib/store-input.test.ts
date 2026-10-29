@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ChatBody, safeNext, SessionBody, SignInBody, VerifyBody } from "./store-input";
+import { ChatBody, safeNext, SessionBody, SignInBody } from "./store-input";
 
 describe("store input", () => {
   it("normalizes the sign-in email", () => {
@@ -11,11 +11,6 @@ describe("store input", () => {
   it("takes an order id, not an email, to start a chat", () => {
     expect(SessionBody.safeParse({ order_id: "8KT21976RB4410923" }).success).toBe(true);
     for (const order_id of ["", "../x", "a b", "a".repeat(65)]) expect(SessionBody.safeParse({ order_id }).success).toBe(false);
-  });
-
-  it("requires exactly six digits", () => {
-    expect(VerifyBody.safeParse({ code: "123456" }).success).toBe(true);
-    for (const code of ["12345", "1234567", "12345a", "123456\n", ""]) expect(VerifyBody.safeParse({ code }).success).toBe(false);
   });
 
   it("trims text and bounds its length", () => {

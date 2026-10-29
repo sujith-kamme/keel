@@ -12,7 +12,7 @@ export interface ChatCookie {
   agent_id: string; // the agent the token is for; changes once, at the handoff
   email: string;
   verified: boolean;
-  expires_at: string; // session expiry, kept so verify can reseal with the same lifetime
+  expires_at: string; // session expiry, also the cookie's
   orders: { order_id: string; total: string; items: string[] }[];
 }
 
