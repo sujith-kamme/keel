@@ -22,6 +22,7 @@ const app = createApp({
   overview: deps,
   policies: deps,
   review: deps,
+  settings: deps,
   sessions: deps,
   store: deps,
   turns: deps,

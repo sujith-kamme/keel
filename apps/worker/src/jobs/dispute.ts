@@ -106,7 +106,8 @@ export interface DisputeDeps {
   scan: (buyerText: string) => Promise<boolean>;
   notify: (e: DisputeNotice) => Promise<void>;
   enqueueSync: (id: string) => Promise<void>;
-  autoSubmit: boolean;
+  /** Read when deciding, so a changed setting applies to the next sync. */
+  autoSubmit: () => Promise<boolean>;
   consoleUrl: string;
   newId: (prefix: string) => string;
   now: () => Date;
@@ -331,7 +332,7 @@ export async function syncDispute(deps: DisputeDeps, id: string): Promise<void> 
   }
   if (row.outcome !== "OPEN" || !row.classification) return;
 
-  const auto = deps.autoSubmit && row.classification !== "REVIEW";
+  const auto = row.classification !== "REVIEW" && (await deps.autoSubmit());
   if (!auto) {
     if (row.action === null) await deps.store.setAction(id, [null], "AWAITING_OPERATOR", null, deps.now());
     return;

@@ -77,7 +77,7 @@ function setup(opts: { d?: Dispute; ctx?: Partial<DisputeContext>; autoSubmit?: 
     scan: opts.scan ?? (async () => false),
     notify: vi.fn(async () => void notices.push(1)),
     enqueueSync: vi.fn(async () => undefined),
-    autoSubmit: opts.autoSubmit ?? true,
+    autoSubmit: async () => opts.autoSubmit ?? true,
     consoleUrl: "https://console.test",
     newId: (p) => `${p}_1`,
     now: () => new Date("2026-10-28T09:00:00Z"),

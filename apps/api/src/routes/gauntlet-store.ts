@@ -119,7 +119,7 @@ export function createGauntletStore(db: Db, opts: { fixturePrefix?: string } = {
         .set({ status: "RUNNING", startedAt: now })
         .where(and(eq(gauntletRuns.id, runId), eq(gauntletRuns.status, "QUEUED")))
         .returning();
-      return row ? { id: row.id, status: row.status, guarded: row.guarded, packs: row.packs, repeats: row.repeats } : null;
+      return row ? { id: row.id, status: row.status, guarded: row.guarded, packs: row.packs, repeats: row.repeats, versions: row.versions as Versions } : null;
     },
     pickFixture: async (fixture) => {
       const name = `${prefix}${SCENARIO[fixture]}`;

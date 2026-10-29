@@ -2,7 +2,7 @@ import type { DisputeNotice } from "./dispute";
 
 export type NotifyEvent =
   | {
-      event: "session.quarantined" | "action.held";
+      event: "session.quarantined" | "action.held" | "keel.test";
       session_id: string;
       decision_id: string;
       reason_codes: string[];
@@ -12,7 +12,7 @@ export type NotifyEvent =
     }
   | DisputeNotice;
 
-const HOOK_PREFIX = "https://hooks.zapier.com/";
+export const HOOK_PREFIX = "https://hooks.zapier.com/";
 
 export function notifyConfig(env: { ZAPIER_HOOK_URL?: string }): { hookUrl: string | null } {
   const url = env.ZAPIER_HOOK_URL?.trim();
@@ -44,9 +44,11 @@ export async function sendNotify(
   deps: { hookUrl: string | null; fetch: typeof fetch },
 ): Promise<{ skipped: true } | { status: number }> {
   if (!deps.hookUrl) {
-    console.log(`notify skipped (no ZAPIER_HOOK_URL): ${event.event}`);
+    console.log(`notify skipped (no Zapier hook configured): ${event.event}`);
     return { skipped: true };
   }
+  // The URL comes from the settings table at send time; never post anywhere but Zapier.
+  if (!deps.hookUrl.startsWith(HOOK_PREFIX)) throw new Error(`zapier hook URL must start with ${HOOK_PREFIX}`);
   const res = await deps.fetch(deps.hookUrl, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -55,6 +57,6 @@ export async function sendNotify(
     redirect: "error",
     signal: AbortSignal.timeout(5000),
   });
-  if (!res.ok) throw new Error(`zapier responded ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(`zapier responded ${res.status}`), { status: res.status });
   return { status: res.status };
 }

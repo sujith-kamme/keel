@@ -1,5 +1,5 @@
 import { HANDOFF } from "@keel/agent";
-import { type LedgerFactRow, NotEligible, type Scenario } from "@keel/gauntlet";
+import { type LedgerFactRow, NotEligible, type Scenario, type Versions } from "@keel/gauntlet";
 import { describe, expect, it, vi } from "vitest";
 import { type GauntletDeps, type GauntletRun, KeelHttpError, type ResultInput, gauntletConcurrency, runGauntlet } from "./gauntlet";
 
@@ -25,8 +25,19 @@ const guardRow = (verdict: string): LedgerFactRow => ({
   payload: { tool: "guard", result: { verdict }, extractor: { latency_ms: 100 } },
 });
 
+const versions: Versions = {
+  agent_model: "claude-sonnet-5-5",
+  agent_prompt: "strict",
+  extractor_model: "claude-haiku-5-5",
+  extractor_prompt_version: "v1",
+  extractor_timeout_ms: 4000,
+  risk_threshold: 60,
+  risk_half_life_min: 30,
+  policies: {},
+};
+
 function setup(opts: { run?: Partial<GauntletRun>; scenarios?: Scenario[]; rows?: LedgerFactRow[]; customer?: GauntletDeps["customer"] } = {}) {
-  const run: GauntletRun = { id: "run_1", status: "QUEUED", guarded: true, packs: ["refund-pressure"], repeats: 1, ...opts.run };
+  const run: GauntletRun = { id: "run_1", status: "QUEUED", guarded: true, packs: ["refund-pressure"], repeats: 1, versions, ...opts.run };
   const results: ResultInput[] = [];
   const turns: { session: string; role: string; text: string; decision_ids: string[] }[] = [];
   const state = { status: run.status, done: 0, scorecard: null as unknown, error: null as string | null };
@@ -67,7 +78,7 @@ function setup(opts: { run?: Partial<GauntletRun>; scenarios?: Scenario[]; rows?
       guard: vi.fn(async (_b: unknown) => ({ final_reply: "guarded reply", decision_id: "dec_guard" })),
     },
     scenarios: vi.fn(async () => opts.scenarios ?? [scenario("s-one")]),
-    agent: vi.fn(async (_token: string) => ({
+    agent: vi.fn(async (_token: string, _v: Versions) => ({
       turn: vi.fn(async () => ({ reply: "draft", decision_ids: ["dec_tool"] })),
       close: vi.fn(async () => {}),
     })),
@@ -107,7 +118,7 @@ describe("runGauntlet", () => {
       guard_mode: "ENFORCE",
     });
     expect(deps.keel.verify).toHaveBeenCalledWith("ses_1", "123456");
-    expect(deps.agent).toHaveBeenCalledWith("tok_verified");
+    expect(deps.agent).toHaveBeenCalledWith("tok_verified", versions);
   });
 
   it("uses SHADOW sessions for an unguarded run and skips verify when the scenario is unverified", async () => {
@@ -115,7 +126,15 @@ describe("runGauntlet", () => {
     await runGauntlet(deps, "run_1");
     expect(deps.keel.startSession.mock.calls[0]![0]).toMatchObject({ guard_mode: "SHADOW" });
     expect(deps.keel.verify).not.toHaveBeenCalled();
-    expect(deps.agent).toHaveBeenCalledWith("tok");
+    expect(deps.agent).toHaveBeenCalledWith("tok", versions);
+  });
+
+  it("builds the agent from the run's own versions snapshot", async () => {
+    const snapshot = { ...versions, agent_model: "claude-opus-5-5", agent_prompt: "lenient" };
+    const { deps } = setup({ run: { versions: snapshot } });
+    await runGauntlet(deps, "run_1");
+    expect(deps.agent.mock.calls.every(([, v]) => v === snapshot)).toBe(true);
+    expect(deps.agent).toHaveBeenCalled();
   });
 
   it("drives each turn like the store: customer turn, agent, guard, agent turn with the final reply", async () => {

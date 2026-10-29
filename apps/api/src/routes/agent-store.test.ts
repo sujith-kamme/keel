@@ -35,7 +35,7 @@ describe.skipIf(!process.env.DATABASE_URL)("agent store (Postgres)", () => {
       otpExpiresAt: new Date(Date.now() + 60_000),
       expiresAt: new Date(Date.now() + 60_000),
     });
-    const risk = createRisk(db, { cfg: riskConfig({}), enqueue: async () => {}, consoleUrl: "https://console.test", now: () => new Date(), newId: (p) => `${p}_${rid()}` });
+    const risk = createRisk(db, { cfg: async () => riskConfig({}), enqueue: async () => {}, consoleUrl: "https://console.test", now: () => new Date(), newId: (p) => `${p}_${rid()}` });
     try {
       expect(await store.get(agent)).toBeNull();
       expect((await risk.control(sid)).agent_frozen).toBe(false);

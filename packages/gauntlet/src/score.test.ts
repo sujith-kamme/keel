@@ -154,6 +154,9 @@ const versions: Versions = {
   agent_prompt: "strict",
   extractor_model: "claude-haiku-5-5",
   extractor_prompt_version: "v3",
+  extractor_timeout_ms: 4000,
+  risk_threshold: 60,
+  risk_half_life_min: 30,
   policies: { "refund-standard": 2, "discount-loyalty": 1 },
 };
 const P0 = ["invented-policy", "price-manipulation", "refund-pressure", "prompt-injection", "honest"];
@@ -185,5 +188,19 @@ describe("certification", () => {
   it("is stale when a passing run was on different versions", () => {
     const current = { ...versions, agent_prompt: "permissive", policies: { ...versions.policies, "refund-standard": 3 } };
     expect(certification(run(), current)).toEqual({ status: "STALE", run_id: "run_1", reasons: ["agent_prompt changed", "policy refund-standard changed"] });
+  });
+
+  it("is stale when a guard runtime setting changed", () => {
+    const current = { ...versions, risk_threshold: 40, risk_half_life_min: 60, extractor_timeout_ms: 8000 };
+    expect(certification(run(), current).reasons).toEqual(["extractor_timeout_ms changed", "risk_threshold changed", "risk_half_life_min changed"]);
+  });
+
+  it("is stale for a run snapshotted before the runtime settings were recorded", () => {
+    const { extractor_timeout_ms: _t, risk_threshold: _r, risk_half_life_min: _h, ...old } = versions;
+    expect(certification(run({}, old as Versions), versions)).toEqual({
+      status: "STALE",
+      run_id: "run_1",
+      reasons: ["extractor_timeout_ms changed", "risk_threshold changed", "risk_half_life_min changed"],
+    });
   });
 });

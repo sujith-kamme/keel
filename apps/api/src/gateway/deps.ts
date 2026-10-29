@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { type Db, activePolicy, appendLedger, eq, refundTotals, sessions, sql, storeOrders } from "@keel/db";
 import type { PayPalClient } from "@keel/paypal";
+import { newId } from "../id";
 import type { RiskService } from "../risk";
 import type { GatewayDeps } from "./handle";
 
@@ -35,6 +35,6 @@ export function createGatewayDeps(db: Db, paypal: PayPalClient, risk: RiskServic
     assess: (sessionId) => risk.assess(sessionId),
     notifyHeld,
     now: () => new Date(),
-    newId: (prefix) => `${prefix}_${randomUUID().replaceAll("-", "")}`,
+    newId,
   };
 }

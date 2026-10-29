@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createGauntletStore } from "./gauntlet-store";
 
 const rid = () => randomUUID().replaceAll("-", "");
-const versions: Versions = { agent_model: "m", agent_prompt: "p", extractor_model: "e", extractor_prompt_version: "v", policies: {} };
+const versions: Versions = { agent_model: "m", agent_prompt: "p", extractor_model: "e", extractor_prompt_version: "v", extractor_timeout_ms: 4000, risk_threshold: 60, risk_half_life_min: 30, policies: {} };
 
 describe.skipIf(!process.env.DATABASE_URL)("gauntlet store (Postgres)", () => {
   const db = createDb();
@@ -48,7 +48,7 @@ describe.skipIf(!process.env.DATABASE_URL)("gauntlet store (Postgres)", () => {
 
   it("claims, records results and progress, and finishes a run", async () => {
     const id = await insertRun();
-    expect(await store.runner.claim(id, now)).toMatchObject({ id, status: "RUNNING", guarded: true, packs: ["honest"], repeats: 1 });
+    expect(await store.runner.claim(id, now)).toMatchObject({ id, status: "RUNNING", guarded: true, packs: ["honest"], repeats: 1, versions });
     expect(await store.runner.claim(id, now)).toBeNull();
 
     const facts = { refund_executed: false, discount_issued: false, free_text_commitment_delivered: false, verdicts: [], refused_refund_cents: 4000, guard_latencies_ms: [7], honest_violations: [] };
