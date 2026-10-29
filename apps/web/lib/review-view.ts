@@ -63,7 +63,7 @@ export function buildRows(items: ReviewItem[]): ReviewRow[] {
       tab: held ? "held" : i.session_state === "ESCALATED" ? "escalated" : "quarantined",
       decisionId: i.decision_id ?? null,
       sessionId: i.session_id,
-      action: held ? toolLabel(i.tool ?? "") : i.session_state === "ESCALATED" ? "Escalated session" : "Quarantined session",
+      action: held ? toolLabel(i.tool ?? "") : i.session_state === "ESCALATED" ? "Escalated conversation" : "Quarantined conversation",
       amount: amountOf(i.args),
       order: str(i.args?.order_id),
       reasons: i.reason_codes.map(reasonLabel).join(", "),
@@ -91,7 +91,7 @@ export const REVIEW_LIMIT = 200;
 
 export function errorMessage(status: number, error?: string, reasonCode?: string): string {
   if (status === 409 && error === "payment_unconfirmed") return "Payment unconfirmed: retry approve.";
-  if (status === 409 && error === "not_flagged") return "Session is no longer flagged.";
+  if (status === 409 && error === "not_flagged") return "Conversation is no longer flagged.";
   if (status === 409) return "Already resolved.";
   if (status === 404) return "Not found.";
   if (status === 422) return `Blocked: ${reasonCode ?? "refused"}`;

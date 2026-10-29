@@ -117,7 +117,7 @@ async function Item({ params }: { params: Promise<{ decisionId: string }> }) {
           </div>
           <dl className="facts" style={{ margin: 0 }}>
             <div>
-              <dt>Session</dt>
+              <dt>Conversation</dt>
               <dd>
                 <Link href={sessionHref} className="mono">
                   {item.session_id}
@@ -125,7 +125,7 @@ async function Item({ params }: { params: Promise<{ decisionId: string }> }) {
               </dd>
             </div>
             <div>
-              <dt>Session state</dt>
+              <dt>Conversation state</dt>
               <dd>
                 <span className={`st ${st.tone}`}>{st.label}</span>
               </dd>

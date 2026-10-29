@@ -9,7 +9,7 @@ export function ReleaseButton({ sessionId, className = "b xs" }: { sessionId: st
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const click = () => {
-    if (!window.confirm("Release this session back to ACTIVE?")) return;
+    if (!window.confirm("Release this conversation back to ACTIVE?")) return;
     setError(null);
     start(async () => {
       const r = await release(sessionId);

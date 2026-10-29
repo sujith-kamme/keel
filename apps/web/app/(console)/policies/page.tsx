@@ -55,7 +55,6 @@ export default function Page() {
       <div className="ph">
         <div>
           <h1>Policies</h1>
-          <p>What your agent may commit to. Keel enforces the active version of each policy; drafts do nothing until approved.</p>
         </div>
       </div>
       <Suspense fallback={<p className="mut">Loading…</p>}>

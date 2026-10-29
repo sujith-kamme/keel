@@ -57,8 +57,7 @@ export default function Page({ searchParams }: PageProps<"/sessions">) {
     <>
       <div className="ph">
         <div>
-          <h1>Live sessions</h1>
-          <p>Every customer conversation with the agent, its state and risk.</p>
+          <h1>Conversations</h1>
         </div>
       </div>
       <Suspense fallback={<p className="mut">Loading…</p>}>

@@ -35,7 +35,7 @@ async function Body({ search }: { search: Search }) {
       <div className="ph">
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <h1>Context Mode</h1>
+            <h1>Simulations</h1>
             <span className={`bdg ${cb.tone}`}>{cb.label}</span>
             {cert.run_id && isRunId(cert.run_id) && (
               <Link href={`/context?run=${encodeURIComponent(cert.run_id)}`} className="sm">
@@ -43,7 +43,6 @@ async function Body({ search }: { search: Search }) {
               </Link>
             )}
           </div>
-          <p>Simulated customers attack the agent before real ones do. A guarded run of every pack with no leaks or errors and a false-positive rate of 10% or less certifies the agent.</p>
         </div>
         <div className="acts">
           {runs.length > 0 && (

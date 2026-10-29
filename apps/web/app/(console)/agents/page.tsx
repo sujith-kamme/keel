@@ -184,7 +184,6 @@ export default function Page({ searchParams }: PageProps<"/agents">) {
       <div className="ph">
         <div>
           <h1>Agents</h1>
-          <p>AI agents that act through Keel. A frozen agent can still reply, but every money action it attempts is held.</p>
         </div>
       </div>
       <Suspense fallback={<Skeleton />}>

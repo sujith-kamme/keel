@@ -19,7 +19,6 @@ export default function Page() {
       <div className="ph">
         <div>
           <h1>Review queue</h1>
-          <p>Actions Keel held for a person and sessions it quarantined or escalated. Every decision is written to the ledger.</p>
         </div>
       </div>
       <Suspense fallback={<p className="mut">Loading…</p>}>

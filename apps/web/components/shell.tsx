@@ -15,13 +15,13 @@ const SECTIONS: { title?: string; items: Item[] }[] = [
     items: [
       { href: "/policies", label: "Policies", icon: "policies" },
       { href: "/agents", label: "Agents", icon: "agents" },
-      { href: "/context", label: "Context Mode", icon: "context" },
+      { href: "/context", label: "Simulations", icon: "context" },
     ],
   },
   {
     title: "Operate",
     items: [
-      { href: "/sessions", label: "Live sessions", icon: "sessions" },
+      { href: "/sessions", label: "Conversations", icon: "sessions" },
       { href: "/review", label: "Review queue", icon: "review", count: true },
       { href: "/disputes", label: "Disputes", icon: "disputes" },
       { href: "/ledger", label: "Ledger", icon: "ledger" },

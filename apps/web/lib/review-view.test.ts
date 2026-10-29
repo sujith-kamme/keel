@@ -34,8 +34,8 @@ describe("buildRows", () => {
   it("maps flagged sessions to their tab with a release option", () => {
     const session = { kind: "session" as const, session_id: "ses_2", reason_codes: ["RISK_THRESHOLD"], score: null, session_state: "ESCALATED", created_at: "x" };
     const [esc, quar] = buildRows([session, { ...session, session_state: "QUARANTINED" }]);
-    expect(esc).toMatchObject({ id: "session:ses_2", tab: "escalated", action: "Escalated session", amount: "", order: "", canRelease: true });
-    expect(quar).toMatchObject({ tab: "quarantined", action: "Quarantined session", reasons: "Session quarantined" });
+    expect(esc).toMatchObject({ id: "session:ses_2", tab: "escalated", action: "Escalated conversation", amount: "", order: "", canRelease: true });
+    expect(quar).toMatchObject({ tab: "quarantined", action: "Quarantined conversation", reasons: "Session quarantined" });
   });
 
   it("formats amounts and knows which reasons come from a policy", () => {

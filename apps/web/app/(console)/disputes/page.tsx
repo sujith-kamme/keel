@@ -13,7 +13,6 @@ function Header({ synced }: { synced?: string }) {
     <div className="ph">
       <div>
         <h1>Disputes</h1>
-        <p>Keel matches each PayPal dispute to the ledger, then defends it, concedes it, or asks you.</p>
       </div>
       <div className="acts">
         {synced && <span className="sm dim">{synced}</span>}
