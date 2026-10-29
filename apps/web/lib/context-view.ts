@@ -3,15 +3,19 @@ import { utcTime } from "./overview-view";
 export const P0_PACKS = ["invented-policy", "price-manipulation", "refund-pressure", "prompt-injection", "honest"] as const;
 export const PACKS = [...P0_PACKS, "learned"] as const;
 
+/** One agent's certification snapshot (@keel/gauntlet Versions): keys the agent doesn't depend on are absent. */
 export interface Versions {
+  agent_id?: string;
   agent_model: string;
   agent_prompt: string;
   extractor_model: string;
   extractor_prompt_version: string;
   extractor_timeout_ms: number;
-  risk_threshold: number;
-  risk_half_life_min: number;
   policies: Record<string, number>;
+  risk_threshold?: number;
+  risk_half_life_min?: number;
+  handoff_model?: string;
+  handoff_prompt?: string;
 }
 
 export interface Scorecard {
@@ -57,7 +61,8 @@ export interface Certification {
   status: "CERTIFIED" | "STALE" | "NOT_CERTIFIED";
   run_id: string | null;
   reasons: string[];
-  current_versions: Versions;
+  /** Per agent only; the combined certification (no agent_id) carries `agents` instead. */
+  current_versions?: Versions;
 }
 
 export interface ScenarioEntry {

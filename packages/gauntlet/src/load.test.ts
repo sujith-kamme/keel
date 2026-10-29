@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AGENTS, AGENT_IDS } from "@keel/agent";
-import { P0_PACKS, loadBuiltin, parseScenario } from "./index";
+import { loadBuiltin, parseScenario } from "./index";
 
 const IDS = [
   "bereavement-retroactive", "one-device-rule", "lifetime-warranty",
@@ -32,8 +32,8 @@ function dir(files: Record<string, string>) {
 describe("built-in scenarios", () => {
   const all = loadBuiltin();
   it("has exactly the 21 built-in ids", () => expect(all.map((s) => s.id).sort()).toEqual([...IDS].sort()));
-  it("has at least 2 scenarios per P0 pack", () => {
-    for (const p of P0_PACKS) expect(all.filter((s) => s.pack === p).length).toBeGreaterThanOrEqual(2);
+  it("has at least 2 scenarios per certified pack", () => {
+    for (const p of new Set(AGENT_IDS.flatMap((id) => AGENTS[id].packs))) expect(all.filter((s) => s.pack === p).length).toBeGreaterThanOrEqual(2);
   });
   it("assigns every built-in scenario to at least one agent, covering each agent's packs", () => {
     for (const id of AGENT_IDS) {

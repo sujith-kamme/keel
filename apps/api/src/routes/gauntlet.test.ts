@@ -1,7 +1,7 @@
 import { type DraftSource, NotEligible, type Scenario, type Scorecard, type Versions } from "@keel/gauntlet";
 import { Hono } from "hono";
 import { describe, expect, it, vi } from "vitest";
-import { type GauntletOptions, type GauntletRunStore, type RunView, mountGauntlet, scenarioCatalog, scenariosFor } from "./gauntlet";
+import { type GauntletOptions, type GauntletRunStore, type RunView, combinedCertification, mountGauntlet, scenarioCatalog, scenariosFor } from "./gauntlet";
 
 const operatorKey = "o".repeat(32);
 const merchantKey = "m".repeat(32);
@@ -21,7 +21,7 @@ const scenario = (id: string, pack: Scenario["pack"]): Scenario => ({
   expect: { must_not: pack === "honest" ? [] : ["refund_executed"], must: [] },
 });
 
-const versions: Versions = { agent_model: "claude-haiku-5-5", agent_prompt: "lenient", extractor_model: "x", extractor_prompt_version: "v1", extractor_timeout_ms: 4000, risk_threshold: 60, risk_half_life_min: 30, policies: { "refund-standard": 1 } };
+const versions: Versions = { agent_id: "agt_refund", agent_model: "claude-haiku-5-5", agent_prompt: "lenient", extractor_model: "x", extractor_prompt_version: "v1", extractor_timeout_ms: 4000, risk_threshold: 60, risk_half_life_min: 30, policies: { "refund-standard": 1 } };
 const card: Scorecard = {
   runs: 5,
   errors: 0,
@@ -32,10 +32,11 @@ const card: Scorecard = {
   trigger_rate: 1,
   dollars_protected: "0.00",
   median_guard_latency_ms: 10,
-  packs: ["honest", "invented-policy", "price-manipulation", "prompt-injection", "refund-pressure"],
+  packs: ["delegation", "honest", "invented-policy", "least-privilege", "price-manipulation", "prompt-injection", "refund-pressure"],
 };
 const view = (over: Partial<RunView> = {}): RunView => ({
   id: "run_1",
+  agent_id: "agt_refund",
   status: "DONE",
   guarded: true,
   packs: ["honest"],
@@ -59,6 +60,7 @@ function setup(over: Partial<GauntletOptions> = {}) {
     get: vi.fn<GauntletRunStore["get"]>(async (id) => (id === "run_1" ? view() : null)),
     results: vi.fn<GauntletRunStore["results"]>(async () => []),
     latestDoneGuarded: vi.fn<GauntletRunStore["latestDoneGuarded"]>(async () => view()),
+    latest: vi.fn<GauntletRunStore["latest"]>(async () => view()),
   };
   const opts: GauntletOptions = {
     operatorKey,
@@ -66,7 +68,7 @@ function setup(over: Partial<GauntletOptions> = {}) {
     store,
     catalog: async () =>
       scenarioCatalog([scenario("b-honest", "honest"), scenario("b-refund", "refund-pressure")], [scenario("l-one", "learned")]),
-    versions: async () => versions,
+    versions: vi.fn(async () => versions),
     enqueue: vi.fn(async () => {}),
     now: () => NOW,
     newId: (p) => `${p}_abc`,
@@ -91,38 +93,42 @@ describe("gauntlet routes", () => {
       expect((await app.request(path, { headers: auth("w".repeat(32)) })).status).toBe(401);
       expect((await app.request(path, { headers: auth(merchantKey) })).status).toBe(403);
     }
-    expect((await post(app, { packs: ["honest"], repeats: 1, guarded: true }, merchantKey)).status).toBe(403);
+    expect((await post(app, { agent: "agt_refund", packs: ["honest"], repeats: 1, guarded: true }, merchantKey)).status).toBe(403);
   });
 
   it("validates the run request", async () => {
     const { app, store } = setup();
     for (const body of [
-      { packs: ["nope"], repeats: 1, guarded: true },
-      { packs: [], repeats: 1, guarded: true },
-      { packs: ["honest", "honest"], repeats: 1, guarded: true },
-      { packs: ["honest"], repeats: 0, guarded: true },
-      { packs: ["honest"], repeats: 6, guarded: true },
-      { packs: ["honest"], repeats: 1.5, guarded: true },
-      { packs: ["honest"], repeats: 1 },
-      { packs: ["honest"], repeats: 1, guarded: true, extra: 1 },
+      { packs: ["honest"], repeats: 1, guarded: true },
+      { agent: "agt_demo_store", packs: ["honest"], repeats: 1, guarded: true },
+      { agent: "agt_refund", packs: ["nope"], repeats: 1, guarded: true },
+      { agent: "agt_refund", packs: [], repeats: 1, guarded: true },
+      { agent: "agt_refund", packs: ["honest", "honest"], repeats: 1, guarded: true },
+      { agent: "agt_refund", packs: ["honest"], repeats: 0, guarded: true },
+      { agent: "agt_refund", packs: ["honest"], repeats: 6, guarded: true },
+      { agent: "agt_refund", packs: ["honest"], repeats: 1.5, guarded: true },
+      { agent: "agt_refund", packs: ["honest"], repeats: 1 },
+      { agent: "agt_refund", packs: ["honest"], repeats: 1, guarded: true, extra: 1 },
     ]) {
       expect((await post(app, body)).status, JSON.stringify(body)).toBe(400);
     }
     expect(store.createIfIdle).not.toHaveBeenCalled();
   });
 
-  it("creates a QUEUED run with versions and progress, enqueues it and returns 202", async () => {
+  it("creates a QUEUED run for the agent with its versions and progress, enqueues it and returns 202", async () => {
     const { app, store, opts } = setup();
-    const res = await post(app, { packs: ["honest", "refund-pressure", "learned"], repeats: 2, guarded: false });
+    const res = await post(app, { agent: "agt_refund", packs: ["honest", "refund-pressure", "learned"], repeats: 2, guarded: false });
     expect(res.status).toBe(202);
     expect(await res.json()).toEqual({ run_id: "run_abc" });
+    expect(opts.versions).toHaveBeenCalledWith("agt_refund");
     expect(store.createIfIdle).toHaveBeenCalledWith({
       id: "run_abc",
+      agent_id: "agt_refund",
       guarded: false,
       packs: ["honest", "refund-pressure", "learned"],
       repeats: 2,
       versions,
-      progress: { total: 12, done: 0 },
+      progress: { total: 6, done: 0 },
       created_by: "console",
     });
     expect(opts.enqueue).toHaveBeenCalledWith("run_abc");
@@ -131,7 +137,7 @@ describe("gauntlet routes", () => {
   it("409s while a run is in progress", async () => {
     const { app, store, opts } = setup();
     store.createIfIdle.mockResolvedValue(false);
-    const res = await post(app, { packs: ["honest"], repeats: 1, guarded: true });
+    const res = await post(app, { agent: "agt_refund", packs: ["honest"], repeats: 1, guarded: true });
     expect(res.status).toBe(409);
     expect(await res.json()).toEqual({ error: "run_in_progress" });
     expect(opts.enqueue).not.toHaveBeenCalled();
@@ -139,7 +145,7 @@ describe("gauntlet routes", () => {
 
   it("marks the run FAILED and 503s when enqueue fails", async () => {
     const { app, store } = setup({ enqueue: async () => Promise.reject(new Error("enqueue timed out")) });
-    const res = await post(app, { packs: ["honest"], repeats: 1, guarded: true });
+    const res = await post(app, { agent: "agt_refund", packs: ["honest"], repeats: 1, guarded: true });
     expect(res.status).toBe(503);
     expect(store.fail).toHaveBeenCalledWith("run_abc", "enqueue failed", NOW);
   });
@@ -154,18 +160,36 @@ describe("gauntlet routes", () => {
     expect((await app.request("/v1/gauntlet/runs/run_x", { headers: auth(operatorKey) })).status).toBe(404);
   });
 
-  it("certifies the latest done guarded run against current versions", async () => {
+  it("certifies one agent from its latest done guarded run against its current versions", async () => {
     const { app, store } = setup();
-    const res = await app.request("/v1/gauntlet/certification", { headers: auth(operatorKey) });
-    expect(await res.json()).toEqual({ status: "CERTIFIED", run_id: "run_1", reasons: [], current_versions: versions });
+    const cert = (q: string) => app.request(`/v1/gauntlet/certification${q}`, { headers: auth(operatorKey) });
+    expect(await (await cert("?agent_id=agt_refund")).json()).toEqual({
+      agent_id: "agt_refund",
+      status: "CERTIFIED",
+      run_id: "run_1",
+      reasons: [],
+      current_versions: versions,
+      active_run: null,
+    });
+    expect(store.latestDoneGuarded).toHaveBeenCalledWith("agt_refund");
 
     store.latestDoneGuarded.mockResolvedValue(view({ versions: { ...versions, agent_prompt: "strict" } }));
-    const stale = await (await app.request("/v1/gauntlet/certification", { headers: auth(operatorKey) })).json();
-    expect(stale).toMatchObject({ status: "STALE", reasons: ["agent_prompt changed"] });
+    store.latest.mockResolvedValue(view({ id: "run_2", status: "QUEUED" }));
+    expect(await (await cert("?agent_id=agt_refund")).json()).toMatchObject({ status: "STALE", reasons: ["agent_prompt changed"], active_run: { id: "run_2", status: "QUEUED" } });
 
     store.latestDoneGuarded.mockResolvedValue(null);
-    const none = await (await app.request("/v1/gauntlet/certification", { headers: auth(operatorKey) })).json();
-    expect(none).toMatchObject({ status: "NOT_CERTIFIED", run_id: null });
+    expect(await (await cert("?agent_id=agt_refund")).json()).toMatchObject({ status: "NOT_CERTIFIED", run_id: null });
+    expect((await cert("?agent_id=agt_demo_store")).status).toBe(400);
+  });
+
+  it("is certified overall only when every agent is, naming each agent's reasons", async () => {
+    const { app, store, opts } = setup();
+    const all = (await (await app.request("/v1/gauntlet/certification", { headers: auth(operatorKey) })).json()) as { agents: { agent_id: string }[] };
+    expect(all).toMatchObject({ status: "CERTIFIED", run_id: "run_1", reasons: [] });
+    expect(all.agents.map((a) => a.agent_id)).toEqual(["agt_policy", "agt_refund"]);
+
+    store.latestDoneGuarded.mockImplementation(async (id) => (id === "agt_policy" ? view({ id: "run_p", agent_id: "agt_policy", versions: { ...versions, agent_prompt: "strict" } }) : view()));
+    expect(await combinedCertification(opts)).toMatchObject({ status: "STALE", run_id: "run_p", reasons: ["Policy agent: agent_prompt changed"] });
   });
 
   it("lists built-in and learned scenarios", async () => {

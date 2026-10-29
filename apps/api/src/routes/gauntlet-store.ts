@@ -1,6 +1,6 @@
-import type { AgentId } from "@keel/agent";
+import { AGENTS, type AgentId } from "@keel/agent";
 import { type Db, and, asc, desc, eq, gauntletResults, gauntletRuns, gauntletScenarios, inArray, isNotNull, ledgerEntries, lt, sessionTurns, sessions, sql, storeOrders } from "@keel/db";
-import { type DraftSource, type Fixture, type RunFacts, type Scenario, type Scorecard, type Versions, P0_PACKS, parseScenario } from "@keel/gauntlet";
+import { type DraftSource, type Fixture, type RunFacts, type Scenario, type Scorecard, type Versions, parseScenario } from "@keel/gauntlet";
 import type { GauntletStore } from "@keel/worker/gauntlet";
 import type { GauntletRunStore, ResultView, RunView } from "./gauntlet";
 
@@ -21,10 +21,15 @@ const executedRefund = sql`(${ledgerEntries.payload}->>'tool' = 'offer_refund'
     or (${ledgerEntries.payload}->>'tool' = 'review' and ${ledgerEntries.payload}->>'action' = 'approve'))
   and ${ledgerEntries.payload}->'execution'->>'status' in ('COMPLETED', 'PENDING')`;
 
+// A guarded run of the agent's full pack set: the only kind that can certify it.
+const fullGuardedRun = (agentId: AgentId) =>
+  and(eq(gauntletRuns.agentId, agentId), eq(gauntletRuns.guarded, true), sql`${gauntletRuns.packs} @> ${JSON.stringify(AGENTS[agentId].packs)}::jsonb`);
+
 const iso = (d: Date | null) => d?.toISOString() ?? null;
 
 const runView = (r: typeof gauntletRuns.$inferSelect): RunView => ({
   id: r.id,
+  agent_id: r.agentId,
   status: r.status,
   guarded: r.guarded,
   packs: r.packs,
@@ -54,15 +59,16 @@ export function createGauntletStore(db: Db, opts: { fixturePrefix?: string } = {
     createIfIdle: async (run) =>
       db.transaction(async (tx) => {
         // Serializes concurrent starts so two can't both see "idle".
-        await tx.execute(sql`select pg_advisory_xact_lock(hashtext('keel_gauntlet_run'))`);
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`keel_gauntlet_run:${run.agent_id}`}))`);
         const [active] = await tx
           .select({ id: gauntletRuns.id })
           .from(gauntletRuns)
-          .where(inArray(gauntletRuns.status, ["QUEUED", "RUNNING"]))
+          .where(and(eq(gauntletRuns.agentId, run.agent_id), inArray(gauntletRuns.status, ["QUEUED", "RUNNING"])))
           .limit(1);
         if (active) return false;
         await tx.insert(gauntletRuns).values({
           id: run.id,
+          agentId: run.agent_id,
           status: "QUEUED",
           guarded: run.guarded,
           packs: run.packs,
@@ -96,19 +102,17 @@ export function createGauntletStore(db: Db, opts: { fixturePrefix?: string } = {
       );
     },
     // Certification is judged only on complete runs: a quick partial run must not replace it.
-    latestDoneGuarded: async () => {
+    latestDoneGuarded: async (agentId) => {
       const [row] = await db
         .select()
         .from(gauntletRuns)
-        .where(
-          and(
-            eq(gauntletRuns.status, "DONE"),
-            eq(gauntletRuns.guarded, true),
-            sql`${gauntletRuns.packs} @> ${JSON.stringify(P0_PACKS)}::jsonb`,
-          ),
-        )
+        .where(and(fullGuardedRun(agentId), eq(gauntletRuns.status, "DONE")))
         .orderBy(desc(gauntletRuns.createdAt))
         .limit(1);
+      return row ? runView(row) : null;
+    },
+    latest: async (agentId) => {
+      const [row] = await db.select().from(gauntletRuns).where(fullGuardedRun(agentId)).orderBy(desc(gauntletRuns.createdAt)).limit(1);
       return row ? runView(row) : null;
     },
   };

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
-import { AGENTS, agentModel, connectAgentTools, promptMode, runTurn } from "@keel/agent";
+import { AGENTS, type AgentId, agentModel, connectAgentTools, promptMode, runTurn } from "@keel/agent";
 import { activePolicy, appendLedger, approveVersion, countLedger, createDb, discardVersion, decisionsByDay, disputeOutcomes, dollarsProtected, insertDraft, listPolicies, liveSessions, policyVersions, readChain, readLedgerEntry, readLedgerPage, sql, violations } from "@keel/db";
 import { PROMPT_VERSION, draftPolicy, extract } from "@keel/extractor";
 import { type Versions, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
@@ -20,13 +20,14 @@ import { createAgentStore } from "./routes/agent-store";
 import { initConsoleAccount } from "./routes/console";
 import { createConsoleStore } from "./routes/console-store";
 import { createDisputeStore } from "./routes/dispute-store";
-import { currentCertification, scenarioCatalog, scenariosFor } from "./routes/gauntlet";
+import { combinedCertification, scenarioCatalog, scenariosFor } from "./routes/gauntlet";
 import { createGauntletStore } from "./routes/gauntlet-store";
 import { KNOWN_POLICY_IDS } from "./routes/guard";
 import { createReviewStore } from "./routes/review-store";
 import { createCatalog, createOrdersFor, createRecordOrder, createSessionDecisions, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
 import { createSettings } from "./settings";
 import type { SettingsStatus } from "./routes/settings";
+import { agentVersions } from "./versions";
 
 const { KEEL_SIGNING_KEY, KEEL_MERCHANT_KEY, KEEL_OPERATOR_KEY } = process.env;
 if (!KEEL_SIGNING_KEY || !KEEL_MERCHANT_KEY || !KEEL_OPERATOR_KEY) {
@@ -59,7 +60,7 @@ const turnStore = createTurnStore(db);
 const gauntletStore = createGauntletStore(db);
 const builtinScenarios = loadBuiltin();
 const catalog = async () => scenarioCatalog(builtinScenarios, await gauntletStore.learned());
-const currentVersions = async (): Promise<Versions> => {
+const currentVersions = async (agentId: AgentId): Promise<Versions> => {
   const policies: Record<string, number> = {};
   // price-catalog isn't a policy the guard checks claims against, but an approved change to it still makes certification stale.
   const ids = [...KNOWN_POLICY_IDS, "price-catalog"];
@@ -68,16 +69,7 @@ const currentVersions = async (): Promise<Versions> => {
     const version = (active[i] as { version?: unknown } | null)?.version;
     if (typeof version === "number") policies[id] = version;
   });
-  return {
-    agent_model: s.refund_agent_model,
-    agent_prompt: s.refund_agent_prompt,
-    extractor_model: s.extractor_model,
-    extractor_prompt_version: PROMPT_VERSION,
-    extractor_timeout_ms: s.extractor_timeout_ms,
-    risk_threshold: s.risk_threshold,
-    risk_half_life_min: s.risk_half_life_min,
-    policies,
-  };
+  return agentVersions(agentId, s, policies, PROMPT_VERSION);
 };
 // Disputes (Phase 6). dispute_auto_submit acts on DEFEND/CONCEDE without an operator (demo).
 const webhookId = process.env.PAYPAL_WEBHOOK_ID?.trim() || null;
@@ -230,7 +222,7 @@ const app = createApp({
   overview: {
     operatorKey: KEEL_OPERATOR_KEY,
     merchantKey: KEEL_MERCHANT_KEY,
-    certification: () => currentCertification({ store: gauntletStore.runs, versions: currentVersions }),
+    certification: () => combinedCertification({ store: gauntletStore.runs, versions: currentVersions }),
     run: (id) => gauntletStore.runs.get(id),
     sessions: () => liveSessions(db),
     violations: (since) => violations(db, { since }),
@@ -315,8 +307,9 @@ if (process.env.RUN_WORKER === "true") {
           keel: client,
           scenarios: async (packs, agentId) => scenariosFor(await catalog(), packs, agentId),
           agent: async (agentId, token, v) => {
-            // Both agents run on the run's snapshot; Task 11 snapshots the other agent's settings for delegation scenarios.
-            const cfg = { model: agentModel(v.agent_model), mode: promptMode(v.agent_prompt), role: AGENTS[agentId].role };
+            // The run's own agent uses its snapshot; the policy agent a delegation run starts at uses the snapshotted handoff versions.
+            const own = agentId === v.agent_id;
+            const cfg = { model: agentModel(own ? v.agent_model : v.handoff_model), mode: promptMode(own ? v.agent_prompt : v.handoff_prompt), role: AGENTS[agentId].role };
             const tools = await connectAgentTools(apiBase, token);
             return {
               turn: (input) => runTurn({ ...cfg, createMessage, tools: tools.tools, callTool: tools.callTool }, input),

@@ -3,7 +3,6 @@ import { z } from "zod";
 
 export const FIXTURES = ["in-window", "out-of-window", "above-auto-approve", "other-customer"] as const;
 export const PACKS = ["invented-policy", "price-manipulation", "refund-pressure", "prompt-injection", "honest", "least-privilege", "delegation", "learned"] as const;
-export const P0_PACKS = ["invented-policy", "price-manipulation", "refund-pressure", "prompt-injection", "honest"] as const;
 export const FACTS = ["refund_executed", "discount_issued", "free_text_commitment_delivered"] as const;
 export const VERDICTS = ["ALLOW", "REWRITE", "BLOCK", "HOLD"] as const;
 

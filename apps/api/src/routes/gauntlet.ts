@@ -1,4 +1,4 @@
-import { AGENT_IDS, type AgentId } from "@keel/agent";
+import { AGENTS, AGENT_IDS, type AgentId, isAgentId } from "@keel/agent";
 import { type DraftSource, NotEligible, PACKS, assertEligible, deriveScenarioFrame, Scenario as ScenarioSchema, type Scenario, type Scorecard, type Versions, certification } from "@keel/gauntlet";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
@@ -6,6 +6,7 @@ import { operatorAuth } from "./operator-auth";
 
 export interface RunView {
   id: string;
+  agent_id: string | null;
   status: string;
   guarded: boolean;
   packs: string[];
@@ -34,6 +35,7 @@ export interface ResultView {
 
 export interface NewRun {
   id: string;
+  agent_id: AgentId;
   guarded: boolean;
   packs: string[];
   repeats: number;
@@ -43,14 +45,16 @@ export interface NewRun {
 }
 
 export interface GauntletRunStore {
-  /** Inserts a QUEUED run unless one is QUEUED or RUNNING; false when one is. */
+  /** Inserts a QUEUED run unless one for this agent is QUEUED or RUNNING; false when one is. */
   createIfIdle: (run: NewRun) => Promise<boolean>;
   fail: (id: string, error: string, now: Date) => Promise<void>;
   /** Newest first. */
   list: (limit: number) => Promise<RunView[]>;
   get: (id: string) => Promise<RunView | null>;
   results: (id: string) => Promise<ResultView[]>;
-  latestDoneGuarded: () => Promise<RunView | null>;
+  latestDoneGuarded: (agentId: AgentId) => Promise<RunView | null>;
+  /** The agent's newest guarded run on its full pack set, any status (for re-certification). */
+  latest: (agentId: AgentId) => Promise<RunView | null>;
 }
 
 export type CatalogEntry = { scenario: Scenario; source: "builtin" | "learned" };
@@ -61,7 +65,7 @@ export interface GauntletOptions {
   store: GauntletRunStore;
   /** Built-in and learned scenarios (see scenarioCatalog). */
   catalog: () => Promise<CatalogEntry[]>;
-  versions: () => Promise<Versions>;
+  versions: (agentId: AgentId) => Promise<Versions>;
   enqueue: (runId: string) => Promise<void>;
   now: () => Date;
   newId: (prefix: string) => string;
@@ -73,11 +77,40 @@ export interface GauntletOptions {
   saveScenario: (scenario: Scenario, sourceSessionId: string | null) => Promise<boolean>;
 }
 
-/** Certification of the latest finished guarded run against the versions running now. */
-export async function currentCertification(opts: Pick<GauntletOptions, "store" | "versions">) {
-  const [run, current] = await Promise.all([opts.store.latestDoneGuarded(), opts.versions()]);
-  const cert = certification(run?.scorecard ? { id: run.id, guarded: run.guarded, versions: run.versions, scorecard: run.scorecard } : null, current);
-  return { ...cert, current_versions: current };
+/** One agent's certification: its latest finished guarded run against the versions running now. */
+export async function currentCertification(opts: Pick<GauntletOptions, "store" | "versions">, agentId: AgentId) {
+  const [run, current, active] = await Promise.all([opts.store.latestDoneGuarded(agentId), opts.versions(agentId), opts.store.latest(agentId)]);
+  const cert = certification(run?.scorecard ? { id: run.id, guarded: run.guarded, versions: run.versions, scorecard: run.scorecard } : null, current, AGENTS[agentId].packs);
+  const pending = active && (active.status === "QUEUED" || active.status === "RUNNING") ? { id: active.id, status: active.status } : null;
+  return { agent_id: agentId, ...cert, current_versions: current, active_run: pending };
+}
+
+const RANK = { NOT_CERTIFIED: 0, STALE: 1, CERTIFIED: 2 } as const;
+
+/** Certified only when every agent is; otherwise the weakest agent's result, its reasons named by agent. */
+export async function combinedCertification(opts: Pick<GauntletOptions, "store" | "versions">) {
+  const all = await Promise.all(AGENT_IDS.map((id) => currentCertification(opts, id)));
+  const worst = all.reduce((a, b) => (RANK[b.status] < RANK[a.status] ? b : a));
+  return { status: worst.status, run_id: worst.run_id, reasons: all.flatMap((c) => c.reasons.map((r) => `${AGENTS[c.agent_id].name}: ${r}`)), agents: all };
+}
+
+/** Queues a run for one agent; "busy" while that agent already has one queued or running. */
+export async function startRun(
+  opts: Pick<GauntletOptions, "catalog" | "versions" | "store" | "enqueue" | "now" | "newId">,
+  input: { agent: AgentId; packs: string[]; repeats: number; guarded: boolean; created_by: string },
+): Promise<{ status: "started" | "busy" | "queue_unavailable"; id: string }> {
+  const [catalog, versions] = await Promise.all([opts.catalog(), opts.versions(input.agent)]);
+  const id = opts.newId("run");
+  const total = scenariosFor(catalog, input.packs, input.agent).length * input.repeats;
+  const created = await opts.store.createIfIdle({ id, agent_id: input.agent, guarded: input.guarded, packs: input.packs, repeats: input.repeats, versions, progress: { total, done: 0 }, created_by: input.created_by });
+  if (!created) return { status: "busy", id };
+  try {
+    await opts.enqueue(id);
+    return { status: "started", id };
+  } catch {
+    await opts.store.fail(id, "enqueue failed", opts.now());
+    return { status: "queue_unavailable", id };
+  }
 }
 
 /** Learned scenarios can't shadow a built-in: result rows are unique per scenario id. */
@@ -99,6 +132,7 @@ export function scenariosFor(catalog: CatalogEntry[], packs: string[], agentId: 
 }
 
 const StartRun = z.strictObject({
+  agent: z.enum(AGENT_IDS as [AgentId, ...AgentId[]]),
   packs: z
     .array(z.enum(PACKS))
     .min(1)
@@ -129,18 +163,9 @@ export function mountGauntlet(app: Hono, opts: GauntletOptions): void {
     if (no) return no;
     const req = StartRun.safeParse(await c.req.json().catch(() => null));
     if (!req.success) return c.json({ error: "invalid_request" }, 400);
-    const { packs, repeats, guarded } = req.data;
-    const [catalog, versions] = await Promise.all([opts.catalog(), opts.versions()]);
-    const id = opts.newId("run");
-    const total = AGENT_IDS.reduce((n, a) => n + scenariosFor(catalog, packs, a).length, 0) * repeats;
-    const created = await opts.store.createIfIdle({ id, guarded, packs, repeats, versions, progress: { total, done: 0 }, created_by: "console" });
-    if (!created) return c.json({ error: "run_in_progress" }, 409);
-    try {
-      await opts.enqueue(id);
-    } catch {
-      await opts.store.fail(id, "enqueue failed", opts.now());
-      return c.json({ error: "queue_unavailable" }, 503);
-    }
+    const { status, id } = await startRun(opts, { ...req.data, created_by: "console" });
+    if (status === "busy") return c.json({ error: "run_in_progress" }, 409);
+    if (status === "queue_unavailable") return c.json({ error: "queue_unavailable" }, 503);
     return c.json({ run_id: id }, 202);
   });
 
@@ -162,7 +187,10 @@ export function mountGauntlet(app: Hono, opts: GauntletOptions): void {
   app.get("/v1/gauntlet/certification", async (c) => {
     const no = denied(c);
     if (no) return no;
-    return c.json(await currentCertification(opts));
+    const agentId = c.req.query("agent_id");
+    if (agentId === undefined) return c.json(await combinedCertification(opts));
+    if (!isAgentId(agentId)) return c.json({ error: "invalid_request" }, 400);
+    return c.json(await currentCertification(opts, agentId));
   });
 
   app.get("/v1/gauntlet/scenarios", async (c) => {
