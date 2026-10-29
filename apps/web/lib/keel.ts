@@ -1,4 +1,5 @@
 import "server-only";
+import { agentConfigReader } from "./agent-config";
 import { env } from "./env";
 
 export class KeelError extends Error {
@@ -115,3 +116,7 @@ export const guardReply = (body: {
   conversation: { role: "customer" | "agent"; text: string }[];
   tool_calls_this_turn: string[];
 }) => keel<GuardResult>("/v1/guard", post(body));
+
+let readAgentConfig: ReturnType<typeof agentConfigReader> | undefined;
+/** The agent model and prompt the Gauntlet certifies, read from the API settings (cached 5 s). */
+export const agentConfig = () => (readAgentConfig ??= agentConfigReader({ url: env().keelApiUrl, key: env().merchantKey }))();

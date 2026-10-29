@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { HANDOFF, connectAgentTools, runTurn } from "@keel/agent";
 import { env } from "@/lib/env";
-import { appendTurn, guardReply, KeelError, sessionDetail } from "@/lib/keel";
+import { agentConfig, appendTurn, guardReply, KeelError, sessionDetail } from "@/lib/keel";
 import { attachDecisions } from "@/lib/sessions-view";
 import { ChatBody } from "@/lib/store-input";
 import { readChatCookie } from "../cookie";
@@ -23,10 +23,11 @@ export async function POST(request: Request) {
       throw err;
     }
     const anthropic = new Anthropic({ apiKey: env().anthropicKey });
+    const config = await agentConfig();
     const agent = await connectAgentTools(env().keelApiUrl, chat.token);
     try {
       const { reply, decision_ids } = await runTurn(
-        { model: env().model, mode: env().promptMode, createMessage: (p) => anthropic.messages.create(p), tools: agent.tools, callTool: agent.callTool },
+        { model: config.model, mode: config.prompt, createMessage: (p) => anthropic.messages.create(p), tools: agent.tools, callTool: agent.callTool },
         { context: { customer_email: chat.email, verified: chat.verified, orders: chat.orders }, history, customerText: text },
       );
       // Never send the unguarded draft: if the guard fails, hand off (DP-4).

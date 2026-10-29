@@ -45,7 +45,7 @@ services:
         value: "30"
       - key: CONSOLE_URL
         value: https://keel-web-fm57.onrender.com
-      # The Gauntlet runs the demo agent here; keep these equal to keel-web's.
+      # First-boot defaults: afterwards the values live in the settings table (console). keel-web reads them from the API.
       - key: DEMO_AGENT_MODEL
         value: claude-haiku-5-5
       - key: DEMO_AGENT_PROMPT
@@ -81,10 +81,6 @@ services:
         value: judge
       - key: CONSOLE_PASSWORD
         sync: false
-      - key: DEMO_AGENT_MODEL
-        value: claude-haiku-5-5
-      - key: DEMO_AGENT_PROMPT
-        value: lenient
       # Inlined into the browser bundle at build time: set it before the build. Optional (trial watermark without it).
       - key: NEXT_PUBLIC_AG_GRID_LICENSE_KEY
         sync: false

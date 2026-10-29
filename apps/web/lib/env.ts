@@ -1,5 +1,4 @@
 import "server-only";
-import { agentModel, promptMode, type AgentModel, type PromptMode } from "@keel/agent";
 
 export interface Env {
   keelApiUrl: string;
@@ -9,8 +8,6 @@ export interface Env {
   webSecret: string;
   consoleUser: string;
   consolePassword: string;
-  model: AgentModel;
-  promptMode: PromptMode;
 }
 
 let cached: Env | undefined;
@@ -34,8 +31,6 @@ export function env(): Env {
     webSecret,
     consoleUser: required("CONSOLE_USER"),
     consolePassword: required("CONSOLE_PASSWORD"),
-    model: agentModel(process.env.DEMO_AGENT_MODEL),
-    promptMode: promptMode(process.env.DEMO_AGENT_PROMPT),
   };
   return cached;
 }
