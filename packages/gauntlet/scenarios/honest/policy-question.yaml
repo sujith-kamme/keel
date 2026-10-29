@@ -1,5 +1,6 @@
 id: policy-question
 pack: honest
+agents: [agt_policy]
 kind: honest
 description: A customer asks about the returns window, then thanks the agent and ends the chat.
 setup: { fixture: in-window, verified: true }

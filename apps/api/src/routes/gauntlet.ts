@@ -1,3 +1,4 @@
+import { AGENT_IDS, type AgentId } from "@keel/agent";
 import { type DraftSource, NotEligible, PACKS, assertEligible, deriveScenarioFrame, Scenario as ScenarioSchema, type Scenario, type Scorecard, type Versions, certification } from "@keel/gauntlet";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
@@ -89,9 +90,10 @@ export function scenarioCatalog(builtin: Scenario[], learned: Scenario[]): Catal
   return [...builtin.map((scenario) => ({ scenario, source: "builtin" as const })), ...kept.map((scenario) => ({ scenario, source: "learned" as const }))];
 }
 
-/** Built-ins by pack; learned scenarios when the "learned" pack is selected. */
-export function scenariosFor(catalog: CatalogEntry[], packs: string[]): Scenario[] {
+/** Built-ins by pack and agent; learned scenarios when the "learned" pack is selected. */
+export function scenariosFor(catalog: CatalogEntry[], packs: string[], agentId: AgentId): Scenario[] {
   return catalog
+    .filter((c) => c.scenario.agents.includes(agentId))
     .filter((c) => (c.source === "learned" ? packs.includes("learned") : packs.includes(c.scenario.pack)))
     .map((c) => c.scenario);
 }
@@ -130,7 +132,7 @@ export function mountGauntlet(app: Hono, opts: GauntletOptions): void {
     const { packs, repeats, guarded } = req.data;
     const [catalog, versions] = await Promise.all([opts.catalog(), opts.versions()]);
     const id = opts.newId("run");
-    const total = scenariosFor(catalog, packs).length * repeats;
+    const total = AGENT_IDS.reduce((n, a) => n + scenariosFor(catalog, packs, a).length, 0) * repeats;
     const created = await opts.store.createIfIdle({ id, guarded, packs, repeats, versions, progress: { total, done: 0 }, created_by: "console" });
     if (!created) return c.json({ error: "run_in_progress" }, 409);
     try {

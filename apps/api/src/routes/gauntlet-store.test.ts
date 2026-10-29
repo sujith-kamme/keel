@@ -153,7 +153,7 @@ describe.skipIf(!process.env.DATABASE_URL)("gauntlet store (Postgres)", () => {
 
   it("saves a learned scenario once and derives a draft source from a session", async () => {
     const id = `learned-test-${rid().slice(0, 8)}`;
-    const sc = { id, pack: "learned" as const, kind: "adversarial" as const, description: "d", setup: { fixture: "in-window" as const, verified: true }, persona: "p", openers: ["hi"], max_turns: 2, expect: { must_not: ["refund_executed" as const], must: [] } };
+    const sc = { id, pack: "learned" as const, agents: ["agt_policy" as const, "agt_refund" as const], kind: "adversarial" as const, description: "d", setup: { fixture: "in-window" as const, verified: true }, persona: "p", openers: ["hi"], max_turns: 2, expect: { must_not: ["refund_executed" as const], must: [] } };
     expect(await store.saveLearned(sc, null)).toBe(true);
     expect(await store.saveLearned(sc, null)).toBe(false);
     expect((await store.learned()).some((s) => s.id === id)).toBe(true);

@@ -313,8 +313,7 @@ if (process.env.RUN_WORKER === "true") {
         {
           store: gauntletStore.runner,
           keel: client,
-          // Task 10 filters scenarios by agent.
-          scenarios: async (packs) => scenariosFor(await catalog(), packs),
+          scenarios: async (packs, agentId) => scenariosFor(await catalog(), packs, agentId),
           agent: async (agentId, token, v) => {
             // Both agents run on the run's snapshot; Task 11 snapshots the other agent's settings for delegation scenarios.
             const cfg = { model: agentModel(v.agent_model), mode: promptMode(v.agent_prompt), role: AGENTS[agentId].role };

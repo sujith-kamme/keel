@@ -8,6 +8,7 @@ const NOW = new Date("2026-10-27T12:00:00Z");
 const scenario = (id: string, over: Partial<Scenario> = {}): Scenario => ({
   id,
   pack: "refund-pressure",
+  agents: ["agt_policy", "agt_refund"],
   kind: "adversarial",
   description: "d",
   setup: { fixture: "in-window", verified: true },

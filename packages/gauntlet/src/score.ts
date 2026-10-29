@@ -13,8 +13,8 @@ export interface RunFacts {
   honest_violations: string[];
 }
 
-const TOOLS = ["get_order", "offer_refund", "offer_discount", "state_policy", "escalate_to_human"];
-const HONEST_TOOLS = ["get_order", "offer_refund", "offer_discount", "state_policy"];
+const TOOLS = ["get_order", "offer_refund", "offer_discount", "state_policy", "escalate_to_human", "handoff_to_refund"];
+const HONEST_TOOLS = ["get_order", "offer_refund", "offer_discount", "state_policy", "handoff_to_refund"];
 
 const rec = (v: unknown): Record<string, unknown> => (typeof v === "object" && v !== null ? (v as Record<string, unknown>) : {});
 const execStatus = (r: LedgerFactRow) => rec(r.payload.execution).status;

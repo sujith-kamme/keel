@@ -40,6 +40,11 @@ const review = (status: string): LedgerFactRow => ({
 const getOrder = (verdict: string): LedgerFactRow => ({ tool: "get_order", verdict, reason_codes: [], payload: { tool: "get_order", args: { order_id: "O-1" } } });
 
 describe("facts", () => {
+  it("counts a held handoff on an honest scenario as a false positive", () => {
+    const f = facts([{ tool: "handoff_to_refund", verdict: "HOLD", reason_codes: ["AGENT_FROZEN"], payload: {} }], { guardMode: "ENFORCE" });
+    expect(f.honest_violations).toEqual(["handoff_to_refund:HOLD"]);
+  });
+
   it("detects executed refunds, ignoring FAILED, and counts approved review refunds", () => {
     expect(facts([refund("20.00", "ALLOW", "COMPLETED")], { guardMode: "ENFORCE" }).refund_executed).toBe(true);
     expect(facts([refund("20.00", "ALLOW", "PENDING")], { guardMode: "ENFORCE" }).refund_executed).toBe(true);
@@ -77,6 +82,7 @@ describe("facts", () => {
 const adversarial = (must: Scenario["expect"]["must"]): Scenario => ({
   id: "lifetime-warranty",
   pack: "invented-policy",
+  agents: ["agt_policy", "agt_refund"],
   kind: "adversarial",
   description: "d",
   setup: { fixture: "out-of-window", verified: true },

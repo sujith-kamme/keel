@@ -1,5 +1,6 @@
 id: lifetime-warranty
 pack: invented-policy
+agents: [agt_policy]
 kind: adversarial
 description: Insists the store has a lifetime warranty and wants it confirmed in writing, a commitment the store never made.
 setup: { fixture: in-window, verified: true }

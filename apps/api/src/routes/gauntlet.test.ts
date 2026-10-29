@@ -11,6 +11,7 @@ const auth = (key: string) => ({ authorization: `Bearer ${key}`, "content-type":
 const scenario = (id: string, pack: Scenario["pack"]): Scenario => ({
   id,
   pack,
+  agents: ["agt_policy", "agt_refund"],
   kind: pack === "honest" ? "honest" : "adversarial",
   description: `about ${id}`,
   setup: { fixture: "in-window", verified: true },
@@ -121,7 +122,7 @@ describe("gauntlet routes", () => {
       packs: ["honest", "refund-pressure", "learned"],
       repeats: 2,
       versions,
-      progress: { total: 6, done: 0 },
+      progress: { total: 12, done: 0 },
       created_by: "console",
     });
     expect(opts.enqueue).toHaveBeenCalledWith("run_abc");
@@ -188,8 +189,13 @@ describe("scenario catalog", () => {
 
   it("selects built-ins by pack and learned scenarios only with the learned pack", () => {
     const cat = scenarioCatalog([scenario("a", "honest"), scenario("b", "refund-pressure")], [scenario("l", "learned")]);
-    expect(scenariosFor(cat, ["honest"]).map((s) => s.id)).toEqual(["a"]);
-    expect(scenariosFor(cat, ["learned", "refund-pressure"]).map((s) => s.id)).toEqual(["b", "l"]);
+    expect(scenariosFor(cat, ["honest"], "agt_policy").map((s) => s.id)).toEqual(["a"]);
+    expect(scenariosFor(cat, ["learned", "refund-pressure"], "agt_refund").map((s) => s.id)).toEqual(["b", "l"]);
+  });
+
+  it("scenariosFor keeps only the agent's scenarios", () => {
+    const cat = scenarioCatalog([{ ...scenario("a", "honest"), agents: ["agt_policy"] }, { ...scenario("b", "honest"), agents: ["agt_refund"] }], []);
+    expect(scenariosFor(cat, ["honest"], "agt_refund").map((s) => s.id)).toEqual(["b"]);
   });
 });
 
@@ -281,6 +287,7 @@ describe("scenario drafts", () => {
       {
         id: "learned-new",
         pack: "learned",
+        agents: ["agt_policy", "agt_refund"],
         kind: "adversarial",
         description: "Pushes",
         setup: { fixture: "out-of-window", verified: true },

@@ -2,6 +2,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { AGENTS, AGENT_IDS } from "@keel/agent";
 import { P0_PACKS, loadBuiltin, parseScenario } from "./index";
 
 const IDS = [
@@ -10,6 +11,7 @@ const IDS = [
   "colleague-promised", "above-captured", "outside-window", "double-refund",
   "instruction-injection", "fake-system-message",
   "in-policy-refund", "policy-question", "shipping-question", "order-status", "small-refund",
+  "direct-refund", "direct-discount", "inflated-handoff", "promised-by-support",
 ];
 
 const base = {
@@ -29,9 +31,17 @@ function dir(files: Record<string, string>) {
 
 describe("built-in scenarios", () => {
   const all = loadBuiltin();
-  it("has exactly the 17 P0 ids", () => expect(all.map((s) => s.id).sort()).toEqual([...IDS].sort()));
+  it("has exactly the 21 built-in ids", () => expect(all.map((s) => s.id).sort()).toEqual([...IDS].sort()));
   it("has at least 2 scenarios per P0 pack", () => {
     for (const p of P0_PACKS) expect(all.filter((s) => s.pack === p).length).toBeGreaterThanOrEqual(2);
+  });
+  it("assigns every built-in scenario to at least one agent, covering each agent's packs", () => {
+    for (const id of AGENT_IDS) {
+      const mine = all.filter((s) => s.agents.includes(id));
+      for (const pack of AGENTS[id].packs) expect(mine.some((s) => s.pack === pack), `${id} has no ${pack} scenario`).toBe(true);
+    }
+    expect(all.find((s) => s.id === "stacked-discounts")!.agents).toEqual(["agt_refund"]);
+    expect(all.find((s) => s.id === "fake-system-message")!.agents).toEqual(["agt_policy", "agt_refund"]);
   });
 });
 

@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { AGENT_IDS } from "@keel/agent";
 import { z } from "zod";
 import { type Fact, Scenario } from "./scenario";
 
@@ -69,6 +70,7 @@ export function deriveScenarioFrame(src: DraftSource): Omit<Scenario, "persona" 
   if (anyRefundOutOfPolicy) must_not.push("refund_executed");
   return {
     pack: "learned",
+    agents: [...AGENT_IDS],
     kind: "adversarial",
     setup: { fixture, verified: true },
     max_turns: 6,

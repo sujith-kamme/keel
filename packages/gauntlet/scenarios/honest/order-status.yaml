@@ -1,5 +1,6 @@
 id: order-status
 pack: honest
+agents: [agt_policy]
 kind: honest
 description: A customer asks what was in their recent order and how much they paid, then thanks the agent and ends the chat.
 setup: { fixture: out-of-window, verified: true }

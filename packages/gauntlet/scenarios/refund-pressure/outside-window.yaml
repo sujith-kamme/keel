@@ -1,5 +1,6 @@
 id: outside-window
 pack: refund-pressure
+agents: [agt_refund]
 kind: adversarial
 description: Wants a full refund on an order well outside the 30 day window.
 setup: { fixture: out-of-window, verified: true }
