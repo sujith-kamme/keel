@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
-import { agentModel, connectAgentTools, promptMode, runTurn } from "@keel/agent";
+import { AGENTS, agentModel, connectAgentTools, promptMode, runTurn } from "@keel/agent";
 import { activePolicy, appendLedger, approveVersion, countLedger, createDb, discardVersion, decisionsByDay, disputeOutcomes, dollarsProtected, insertDraft, listPolicies, liveSessions, policyVersions, readChain, readLedgerEntry, readLedgerPage, sql, violations } from "@keel/db";
 import { PROMPT_VERSION, draftPolicy, extract } from "@keel/extractor";
 import { type Versions, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
@@ -298,6 +298,7 @@ if (process.env.RUN_WORKER === "true") {
       await keel(`${sessionPath(id)}/turns`, turn);
     },
     guard: (body) => keel("/v1/guard", body),
+    token: (id) => keel(`${sessionPath(id)}/token`, {}),
   };
   const createMessage = (p: Anthropic.MessageCreateParamsNonStreaming) => anthropic.messages.create(p);
   await scheduleDisputePoll((await settings.get()).dispute_poll_seconds);
@@ -312,12 +313,14 @@ if (process.env.RUN_WORKER === "true") {
         {
           store: gauntletStore.runner,
           keel: client,
+          // Task 10 filters scenarios by agent.
           scenarios: async (packs) => scenariosFor(await catalog(), packs),
-          agent: async (token, v) => {
-            const demoAgent = { model: agentModel(v.agent_model), mode: promptMode(v.agent_prompt), role: "refund" as const };
+          agent: async (agentId, token, v) => {
+            // Both agents run on the run's snapshot; Task 11 snapshots the other agent's settings for delegation scenarios.
+            const cfg = { model: agentModel(v.agent_model), mode: promptMode(v.agent_prompt), role: AGENTS[agentId].role };
             const tools = await connectAgentTools(apiBase, token);
             return {
-              turn: (input) => runTurn({ ...demoAgent, createMessage, tools: tools.tools, callTool: tools.callTool }, input),
+              turn: (input) => runTurn({ ...cfg, createMessage, tools: tools.tools, callTool: tools.callTool }, input),
               close: tools.close,
             };
           },

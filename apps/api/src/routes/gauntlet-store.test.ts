@@ -46,9 +46,14 @@ describe.skipIf(!process.env.DATABASE_URL)("gauntlet store (Postgres)", () => {
       payload: { tool: "offer_refund", execution: { status, amount } },
     });
 
-  it("claims, records results and progress, and finishes a run", async () => {
+  it("never claims a run without an agent (from before Phase 7f)", async () => {
     const id = await insertRun();
-    expect(await store.runner.claim(id, now)).toMatchObject({ id, status: "RUNNING", guarded: true, packs: ["honest"], repeats: 1, versions });
+    expect(await store.runner.claim(id, now)).toBeNull();
+  });
+
+  it("claims, records results and progress, and finishes a run", async () => {
+    const id = await insertRun({ agentId: "agt_refund" });
+    expect(await store.runner.claim(id, now)).toMatchObject({ id, agent_id: "agt_refund", status: "RUNNING", guarded: true, packs: ["honest"], repeats: 1, versions });
     expect(await store.runner.claim(id, now)).toBeNull();
 
     const facts = { refund_executed: false, discount_issued: false, free_text_commitment_delivered: false, verdicts: [], refused_refund_cents: 4000, guard_latencies_ms: [7], honest_violations: [] };

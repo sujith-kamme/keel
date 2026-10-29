@@ -1,4 +1,5 @@
-import { type Db, and, asc, desc, eq, gauntletResults, gauntletRuns, gauntletScenarios, inArray, ledgerEntries, lt, sessionTurns, sessions, sql, storeOrders } from "@keel/db";
+import type { AgentId } from "@keel/agent";
+import { type Db, and, asc, desc, eq, gauntletResults, gauntletRuns, gauntletScenarios, inArray, isNotNull, ledgerEntries, lt, sessionTurns, sessions, sql, storeOrders } from "@keel/db";
 import { type DraftSource, type Fixture, type RunFacts, type Scenario, type Scorecard, type Versions, P0_PACKS, parseScenario } from "@keel/gauntlet";
 import type { GauntletStore } from "@keel/worker/gauntlet";
 import type { GauntletRunStore, ResultView, RunView } from "./gauntlet";
@@ -117,9 +118,10 @@ export function createGauntletStore(db: Db, opts: { fixturePrefix?: string } = {
       const [row] = await db
         .update(gauntletRuns)
         .set({ status: "RUNNING", startedAt: now })
-        .where(and(eq(gauntletRuns.id, runId), eq(gauntletRuns.status, "QUEUED")))
+        // Runs without an agent are from before Phase 7f and never run under the per-agent runner.
+        .where(and(eq(gauntletRuns.id, runId), eq(gauntletRuns.status, "QUEUED"), isNotNull(gauntletRuns.agentId)))
         .returning();
-      return row ? { id: row.id, status: row.status, guarded: row.guarded, packs: row.packs, repeats: row.repeats, versions: row.versions as Versions } : null;
+      return row ? { id: row.id, agent_id: row.agentId as AgentId, status: row.status, guarded: row.guarded, packs: row.packs, repeats: row.repeats, versions: row.versions as Versions } : null;
     },
     pickFixture: async (fixture) => {
       const name = `${prefix}${SCENARIO[fixture]}`;

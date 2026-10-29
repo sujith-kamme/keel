@@ -5,4 +5,4 @@ export { decisionsByDay, disputeOutcomes, dollarsProtected, liveSessions, violat
 export { refundTotals } from "./budget";
 export { readSettings, seedSettings, writeSettings, type SettingChanges } from "./settings";
 export { activePolicy, approveVersion, discardVersion, insertDraft, listPolicies, policyVersions, type PolicyRow, type PolicySummary, type PolicyVersion } from "./policies";
-export { and, asc, desc, eq, inArray, lt, sql } from "drizzle-orm";
+export { and, asc, desc, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
