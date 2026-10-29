@@ -1,12 +1,13 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { AutoRefresh } from "@/components/auto-refresh";
-import { reviewQueue } from "@/lib/operator";
+import { reviewQueue, requireConsole } from "@/lib/operator";
 import { buildRows } from "@/lib/review-view";
 import { ReviewGrid } from "./review-grid";
 
 async function Queue() {
   await connection();
+  await requireConsole();
   const rows = buildRows(await reviewQueue());
   if (rows.length === 0) return <p className="mt-4 text-sm">Nothing waiting for review.</p>;
   return <ReviewGrid rows={rows} />;

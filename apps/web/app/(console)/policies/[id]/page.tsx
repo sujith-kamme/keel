@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { OperatorError, policyVersions } from "@/lib/operator";
+import { OperatorError, policyVersions, requireConsole } from "@/lib/operator";
 import { isPolicyId, ruleSummary } from "@/lib/policies-view";
 import { DraftForm } from "./draft-form";
 import { RuleEditor } from "./rule-editor";
@@ -11,6 +11,7 @@ const when = (iso: string) => iso.replace("T", " ").slice(0, 16);
 
 async function Detail({ params, searchParams }: Pick<PageProps<"/policies/[id]">, "params" | "searchParams">) {
   await connection();
+  await requireConsole();
   const { id } = await params;
   if (!isPolicyId(id)) notFound();
   const versions = await policyVersions(id).catch((e: unknown) => {

@@ -3,9 +3,11 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { listSessions } from "@/lib/keel";
+import { requireConsole } from "@/lib/operator";
 
 async function Sessions() {
   await connection();
+  await requireConsole();
   const sessions = await listSessions(20);
   if (sessions.length === 0) {
     return (

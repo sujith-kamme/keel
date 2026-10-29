@@ -9,6 +9,7 @@ import { KeelError, sessionDetail, type DecisionSummary, type SessionDetail } fr
 import { canLearn } from "@/lib/context-view";
 import { canRelease } from "@/lib/review-view";
 import { attachDecisions, riskLevel, riskWidth, signalLabel } from "@/lib/sessions-view";
+import { requireConsole } from "@/lib/operator";
 
 const VERDICT_STYLE: Record<string, string> = {
   ALLOW: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
@@ -84,6 +85,7 @@ function RiskMeter({ risk }: { risk: SessionDetail["risk"] }) {
 
 async function Detail({ params }: { params: Promise<{ id: string }> }) {
   await connection();
+  await requireConsole();
   const { id } = await params;
   const detail = await sessionDetail(id).catch((e) => {
     if (e instanceof KeelError && e.status === 404) notFound();

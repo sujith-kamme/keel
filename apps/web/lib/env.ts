@@ -6,8 +6,6 @@ export interface Env {
   operatorKey: string;
   anthropicKey: string;
   webSecret: string;
-  consoleUser: string;
-  consolePassword: string;
 }
 
 let cached: Env | undefined;
@@ -29,8 +27,6 @@ export function env(): Env {
     operatorKey: required("KEEL_OPERATOR_KEY"),
     anthropicKey: required("ANTHROPIC_API_KEY"),
     webSecret,
-    consoleUser: required("CONSOLE_USER"),
-    consolePassword: required("CONSOLE_PASSWORD"),
   };
   return cached;
 }

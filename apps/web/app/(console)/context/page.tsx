@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { certLabel, certStyle, isActive, isRunId } from "@/lib/context-view";
-import { gauntletCertification, gauntletRun, gauntletRuns, gauntletScenarios, OperatorError } from "@/lib/operator";
+import { gauntletCertification, gauntletRun, gauntletRuns, gauntletScenarios, OperatorError, requireConsole } from "@/lib/operator";
 import { RunForm } from "./run-form";
 import { BeforeAfter, RunView } from "./run-view";
 
@@ -13,6 +13,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 async function Body({ search }: { search: Search }) {
   await connection();
+  await requireConsole();
   const sp = await search;
   const [cert, runs, scenarios] = await Promise.all([gauntletCertification(), gauntletRuns(), gauntletScenarios()]);
   const wanted = one(sp.run);
