@@ -93,7 +93,7 @@ npm run seed:context      # Gauntlet fixture orders
 
 Runtime settings (`DEMO_AGENT_MODEL/PROMPT`, `EXTRACTOR_*`, `RISK_*`, `GAUNTLET_CUSTOMER_MODEL`, `GAUNTLET_CONCURRENCY`, `DISPUTE_AUTO_SUBMIT`, `DISPUTE_POLL_SECONDS`, `ZAPIER_HOOK_URL`) are first-boot defaults only: once the API has started they live in the settings table and are changed from the console; later env changes are ignored. The storefront agent reads its model and prompt from the API (`GET /v1/agent-config`).
 
-`CONSOLE_USER` / `CONSOLE_PASSWORD` are required on first boot only: the API creates the console account from them (an email and a password of 12+ characters) and ignores them afterwards. Sign in to the console as `admin@tidewell.com`. Five failed sign-ins from one IP lock it out for 15 minutes. The demo store's customers are `maya@gmail.com` and `sam@gmail.com`.
+`CONSOLE_USER` / `CONSOLE_PASSWORD` are required on first boot only: the API creates the console account from them (an email and a password of 12+ characters) and ignores them afterwards. Sign in to the console as `admin@tidewell.com`. Five failed sign-ins from one IP lock it out for 15 minutes. The demo store's customers are `maya@gmail.com` and `sam@gmail.com`; both sign in to the store with `DEMO_STORE_PASSWORD`.
 
 Run each in its own terminal:
 
@@ -103,6 +103,8 @@ npm run dev:worker        # or set RUN_WORKER=true to run jobs inside the API
 npm run dev:web           # console, http://localhost:3000
 npm run dev:store         # Tidewell demo store, http://localhost:3001
 ```
+
+Store walkthrough: sign in as Maya, open an order under Orders and ask the support assistant for a refund (enter the demo code it shows to verify first); buy something at checkout with a PayPal sandbox buyer account or test card; use "Report a problem to PayPal" on an order to open a case in the sandbox Resolution Center. Every agent decision shows up in the console under Conversations and the Ledger.
 
 Useful checks: `npm run paypal:ping`, `npm run worker:ping`, and the `smoke:*` scripts in `package.json` (`smoke:mcp`, `smoke:guard`, `smoke:risk`, `smoke:dispute`, `smoke:gauntlet`). `render.yaml` is the Render Blueprint for the hosted deployment.
 
