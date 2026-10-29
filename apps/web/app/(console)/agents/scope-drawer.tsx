@@ -4,15 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { saveSection } from "@/app/(console)/settings/actions";
+import { PROMPTS } from "@/lib/prompt-labels";
 
 const MODEL_DESC: Record<string, string> = {
   "claude-haiku-5-5": "Default. Fastest and cheapest.",
   "claude-sonnet-5-5": "Stronger reasoning, slower replies.",
   "claude-opus-5-5": "Most capable, slowest and most expensive.",
-};
-const PROMPTS: Record<string, { label: string; desc: string }> = {
-  lenient: { label: "Eager support", desc: "A typical helpful prompt. Keel has to catch what it promises." },
-  strict: { label: "Keel-aware", desc: "Told about Keel and its policies. Fewer replies need rewriting." },
 };
 const ORDER = ["lenient", "strict"];
 
