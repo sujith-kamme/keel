@@ -1,91 +1,203 @@
 import Link from "next/link";
 import { connection } from "next/server";
-import type { ReactNode } from "react";
 import { Suspense } from "react";
-import { OperatorError, overview, requireConsole } from "@/lib/operator";
-import { certSummary, usd, type Overview } from "@/lib/overview-view";
-import { OverviewCharts } from "./overview-charts";
+import { OperatorError, overview, requireConsole, reviewQueue } from "@/lib/operator";
+import { activity, certStrip, usd, VERDICT_SERIES, type Overview } from "@/lib/overview-view";
+import { reasonLabel } from "@/lib/reason-labels";
+import { REVIEW_LIMIT } from "@/lib/review-view";
+import { DecisionsChart } from "./overview-charts";
 
-function Card({ title, href, children }: { title: string; href?: string; children: ReactNode }) {
+const n = (x: number) => x.toLocaleString("en-US");
+
+// OK isn't a reason anything was stopped, even on the odd row that carries it.
+const topReasons = (o: Overview) => o.violations.all_time.byReason.filter((r) => r.code !== "OK");
+
+const SHIELD = { ok: "var(--ok-dot)", warn: "var(--warn-dot)", neu: "var(--neu-dot)" } as const;
+
+function Certification({ o }: { o: Overview }) {
+  const c = certStrip(o.certification);
   return (
-    <div className="rounded border border-black/10 p-4 dark:border-white/10">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 className="text-sm font-medium opacity-80">{title}</h2>
-        {href && (
-          <Link href={href} className="text-xs underline">
-            Open
-          </Link>
+    <div className="pnl" style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", flexWrap: "wrap" }}>
+      <i className="ic ic-shield" style={{ color: SHIELD[c.tone], width: 18, height: 18, maskSize: "18px 18px", WebkitMaskSize: "18px 18px" }} aria-hidden="true" />
+      <span style={{ fontWeight: 600 }}>{c.title}</span>
+      <span className="mut" style={{ minWidth: 0, flex: "1 1 320px" }}>
+        {c.runId && (
+          <>
+            Guarded run <span className="mono">{c.runId}</span>{" "}
+          </>
         )}
-      </div>
-      {children}
+        {c.detail}
+      </span>
+      {c.runId && (
+        <Link href={`/context?run=${encodeURIComponent(c.runId)}`} style={{ marginLeft: "auto", fontWeight: 500 }}>
+          View scorecard
+        </Link>
+      )}
     </div>
   );
 }
 
-const Big = ({ children }: { children: ReactNode }) => <p className="mt-2 text-3xl font-semibold tabular-nums">{children}</p>;
-
-function Cards({ o }: { o: Overview }) {
-  const cert = certSummary(o.certification);
-  const v = o.violations;
+function Kpis({ o, inReview }: { o: Overview; inReview: number | null }) {
   const d = o.dollars_protected;
+  const v = o.violations;
+  const top = topReasons(o)[0];
   const disputes = o.disputes;
   return (
-    <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      <Card title="Certification" href="/context">
-        <span className={`mt-2 inline-block rounded px-2 py-1 text-sm font-medium ${cert.style}`}>{cert.label}</span>
-        <p className="mt-2 text-sm">{cert.reason}</p>
-      </Card>
-      <Card title="Live sessions" href="/sessions">
-        <Big>{o.sessions.active}</Big>
-        <p className="text-sm">active</p>
-        <p className={`mt-1 text-sm ${o.sessions.quarantined > 0 ? "font-medium text-red-700 dark:text-red-300" : ""}`}>{o.sessions.quarantined} quarantined</p>
-      </Card>
-      <Card title="Violations caught">
-        <Big>{v.all_time.total.toLocaleString("en-US")}</Big>
-        <p className="text-sm">all time · {v.last_7_days.total.toLocaleString("en-US")} in the last 7 days</p>
-        {v.all_time.byReason.length > 0 && (
-          <ul className="mt-2 text-xs">
-            {v.all_time.byReason.slice(0, 5).map((r) => (
-              <li key={r.code} className="flex justify-between gap-2">
-                <span className="font-mono">{r.code}</span>
-                <span className="tabular-nums">{r.count.toLocaleString("en-US")}</span>
-              </li>
-            ))}
-          </ul>
+    <div className="kpis grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="kpi">
+        <span className="lbl">Dollars protected</span>
+        <span className="v">{usd(d.all_time.total)}</span>
+        <span className="sm dim">
+          {usd(d.all_time.blocked_refunds)} blocked · {usd(d.all_time.denied_holds)} denied · {usd(d.all_time.disputes_won)} won
+        </span>
+        <span className="sm dim">{usd(d.last_7_days.total)} in the last 7 days</span>
+      </div>
+      <div className="kpi">
+        <span className="lbl">Violations caught</span>
+        <span className="v">{n(v.all_time.total)}</span>
+        {top && (
+          <span className="sm dim">
+            Top reason: {reasonLabel(top.code).toLowerCase()} ({n(top.count)})
+          </span>
         )}
-      </Card>
-      <Card title="Dollars protected">
-        <Big>{usd(d.all_time.total)}</Big>
-        <p className="text-sm">all time · {usd(d.last_7_days.total)} in the last 7 days</p>
-        <ul className="mt-2 text-xs">
-          <li className="flex justify-between gap-2">
-            <span>Refunds blocked</span>
-            <span className="tabular-nums">{usd(d.all_time.blocked_refunds)}</span>
-          </li>
-          <li className="flex justify-between gap-2">
-            <span>Held refunds denied</span>
-            <span className="tabular-nums">{usd(d.all_time.denied_holds)}</span>
-          </li>
-          <li className="flex justify-between gap-2">
-            <span>Disputes won</span>
-            <span className="tabular-nums">{usd(d.all_time.disputes_won)}</span>
-          </li>
-        </ul>
-      </Card>
-      <Card title="Disputes" href="/disputes">
-        <p className="mt-2 text-sm">
-          {disputes.WON} won · {disputes.CONCEDED} conceded · {disputes.LOST} lost · {disputes.OPEN} open
+        <span className="sm dim">{n(v.last_7_days.total)} in the last 7 days</span>
+      </div>
+      <div className="kpi">
+        <span className="lbl">Disputes resolved</span>
+        <span className="v">{n(disputes.WON + disputes.CONCEDED + disputes.LOST)}</span>
+        <span className="sm dim">
+          {n(disputes.WON)} won · {n(disputes.CONCEDED)} conceded · {n(disputes.LOST)} lost
+        </span>
+        <span className="sm dim">
+          {n(disputes.OPEN)} open · {usd(disputes.amount_conceded)} conceded
+        </span>
+      </div>
+      <div className="kpi">
+        <span className="lbl">Live sessions</span>
+        <span className="v">{n(o.sessions.active)}</span>
+        <span className="sm dim">
+          {n(o.sessions.quarantined)} quarantined
+          {inReview !== null && ` · ${inReview >= REVIEW_LIMIT ? `${REVIEW_LIMIT}+` : n(inReview)} in review`}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function Decisions({ o }: { o: Overview }) {
+  return (
+    <section className="pnl" aria-labelledby="dec-h" style={{ minWidth: 0 }}>
+      <div className="pnl-h">
+        <h2 id="dec-h">Decisions</h2>
+        <div className="sm mut" style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+          {VERDICT_SERIES.map((s) => (
+            <span key={s.key} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: `var(${s.color})` }} />
+              {s.name}
+            </span>
+          ))}
+        </div>
+      </div>
+      <div className="pnl-b">
+        <DecisionsChart days={o.decisions_by_day} />
+        <p className="sm dim" style={{ margin: "4px 0 0" }}>
+          Ledger rows per UTC day, last 14 days
         </p>
-        <p className="mt-1 text-sm">
-          {usd(disputes.amount_won)} won · {usd(disputes.amount_conceded)} conceded
+      </div>
+    </section>
+  );
+}
+
+function ReasonCodes({ o }: { o: Overview }) {
+  const rows = topReasons(o).slice(0, 5);
+  return (
+    <section className="pnl" aria-labelledby="rc-h" style={{ minWidth: 0 }}>
+      <div className="pnl-h">
+        <h2 id="rc-h">Top reason codes</h2>
+        <span className="sm dim">All time</span>
+      </div>
+      {rows.length === 0 ? (
+        <p className="pnl-b mut" style={{ margin: 0 }}>
+          No violations caught yet.
         </p>
-      </Card>
-      <Card title="Kill switch">
-        <p className="mt-2 text-sm">Freeze every agent, or one, from the Agents page.</p>
-        <Link href="/agents" className="mt-2 inline-block text-sm underline">
-          Kill switch → Agents
+      ) : (
+        <table className="t">
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.code}>
+                <td style={{ whiteSpace: "normal", height: "auto", padding: "8px 12px" }}>
+                  <div>{reasonLabel(r.code)}</div>
+                  <div className="mono dim">{r.code}</div>
+                </td>
+                <td className="r">{n(r.count)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+function RecentActivity({ o }: { o: Overview }) {
+  const rows = o.recent_activity.map(activity);
+  return (
+    <section className="pnl" aria-labelledby="act-h">
+      <div className="pnl-h">
+        <h2 id="act-h">Recent activity</h2>
+        <Link href="/ledger" className="sm">
+          Open ledger
         </Link>
-      </Card>
+      </div>
+      {rows.length === 0 ? (
+        <p className="pnl-b mut" style={{ margin: 0 }}>
+          No live activity yet.
+        </p>
+      ) : (
+        <div className="tw">
+          <table className="t" style={{ minWidth: 760 }}>
+            <thead>
+              <tr>
+                <th scope="col">Time (UTC)</th>
+                <th scope="col">Event</th>
+                <th scope="col">Reference</th>
+                <th scope="col" className="r">
+                  Amount
+                </th>
+                <th scope="col">Decision</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.seq}>
+                  <td className="mut">{r.time}</td>
+                  <td>{r.event}</td>
+                  <td className="mono">{r.reference ?? "—"}</td>
+                  <td className="r">{r.amount ?? "—"}</td>
+                  <td>
+                    <span className={`st ${r.decision.tone}`}>{r.decision.label}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function KillSwitch() {
+  return (
+    <div className="pnl row">
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontWeight: 600 }}>Kill switch</div>
+        <div className="sm mut">Freeze every agent, or one, from the Agents page.</div>
+      </div>
+      <Link className="b" href="/agents">
+        <i className="ic ic-agents s14" aria-hidden="true" />
+        Open Agents
+      </Link>
     </div>
   );
 }
@@ -94,41 +206,58 @@ async function Body() {
   await connection();
   await requireConsole();
   let o: Overview;
+  let inReview: number | null;
   try {
-    o = await overview();
+    // The review count is a nicety on the Live sessions card; the page still shows without it.
+    [o, inReview] = await Promise.all([overview(), reviewQueue().then((q) => q.length, () => null)]);
   } catch (e) {
     return (
-      <p className="mt-4 rounded bg-red-100 px-3 py-2 text-sm text-red-800 dark:bg-red-900/40 dark:text-red-200">
+      <p className="pnl mut" style={{ margin: 0, padding: "12px 16px", color: "var(--bad)" }}>
         Couldn&apos;t load the overview{e instanceof OperatorError ? ` (${e.status})` : ""}. Try again in a moment.
       </p>
     );
   }
   return (
     <>
-      <Cards o={o} />
-      <OverviewCharts days={o.decisions_by_day} disputes={o.disputes} />
+      <Certification o={o} />
+      <Kpis o={o} inReview={inReview} />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" style={{ alignItems: "stretch" }}>
+        <Decisions o={o} />
+        <ReasonCodes o={o} />
+      </div>
+      <RecentActivity o={o} />
+      <KillSwitch />
     </>
   );
 }
 
 function Skeleton() {
   return (
-    <div className="mt-4 grid animate-pulse gap-4 md:grid-cols-2 xl:grid-cols-3" aria-label="Loading">
-      {Array.from({ length: 6 }, (_, i) => (
-        <div key={i} className="h-36 rounded bg-black/5 dark:bg-white/10" />
-      ))}
+    <div className="flex animate-pulse flex-col gap-6" aria-label="Loading">
+      <div className="pnl" style={{ height: 46 }} />
+      <div className="kpis" style={{ height: 112 }} />
+      <div className="pnl" style={{ height: 300 }} />
     </div>
   );
 }
 
 export default function Page() {
   return (
-    <section>
-      <h1 className="text-2xl font-semibold">Overview</h1>
-      <p className="mt-1 text-sm opacity-80">What Keel caught on live traffic, and what it saved. Gauntlet runs are left out.</p>
+    <>
+      <div className="ph">
+        <div>
+          <h1>Overview</h1>
+          <p>Decisions on live traffic. Gauntlet test runs are excluded.</p>
+        </div>
+        <div className="acts">
+          <Link className="b pri" href="/context">
+            Run Gauntlet
+          </Link>
+        </div>
+      </div>
       <Suspense fallback={<Skeleton />}>
         <Body />
       </Suspense>
-    </section>
+    </>
   );
 }

@@ -9,6 +9,8 @@ export interface RiskService {
   /** Recompute; on crossing the threshold set QUARANTINED, append a `risk` ledger row, enqueue session.quarantined. */
   assess(sessionId: string): Promise<{ score: number; quarantined: boolean }>;
   detail(sessionId: string): Promise<{ score: number; threshold: number; signals: RiskSignal[] }>;
+  /** Current score per known session; unknown ids are left out. */
+  scores(sessionIds: string[]): Promise<Map<string, number>>;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
@@ -17,6 +19,18 @@ function customerInjection(payload: Record<string, unknown>): boolean {
   if (payload.tool !== "guard" || !isRecord(payload.input) || !isRecord(payload.input.extraction)) return false;
   const found = payload.input.extraction.injection_signals;
   return Array.isArray(found) && found.some((s) => isRecord(s) && s.source === "customer");
+}
+
+function riskRow(e: typeof ledgerEntries.$inferSelect): RiskRow {
+  const payload = isRecord(e.payload) ? e.payload : {};
+  return {
+    tool: typeof payload.tool === "string" ? payload.tool : "",
+    verdict: e.verdict as RiskRow["verdict"],
+    reason_codes: e.reasonCodes as RiskRow["reason_codes"],
+    order_id: e.orderId,
+    injection_from_customer: customerInjection(payload),
+    created_at: e.createdAt.toISOString(),
+  };
 }
 
 export function createRisk(
@@ -37,18 +51,7 @@ export function createRisk(
     const [session] = await db.select().from(sessions).where(eq(sessions.id, sessionId));
     if (!session) throw new Error(`unknown session ${sessionId}`);
     const entries = await db.select().from(ledgerEntries).where(eq(ledgerEntries.sessionId, sessionId)).orderBy(asc(ledgerEntries.seq));
-    const rows: RiskRow[] = entries.map((e) => {
-      const payload = isRecord(e.payload) ? e.payload : {};
-      return {
-        tool: typeof payload.tool === "string" ? payload.tool : "",
-        verdict: e.verdict as RiskRow["verdict"],
-        reason_codes: e.reasonCodes as RiskRow["reason_codes"],
-        order_id: e.orderId,
-        injection_from_customer: customerInjection(payload),
-        created_at: e.createdAt.toISOString(),
-      };
-    });
-    const sigs = signals(rows, session.orderIds);
+    const sigs = signals(entries.map(riskRow), session.orderIds);
     const cfg = await opts.cfg();
     return { session, sigs, cfg, score: score(sigs, opts.now(), cfg) };
   }
@@ -119,6 +122,20 @@ export function createRisk(
     detail: async (sessionId) => {
       const { sigs, cfg, score: s } = await load(sessionId);
       return { score: s, threshold: cfg.threshold, signals: sigs };
+    },
+
+    // Two queries for any number of sessions, so a long review queue doesn't hold the pool.
+    scores: async (sessionIds) => {
+      if (sessionIds.length === 0) return new Map();
+      const [found, entries, cfg] = await Promise.all([
+        db.select({ id: sessions.id, orderIds: sessions.orderIds }).from(sessions).where(inArray(sessions.id, sessionIds)),
+        db.select().from(ledgerEntries).where(inArray(ledgerEntries.sessionId, sessionIds)).orderBy(asc(ledgerEntries.seq)),
+        opts.cfg(),
+      ]);
+      const rows = new Map<string, RiskRow[]>();
+      for (const e of entries) rows.set(e.sessionId!, [...(rows.get(e.sessionId!) ?? []), riskRow(e)]);
+      const now = opts.now();
+      return new Map(found.map((f) => [f.id, score(signals(rows.get(f.id) ?? [], f.orderIds), now, cfg)]));
     },
   };
 }

@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
 import { agentModel, connectAgentTools, promptMode, runTurn } from "@keel/agent";
-import { activePolicy, appendLedger, approveVersion, createDb, decisionsByDay, disputeOutcomes, dollarsProtected, insertDraft, listPolicies, liveSessions, policyVersions, readChain, readLedgerPage, sql, violations } from "@keel/db";
+import { activePolicy, appendLedger, approveVersion, createDb, discardVersion, decisionsByDay, disputeOutcomes, dollarsProtected, insertDraft, listPolicies, liveSessions, policyVersions, readChain, readLedgerPage, sql, violations } from "@keel/db";
 import { PROMPT_VERSION, draftPolicy, extract } from "@keel/extractor";
 import { type Versions, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
 import { PayPalClient, configFromEnv } from "@keel/paypal";
@@ -62,11 +62,12 @@ const catalog = async () => scenarioCatalog(builtinScenarios, await gauntletStor
 const currentVersions = async (): Promise<Versions> => {
   const policies: Record<string, number> = {};
   // price-catalog isn't a policy the guard checks claims against, but an approved change to it still makes certification stale.
-  for (const id of [...KNOWN_POLICY_IDS, "price-catalog"]) {
-    const version = ((await activePolicy(db, id)) as { version?: unknown } | null)?.version;
+  const ids = [...KNOWN_POLICY_IDS, "price-catalog"];
+  const [active, s] = await Promise.all([Promise.all(ids.map((id) => activePolicy(db, id))), settings.get()]);
+  ids.forEach((id, i) => {
+    const version = (active[i] as { version?: unknown } | null)?.version;
     if (typeof version === "number") policies[id] = version;
-  }
-  const s = await settings.get();
+  });
   return {
     agent_model: s.agent_model,
     agent_prompt: s.agent_prompt,
@@ -159,7 +160,7 @@ const app = createApp({
     newId,
   },
   mcp: { signingKey: KEEL_SIGNING_KEY, now, handle: (cap, call) => handleTool(gateway, cap, call) },
-  review: { operatorKey: KEEL_OPERATOR_KEY, merchantKey: KEEL_MERCHANT_KEY, store: createReviewStore(db), gateway, detail: risk.detail },
+  review: { operatorKey: KEEL_OPERATOR_KEY, merchantKey: KEEL_MERCHANT_KEY, store: createReviewStore(db), gateway, scores: risk.scores },
   agents: { operatorKey: KEEL_OPERATOR_KEY, merchantKey: KEEL_MERCHANT_KEY, store: createAgentStore(db), newId },
   console: { operatorKey: KEEL_OPERATOR_KEY, merchantKey: KEEL_MERCHANT_KEY, store: consoleStore, redis, newId },
   settings: {
@@ -217,11 +218,13 @@ const app = createApp({
     operatorKey: KEEL_OPERATOR_KEY,
     merchantKey: KEEL_MERCHANT_KEY,
     certification: () => currentCertification({ store: gauntletStore.runs, versions: currentVersions }),
+    run: (id) => gauntletStore.runs.get(id),
     sessions: () => liveSessions(db),
     violations: (since) => violations(db, { since }),
     dollarsProtected: (since) => dollarsProtected(db, { since }),
     decisionsByDay: () => decisionsByDay(db),
     disputes: () => disputeOutcomes(db),
+    recent: () => readLedgerPage(db, { limit: 6, live: true }),
     now,
   },
   gridQuery: {
@@ -242,6 +245,7 @@ const app = createApp({
       draftPolicy({ parse: (p, o) => anthropic.messages.parse(p, o), model: (await settings.get()).extractor_model, timeoutMs: 45_000 }, input),
     insertDraft: (id, policy) => insertDraft(db, id, policy),
     approve: (id, version, edits, entry) => approveVersion(db, id, version, edits, entry),
+    discard: (id, version, entry) => discardVersion(db, id, version, entry),
     newId,
   },
 });

@@ -27,6 +27,7 @@ function setup(over: Partial<PoliciesOptions> = {}) {
     draft: vi.fn<PoliciesOptions["draft"]>(async () => drafted),
     insertDraft: vi.fn<PoliciesOptions["insertDraft"]>(async () => 2),
     approve: vi.fn<PoliciesOptions["approve"]>(async () => true),
+    discard: vi.fn<PoliciesOptions["discard"]>(async () => "discarded" as const),
     newId: (prefix: string) => `${prefix}_1`,
     ...over,
   };
@@ -38,6 +39,7 @@ function setup(over: Partial<PoliciesOptions> = {}) {
 const post = (app: Hono, path: string, body: unknown, key = operatorKey) =>
   app.request(path, { method: "POST", headers: auth(key), body: typeof body === "string" ? body : JSON.stringify(body) });
 const APPROVE = "/v1/policies/refund-standard/versions/2/approve";
+const DISCARD = "/v1/policies/refund-standard/versions/2/discard";
 
 describe("policies routes", () => {
   it("needs the operator key", async () => {
@@ -47,6 +49,7 @@ describe("policies routes", () => {
       ["GET", "/v1/policies/refund-standard"],
       ["POST", "/v1/policies/draft"],
       ["POST", APPROVE],
+      ["POST", DISCARD],
     ] as const) {
       expect((await app.request(path, { method })).status).toBe(401);
       expect((await app.request(path, { method, headers: auth(merchantKey) })).status).toBe(403);
@@ -154,5 +157,45 @@ describe("policies routes", () => {
       expect((await post(app, path, edits)).status).toBe(400);
     }
     expect(approve).not.toHaveBeenCalled();
+  });
+
+  it("discards a draft and records it in the ledger", async () => {
+    const { app, discard } = setup();
+    const res = await post(app, DISCARD, { reviewer: "ops@keel.test" });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ policy_id: "refund-standard", version: 2, status: "DISCARDED", decision_id: "dec_1" });
+    expect(discard).toHaveBeenCalledWith("refund-standard", 2, {
+      decision_id: "dec_1",
+      session_id: null,
+      order_id: null,
+      capture_id: null,
+      dispute_id: null,
+      mode: "LIVE",
+      verdict: "ALLOW",
+      reason_codes: ["OK"],
+      payload: { tool: "policy_discard", policy_id: "refund-standard", version: 2, reviewer: "ops@keel.test" },
+    });
+  });
+
+  it("discards only drafts that exist", async () => {
+    const missing = setup({ discard: async () => "not_found" as const });
+    const res404 = await post(missing.app, DISCARD, { reviewer: "ops@keel.test" });
+    expect(res404.status).toBe(404);
+    expect(await res404.json()).toEqual({ error: "not_found" });
+    const approved = setup({ discard: async () => "not_draft" as const });
+    const res409 = await post(approved.app, DISCARD, { reviewer: "ops@keel.test" });
+    expect(res409.status).toBe(409);
+    expect(await res409.json()).toEqual({ error: "not_draft" });
+  });
+
+  it("validates discards", async () => {
+    const { app, discard } = setup();
+    for (const body of [{}, { reviewer: "" }, { reviewer: "x".repeat(65) }, { reviewer: "ops@keel.test", extra: true }, "not json"]) {
+      expect((await post(app, DISCARD, body)).status).toBe(400);
+    }
+    for (const path of ["/v1/policies/refund-standard/versions/0/discard", "/v1/policies/Bad%20Id/versions/2/discard"]) {
+      expect((await post(app, path, { reviewer: "ops@keel.test" })).status).toBe(400);
+    }
+    expect(discard).not.toHaveBeenCalled();
   });
 });

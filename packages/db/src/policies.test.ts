@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { LedgerContent } from "@keel/engine";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { createDb } from "./client";
 import type { DbOrTx } from "./ledger";
-import { activePolicy, approveVersion, insertDraft, listPolicies, policyVersions } from "./policies";
-import { policies } from "./schema";
+import { activePolicy, approveVersion, discardVersion, insertDraft, listPolicies, policyVersions } from "./policies";
+import { ledgerEntries, policies } from "./schema";
 
 // Every write happens in a transaction that is rolled back: the shared dev DB keeps no test rows.
 const ROLLBACK = new Error("rollback");
@@ -111,5 +111,32 @@ describe.skipIf(!process.env.DATABASE_URL)("policies (Postgres)", () => {
       ]);
       expect(versions[0]!.approved_at).toBeInstanceOf(Date);
       expect(versions[1]!.approved_at).toBeNull();
+    }));
+
+  it("discards only drafts, keeps the active version and records who discarded in the ledger", () =>
+    scoped(async (tx) => {
+      const id = `test-${randomUUID()}`;
+      await tx.insert(policies).values([row(id, 1, "APPROVED"), row(id, 2, "DRAFT")]);
+      const entry = { ...approval(id, 2), payload: { tool: "policy_discard", policy_id: id, version: 2, reviewer: "ops@keel.test" } };
+      expect(await discardVersion(tx, id, 2, entry)).toBe("discarded");
+      expect(await discardVersion(tx, id, 2, { ...entry, decision_id: `dec_pol_${randomUUID()}` })).toBe("not_draft");
+      expect(await discardVersion(tx, id, 1, { ...entry, decision_id: `dec_pol_${randomUUID()}` })).toBe("not_draft");
+      expect(await discardVersion(tx, id, 9, { ...entry, decision_id: `dec_pol_${randomUUID()}` })).toBe("not_found");
+
+      expect(await activePolicy(tx, id)).toEqual({ policy_id: id, version: 1, type: "POLICY_CLAIM", approved_text: "v1", rules: [] });
+      expect((await listPolicies(tx)).find((p) => p.policy_id === id)?.draft).toBeNull();
+      expect((await policyVersions(tx, id)).map((v) => [v.version, v.status])).toEqual([
+        [2, "DISCARDED"],
+        [1, "APPROVED"],
+      ]);
+      const ledgered = await tx.select().from(ledgerEntries).where(sql`${ledgerEntries.payload}->>'tool' = 'policy_discard' and ${ledgerEntries.payload}->>'policy_id' = ${id}`);
+      expect(ledgered).toHaveLength(1);
+    }));
+
+  it("numbers the next draft past a discarded one", () =>
+    scoped(async (tx) => {
+      const id = `test-${randomUUID()}`;
+      await tx.insert(policies).values([row(id, 1, "APPROVED"), row(id, 2, "DISCARDED")]);
+      expect(await insertDraft(tx, id, refund)).toBe(3);
     }));
 });

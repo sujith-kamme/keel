@@ -6,6 +6,9 @@ export interface Versions {
   agent_prompt: string;
   extractor_model: string;
   extractor_prompt_version: string;
+  extractor_timeout_ms: number;
+  risk_threshold: number;
+  risk_half_life_min: number;
   policies: Record<string, number>;
 }
 
@@ -88,21 +91,78 @@ export const isActive = (status: string) => status === "QUEUED" || status === "R
 /** "85%" for 0.85; an em dash when there is nothing to rate. */
 export const pct = (v: number | null): string => (v === null ? "—" : `${Math.round(v * 1000) / 10}%`);
 
-const OUTCOME_STYLE: Record<string, string> = {
-  PASS: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
-  LEAK: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
-  FALSE_POSITIVE: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
-  ERROR: "bg-gray-200 text-gray-800 dark:bg-gray-700/60 dark:text-gray-200",
+const OUTCOME: Record<string, { label: string; tone: string }> = {
+  PASS: { label: "Pass", tone: "ok" },
+  LEAK: { label: "Leak", tone: "bad" },
+  FALSE_POSITIVE: { label: "False positive", tone: "warn" },
+  ERROR: { label: "Error", tone: "" },
 };
-export const outcomeStyle = (o: string) => OUTCOME_STYLE[o] ?? OUTCOME_STYLE.ERROR;
+/** Wording and status-dot class for a scenario outcome. */
+export const outcomeBadge = (o: string) => OUTCOME[o] ?? { label: o, tone: "" };
 
-const CERT_STYLE = {
-  CERTIFIED: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
-  STALE: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
-  NOT_CERTIFIED: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
+const CERT = {
+  CERTIFIED: { label: "Certified", tone: "ok" },
+  STALE: { label: "Stale", tone: "warn" },
+  NOT_CERTIFIED: { label: "Not certified", tone: "" },
 };
-export const certStyle = (s: Certification["status"]) => CERT_STYLE[s] ?? CERT_STYLE.NOT_CERTIFIED;
-export const certLabel = (s: Certification["status"]) => s.replace("_", " ");
+/** Wording and badge class for a certification status. */
+export const certBadge = (s: Certification["status"]) => CERT[s] ?? CERT.NOT_CERTIFIED;
+
+const PACK_LABELS: Record<string, string> = {
+  honest: "Honest customers",
+  "invented-policy": "Invented policy",
+  "price-manipulation": "Price manipulation",
+  "refund-pressure": "Refund pressure",
+  "prompt-injection": "Prompt injection",
+  learned: "Learned from live traffic",
+};
+export const packLabel = (p: string) => PACK_LABELS[p] ?? p;
+
+export interface PackStats {
+  pack: string;
+  conversations: number;
+  passed: number;
+  leaks: number;
+  /** Null for a pack with no honest scenarios: false positives only exist there. */
+  falsePositives: number | null;
+  errors: number;
+  /** Over the conversations that didn't error, as the scorecard rates them. */
+  passRate: number | null;
+}
+
+/** Per-pack counts from a run's results, sorted by pack label. */
+export function packStats(results: RunResult[]): PackStats[] {
+  const by = new Map<string, RunResult[]>();
+  for (const r of results) by.set(r.pack, [...(by.get(r.pack) ?? []), r]);
+  return [...by]
+    .map(([pack, rows]) => {
+      const count = (o: string) => rows.filter((r) => r.outcome === o).length;
+      const errors = count("ERROR");
+      const passed = count("PASS");
+      return {
+        pack,
+        conversations: rows.length,
+        passed,
+        leaks: count("LEAK"),
+        falsePositives: rows.some((r) => r.kind === "honest") ? count("FALSE_POSITIVE") : null,
+        errors,
+        passRate: rows.length === errors ? null : passed / (rows.length - errors),
+      };
+    })
+    .sort((a, b) => packLabel(a.pack).localeCompare(packLabel(b.pack)));
+}
+
+/** The Run history's result column: what the run shows, from its own data and the current certification. */
+export function runOutcome(run: Run, cert: Pick<Certification, "status" | "run_id">): { label: string; tone: string } {
+  if (isActive(run.status)) return { label: run.status === "QUEUED" ? "Queued" : "Running", tone: "info" };
+  if (run.status === "FAILED") return { label: "Failed", tone: "bad" };
+  if (!run.scorecard) return { label: "No scorecard", tone: "" };
+  if (!run.guarded) return { label: "Baseline", tone: "" };
+  if (run.scorecard.leaks > 0) return { label: "Leak", tone: "bad" };
+  if (run.id === cert.run_id && cert.status === "CERTIFIED") return { label: "Certifies", tone: "ok" };
+  if (run.id === cert.run_id && cert.status === "STALE") return { label: "Certified, stale", tone: "warn" };
+  return { label: "No leaks", tone: "ok" };
+}
 
 export const progressPct = (p: { total: number; done: number }) => (p.total <= 0 ? 0 : Math.max(0, Math.min(100, (p.done / p.total) * 100)));
 

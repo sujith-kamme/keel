@@ -1,6 +1,6 @@
 import { chainEntry, type LedgerContent, type LedgerRecord } from "@keel/engine";
 import type { Mode, ReasonCode, Verdict } from "@keel/core";
-import { asc, desc, lt, sql } from "drizzle-orm";
+import { and, asc, desc, lt, ne, sql } from "drizzle-orm";
 import type { Db } from "./client";
 import { ledgerEntries } from "./schema";
 
@@ -60,13 +60,18 @@ export async function readLedger(db: Db): Promise<LedgerRecord[]> {
 
 export type LedgerPageRow = LedgerRecord & { seq: number; created_at: Date };
 
-/** Newest first; `limit` is clamped to 1..2000. */
-export async function readLedgerPage(db: Db, opts: { beforeSeq?: number; limit: number }): Promise<LedgerPageRow[]> {
+/** Newest first; `limit` is clamped to 1..2000. `live` leaves out simulated CONTEXT (Gauntlet) rows. */
+export async function readLedgerPage(db: Db, opts: { beforeSeq?: number; limit: number; live?: boolean }): Promise<LedgerPageRow[]> {
   const limit = Math.min(2000, Math.max(1, Math.trunc(opts.limit)));
   const rows = await db
     .select()
     .from(ledgerEntries)
-    .where(opts.beforeSeq === undefined ? undefined : lt(ledgerEntries.seq, opts.beforeSeq))
+    .where(
+      and(
+        opts.beforeSeq === undefined ? undefined : lt(ledgerEntries.seq, opts.beforeSeq),
+        opts.live ? ne(ledgerEntries.mode, "CONTEXT") : undefined,
+      ),
+    )
     .orderBy(desc(ledgerEntries.seq))
     .limit(limit);
   return rows.map((row) => ({ ...toRecord(row), seq: row.seq, created_at: row.createdAt }));

@@ -19,13 +19,17 @@ export function KillSwitch({ agentId, frozen, label, danger }: { agentId: string
       else setError(r.message);
     });
   };
-  const tone = danger && next ? "border-red-600 bg-red-600 text-white hover:bg-red-700" : "border-black/20 hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10";
+  const cls = danger ? (next ? "b dng" : "b") : "b xs";
   return (
-    <div className="flex items-center gap-2">
-      <button onClick={click} disabled={pending} className={`rounded border px-3 py-1 text-sm disabled:opacity-50 ${tone}`}>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      {error && (
+        <span className="sm" style={{ color: "var(--bad)" }} role="alert">
+          {error}
+        </span>
+      )}
+      <button onClick={click} disabled={pending} className={cls}>
         {text}
       </button>
-      {error && <span className="text-xs text-red-700 dark:text-red-300">{error}</span>}
-    </div>
+    </span>
   );
 }

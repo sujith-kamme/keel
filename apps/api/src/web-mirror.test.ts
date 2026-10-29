@@ -1,6 +1,8 @@
+import { ReasonCode } from "@keel/core";
 import { HOOK_PREFIX } from "@keel/worker/notify";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { REASON_LABELS } from "../../web/lib/reason-labels";
 import { REVIEW_LIMIT } from "../../web/lib/review-view";
 import { HOOK_PREFIX as WEB_HOOK_PREFIX, SECTION_SCHEMAS as WEB_SCHEMAS } from "../../web/lib/settings-view";
 import { LIMIT } from "./routes/review";
@@ -18,5 +20,9 @@ describe("console mirrors of API constants", () => {
 
   it("the review queue cap", () => {
     expect(REVIEW_LIMIT).toBe(LIMIT);
+  });
+
+  it("a label for every reason code", () => {
+    expect(Object.keys(REASON_LABELS).sort()).toEqual([...ReasonCode.options].sort());
   });
 });

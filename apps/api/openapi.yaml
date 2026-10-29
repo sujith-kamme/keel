@@ -1186,7 +1186,7 @@ paths:
     get:
       tags: [Overview]
       operationId: overview
-      summary: Certification, sessions, violations, dollars protected and disputes in one call
+      summary: Certification, sessions, violations, dollars protected, disputes and recent activity in one call
       security: [{ operatorKey: [] }]
       responses:
         "200":
@@ -1196,7 +1196,16 @@ paths:
               schema:
                 type: object
                 properties:
-                  certification: { type: [object, "null"], additionalProperties: true }
+                  certification:
+                    type: [object, "null"]
+                    additionalProperties: true
+                    description: >-
+                      Same as GET /v1/gauntlet/certification. When it names a run, also that run's
+                      `leaks`, `scenarios` (conversations run) and `finished_at`.
+                    properties:
+                      leaks: { type: integer }
+                      scenarios: { type: integer }
+                      finished_at: { type: [string, "null"], format: date-time }
                   sessions:
                     type: object
                     properties:
@@ -1206,6 +1215,10 @@ paths:
                   dollars_protected: { type: object, additionalProperties: true }
                   decisions_by_day: { type: array, items: { type: object, additionalProperties: true } }
                   disputes: { type: object, additionalProperties: true }
+                  recent_activity:
+                    type: array
+                    description: The newest live ledger rows (Gauntlet CONTEXT rows left out), newest first, shaped like GET /v1/ledger rows.
+                    items: { type: object, additionalProperties: true }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
@@ -1351,6 +1364,43 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { description: That version is not a DRAFT (`not_draft`) }
+  /v1/policies/{id}/versions/{version}/discard:
+    post:
+      tags: [Policies]
+      operationId: discardPolicy
+      summary: Discard a DRAFT version without applying it
+      description: The version is kept as DISCARDED and its number is not reused. Active versions and certification are unchanged.
+      security: [{ operatorKey: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PolicyId"
+        - { name: version, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reviewer]
+              additionalProperties: false
+              properties:
+                reviewer: { type: string, minLength: 1, maxLength: 64 }
+      responses:
+        "200":
+          description: Discarded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  policy_id: { type: string }
+                  version: { type: integer }
+                  status: { type: string, const: DISCARDED }
+                  decision_id: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "409": { description: That version is not a DRAFT (`not_draft`) }
 
 components:

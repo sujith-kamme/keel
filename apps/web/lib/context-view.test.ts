@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canLearn, draftErrorMessage, isRunId, outcomeStyle, parseEdits, parseStart, pct, pickBeforeAfter, progressPct, saveErrorMessage, startErrorMessage, type Run, type Scorecard } from "./context-view";
+import { canLearn, certBadge, draftErrorMessage, isRunId, outcomeBadge, packStats, parseEdits, parseStart, pct, pickBeforeAfter, progressPct, runOutcome, saveErrorMessage, startErrorMessage, type Run, type RunResult, type Scorecard } from "./context-view";
 
 const sc = { runs: 1, errors: 0, pass_rate: 1, leaks: 0, leaks_by_type: {}, false_positive_rate: 0, trigger_rate: 1, dollars_protected: "0.00", median_guard_latency_ms: 1, packs: [] } as Scorecard;
 const run = (id: string, over: Partial<Run>): Run =>
@@ -33,11 +33,12 @@ describe("formatting", () => {
     expect(pct(1)).toBe("100%");
     expect(pct(null)).toBe("—");
   });
-  it("styles outcomes", () => {
-    expect(outcomeStyle("PASS")).toMatch(/green/);
-    expect(outcomeStyle("LEAK")).toMatch(/red/);
-    expect(outcomeStyle("FALSE_POSITIVE")).toMatch(/amber/);
-    expect(outcomeStyle("ERROR")).toMatch(/gray/);
+  it("labels outcomes and certification", () => {
+    expect(outcomeBadge("PASS")).toEqual({ label: "Pass", tone: "ok" });
+    expect(outcomeBadge("LEAK").tone).toBe("bad");
+    expect(outcomeBadge("FALSE_POSITIVE").tone).toBe("warn");
+    expect(outcomeBadge("WEIRD")).toEqual({ label: "WEIRD", tone: "" });
+    expect(certBadge("STALE")).toEqual({ label: "Stale", tone: "warn" });
   });
   it("bounds progress", () => {
     expect(progressPct({ total: 0, done: 0 })).toBe(0);
@@ -87,5 +88,30 @@ describe("canLearn", () => {
     expect(canLearn("QUARANTINED", [])).toBe(true);
     expect(canLearn("ACTIVE", ["ALLOW", "HOLD"])).toBe(true);
     expect(canLearn("ACTIVE", ["ALLOW", "REWRITE"])).toBe(false);
+  });
+});
+
+describe("packStats", () => {
+  const r = (pack: string, kind: string, outcome: string): RunResult => ({ scenario_id: "s", pack, kind, repeat: 0, session_id: null, outcome, triggered: true, leaks: [], error: null });
+  it("counts per pack and rates passes over non-errors", () => {
+    const stats = packStats([r("refund-pressure", "adversarial", "PASS"), r("refund-pressure", "adversarial", "LEAK"), r("refund-pressure", "adversarial", "ERROR"), r("honest", "honest", "FALSE_POSITIVE"), r("honest", "honest", "PASS")]);
+    expect(stats.map((s) => s.pack)).toEqual(["honest", "refund-pressure"]);
+    expect(stats[0]).toMatchObject({ conversations: 2, passed: 1, leaks: 0, falsePositives: 1, passRate: 0.5 });
+    expect(stats[1]).toMatchObject({ conversations: 3, passed: 1, leaks: 1, falsePositives: null, errors: 1, passRate: 0.5 });
+  });
+  it("has no rate when every conversation errored", () => expect(packStats([r("honest", "honest", "ERROR")])[0]!.passRate).toBeNull());
+});
+
+describe("runOutcome", () => {
+  const cert = { status: "CERTIFIED" as const, run_id: "c" };
+  it("derives the history result", () => {
+    expect(runOutcome(run("a", { status: "RUNNING", scorecard: null }), cert).label).toBe("Running");
+    expect(runOutcome(run("a", { status: "FAILED", scorecard: null }), cert).label).toBe("Failed");
+    expect(runOutcome(run("a", { scorecard: null }), cert).label).toBe("No scorecard");
+    expect(runOutcome(run("a", { guarded: false, scorecard: { ...sc, leaks: 4 } }), cert).label).toBe("Baseline");
+    expect(runOutcome(run("a", { scorecard: { ...sc, leaks: 1 } }), cert).label).toBe("Leak");
+    expect(runOutcome(run("c", {}), cert).label).toBe("Certifies");
+    expect(runOutcome(run("c", {}), { status: "STALE", run_id: "c" }).label).toBe("Certified, stale");
+    expect(runOutcome(run("a", {}), cert).label).toBe("No leaks");
   });
 });

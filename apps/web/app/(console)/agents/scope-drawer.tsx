@@ -2,21 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { saveSection } from "@/app/(console)/settings/actions";
+import { PROMPTS } from "@/lib/prompt-labels";
+import { useDrawer } from "@/lib/use-drawer";
 
 const MODEL_DESC: Record<string, string> = {
   "claude-haiku-5-5": "Default. Fastest and cheapest.",
   "claude-sonnet-5-5": "Stronger reasoning, slower replies.",
   "claude-opus-5-5": "Most capable, slowest and most expensive.",
 };
-const PROMPTS: Record<string, { label: string; desc: string }> = {
-  lenient: { label: "Eager support", desc: "A typical helpful prompt. Keel has to catch what it promises." },
-  strict: { label: "Keel-aware", desc: "Told about Keel and its policies. Fewer replies need rewriting." },
-};
 const ORDER = ["lenient", "strict"];
-
-const FOCUSABLE = "a[href],button:not([disabled]),input:not([disabled])";
 
 /** The agent model and system prompt (PUT /v1/settings/agent), opened from /agents?scope=<agent id>. */
 export function ScopeDrawer({
@@ -42,34 +38,7 @@ export function ScopeDrawer({
   const [error, setError] = useState<string | null>(null);
   const dirty = m !== model || p !== prompt;
 
-  useEffect(() => {
-    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const el = ref.current!;
-    el.querySelector<HTMLElement>("input:checked")?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        router.push("/agents", { scroll: false });
-      } else if (e.key === "Tab") {
-        const items = [...el.querySelectorAll<HTMLElement>(FOCUSABLE)];
-        const first = items[0];
-        const last = items[items.length - 1];
-        if (!first || !last) return;
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && (document.activeElement === last || !el.contains(document.activeElement))) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      (opener?.isConnected ? opener : document.getElementById("edit-scope"))?.focus();
-    };
-  }, [router]);
+  useDrawer(ref, { closeHref: "/agents", initial: "input:checked", fallbackId: "edit-scope" });
 
   const save = () => {
     setError(null);
