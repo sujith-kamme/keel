@@ -106,7 +106,9 @@ npm run dev:store         # Tidewell demo store, http://localhost:3001
 
 Store walkthrough: sign in as Maya, open an order under Orders and ask the support assistant for a refund (enter the demo code it shows to verify first); buy something at checkout with a PayPal sandbox buyer account or test card; use "Report a problem to PayPal" on an order to open a case in the sandbox Resolution Center. Every agent decision shows up in the console under Conversations and the Ledger.
 
-Useful checks: `npm run paypal:ping`, `npm run worker:ping`, and the `smoke:*` scripts in `package.json` (`smoke:mcp`, `smoke:guard`, `smoke:risk`, `smoke:dispute`, `smoke:gauntlet`). `render.yaml` is the Render Blueprint for the hosted deployment.
+Useful checks: `npm run paypal:ping`, `npm run worker:ping`, and the `smoke:*` scripts in `package.json` (`smoke:mcp`, `smoke:guard`, `smoke:risk`, `smoke:dispute`, `smoke:gauntlet`).
+
+Hosted deployment: the Render services and their environment variables are set up in the Render dashboard. keel-api builds with `npm ci && npm run db:migrate` (free plans have no pre-deploy step) and runs the worker itself with `RUN_WORKER=true`; keel-web and keel-store build with `npm ci && npm run build -w <workspace>`. Postgres is on Neon, and the Render Key Value instance must use the `noeviction` policy for BullMQ. keel-store gets only the merchant key and PayPal's public client id, never PayPal secrets or the operator key.
 
 ## Tests
 
@@ -122,7 +124,7 @@ Vitest reads `.env`; the Postgres tests run when `DATABASE_URL` is set and are s
 | Tool | Where |
 |---|---|
 | AG Grid Enterprise + AI Toolkit | Console grids (ledger, review queue, Gauntlet results) and "Ask the ledger"; AG Charts on the Overview |
-| Render | Hosts the API (with the worker), the console and Redis via `render.yaml` |
+| Render | Hosts the API (with the worker), the console, the demo store and Redis |
 | Channel3 | Product data for the demo store catalog (`scripts/seed-store.ts`); the catalog backs the price checks |
 | Postman | Collection and environment in `postman/`, generated from the OpenAPI spec |
 | Zapier | Quarantine, held-action and dispute events go to a Zapier webhook that notifies the reviewer (`apps/worker/src/jobs/notify.ts`) |
