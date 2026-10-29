@@ -1,4 +1,4 @@
-import { type LedgerRecord, verifyChain } from "@keel/engine";
+import { type LedgerRecord, hashEntry, verifyChain } from "@keel/engine";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import { operatorAuth } from "./operator-auth";
@@ -12,12 +12,17 @@ export interface LedgerOptions {
   page: (opts: { beforeSeq?: number; limit: number }) => Promise<LedgerPageRow[]>;
   /** The whole chain in seq order. */
   chain: () => Promise<{ seq: number; record: LedgerRecord }[]>;
+  count: () => Promise<number>;
+  /** One entry with the entries either side of it in the chain; null when the seq doesn't exist. */
+  entry: (seq: number) => Promise<{ row: LedgerPageRow; prev: { seq: number; hash: string } | null; next: { seq: number; hash: string } | null } | null>;
 }
 
 const PageQuery = z.strictObject({
   before_seq: z.string().regex(/^[1-9]\d{0,15}$/).transform(Number).optional(),
   limit: z.string().regex(/^\d{1,4}$/).transform(Number).pipe(z.number().int().min(1).max(2000)).default(500),
 });
+
+const SEQ = /^[1-9]\d{0,15}$/;
 
 const EXPORT_MAX = 10_000;
 
@@ -58,9 +63,9 @@ export function mountLedger(app: Hono, opts: LedgerOptions): void {
     if (no) return no;
     const q = PageQuery.safeParse(c.req.query());
     if (!q.success) return c.json({ error: "invalid_request" }, 400);
-    const rows = await opts.page({ beforeSeq: q.data.before_seq, limit: q.data.limit });
+    const [rows, total] = await Promise.all([opts.page({ beforeSeq: q.data.before_seq, limit: q.data.limit }), opts.count()]);
     const last = rows.at(-1);
-    return c.json({ rows: rows.map(ledgerView), next_before_seq: rows.length === q.data.limit && last ? last.seq : null });
+    return c.json({ rows: rows.map(ledgerView), next_before_seq: rows.length === q.data.limit && last ? last.seq : null, total });
   });
 
   app.get("/v1/ledger/verify", async (c) => {
@@ -88,6 +93,25 @@ export function mountLedger(app: Hono, opts: LedgerOptions): void {
       "content-type": "application/json",
       "content-disposition": 'attachment; filename="keel-ledger.json"',
       "cache-control": "no-store",
+    });
+  });
+
+  // After /verify and /export.json, which match first.
+  app.get("/v1/ledger/:seq", async (c) => {
+    const no = denied(c);
+    if (no) return no;
+    const raw = c.req.param("seq");
+    const found = SEQ.test(raw) ? await opts.entry(Number(raw)) : null;
+    if (!found) return c.json({ error: "not_found" }, 404);
+    const { row, prev, next } = found;
+    const { hash, prev_hash, seq: _seq, created_at: _at, ...content } = row;
+    return c.json({
+      entry: ledgerView(row),
+      prev,
+      next,
+      // This entry alone: its hash recomputed from its content, and its link to the entry before it.
+      hash_ok: hashEntry(content, prev_hash) === hash,
+      link_ok: prev_hash === (prev?.hash ?? null),
     });
   });
 }

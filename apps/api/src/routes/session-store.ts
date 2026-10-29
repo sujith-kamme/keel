@@ -3,7 +3,7 @@ import { MAX_OTP_ATTEMPTS, QUARANTINE_TEMPLATE, SAFE_FALLBACK, type TurnDecision
 import type { GuardMode, SessionMode } from "../mode";
 import type { SessionStore } from "./sessions";
 import type { StoreOrderSummary } from "./store";
-import type { DecisionSummary, SessionSummary, TurnStore } from "./turns";
+import type { DecisionSummary, SessionRow, SessionSummary, TurnStore } from "./turns";
 
 export function createOrdersFor(db: Db): (email: string) => Promise<StoreOrderSummary[]> {
   return async (email) => {
@@ -64,6 +64,7 @@ const summary = (r: typeof sessions.$inferSelect): SessionSummary => ({
   agent_id: r.agentId,
   claimed_email: r.claimedEmail,
   verified: r.verifiedPayer !== null,
+  order_ids: r.orderIds,
   state: r.state,
   mode: r.mode as SessionMode,
   created_at: r.createdAt.toISOString(),
@@ -97,14 +98,38 @@ function guardDetails(payload: unknown): NonNullable<DecisionSummary["guard"]> {
 
 export function createTurnStore(db: Db): TurnStore {
   return {
-    listSessions: async (limit, mode) => {
+    // Three queries per page: the sessions, then decision counts and last turns for all of them at once.
+    listSessions: async ({ limit, mode, state, before }) => {
       const rows = await db
         .select()
         .from(sessions)
-        .where(mode === "all" ? undefined : eq(sessions.mode, mode))
-        .orderBy(desc(sessions.createdAt))
+        .where(
+          and(
+            mode === "all" ? undefined : eq(sessions.mode, mode),
+            state ? eq(sessions.state, state) : undefined,
+            // An unknown cursor id matches nothing, so the page is empty.
+            before ? sql`(${sessions.createdAt}, ${sessions.id}) < (select s.created_at, s.id from sessions s where s.id = ${before})` : undefined,
+          ),
+        )
+        .orderBy(desc(sessions.createdAt), desc(sessions.id))
         .limit(limit);
-      return rows.map(summary);
+      if (rows.length === 0) return [];
+      const ids = rows.map((r) => r.id);
+      const [counts, lastTurns] = await Promise.all([
+        db
+          .select({ id: ledgerEntries.sessionId, n: sql<number>`count(*)::int` })
+          .from(ledgerEntries)
+          .where(inArray(ledgerEntries.sessionId, ids))
+          .groupBy(ledgerEntries.sessionId),
+        db
+          .select({ id: sessionTurns.sessionId, at: sql<string>`max(${sessionTurns.createdAt})` })
+          .from(sessionTurns)
+          .where(inArray(sessionTurns.sessionId, ids))
+          .groupBy(sessionTurns.sessionId),
+      ]);
+      const count = new Map(counts.map((c) => [c.id, c.n]));
+      const last = new Map(lastTurns.map((t) => [t.id, new Date(t.at).toISOString()]));
+      return rows.map((r): SessionRow => ({ ...summary(r), decision_count: count.get(r.id) ?? 0, last_turn_at: last.get(r.id) ?? null }));
     },
     session: async (id) => {
       const [row] = await db.select().from(sessions).where(eq(sessions.id, id));
@@ -117,6 +142,7 @@ export function createTurnStore(db: Db): TurnStore {
     decisions: async (sessionId) => {
       const rows = await db
         .select({
+          seq: ledgerEntries.seq,
           decisionId: ledgerEntries.decisionId,
           tool: sql<string>`${ledgerEntries.payload}->>'tool'`,
           payload: ledgerEntries.payload,
@@ -129,6 +155,7 @@ export function createTurnStore(db: Db): TurnStore {
         .where(eq(ledgerEntries.sessionId, sessionId))
         .orderBy(asc(ledgerEntries.seq));
       return rows.map((r) => ({
+        seq: r.seq,
         decision_id: r.decisionId,
         tool: r.tool,
         order_id: r.orderId,

@@ -171,7 +171,11 @@ function RecentActivity({ o }: { o: Overview }) {
               {rows.map((r) => (
                 <tr key={r.seq}>
                   <td className="mut">{r.time}</td>
-                  <td>{r.event}</td>
+                  <td>
+                    <Link href={`/ledger/${r.seq}`} style={{ color: "var(--text)" }}>
+                      {r.event}
+                    </Link>
+                  </td>
                   <td className="mono">{r.reference ?? "—"}</td>
                   <td className="r">{r.amount ?? "—"}</td>
                   <td>

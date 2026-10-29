@@ -4,7 +4,7 @@ import { type LedgerContent, QUARANTINE_TEMPLATE, SAFE_FALLBACK } from "@keel/en
 import { describe, expect, it } from "vitest";
 import { createSessionDecisions, createSessionStore, createTurnDecisions, createTurnStore } from "./session-store";
 
-const SUMMARY_KEYS = ["agent_id", "claimed_email", "created_at", "expires_at", "id", "mode", "state", "verified"];
+const SUMMARY_KEYS = ["agent_id", "claimed_email", "created_at", "expires_at", "id", "mode", "order_ids", "state", "verified"];
 
 describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
   const db = createDb();
@@ -24,13 +24,40 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     const live = mk("LIVE");
     const ctx = mk("CONTEXT");
     await db.insert(sessions).values([live, ctx]);
-    const ids = async (mode: "LIVE" | "CONTEXT" | "all") => (await store.listSessions(100, mode)).map((s) => s.id);
+    const ids = async (mode: "LIVE" | "CONTEXT" | "all") => (await store.listSessions({ limit: 100, mode })).map((s) => s.id);
     expect(await ids("LIVE")).toContain(live.id);
     expect(await ids("LIVE")).not.toContain(ctx.id);
     expect(await ids("CONTEXT")).toContain(ctx.id);
     expect(await ids("CONTEXT")).not.toContain(live.id);
     expect(await ids("all")).toEqual(expect.arrayContaining([live.id, ctx.id]));
     expect((await store.session(ctx.id))!.mode).toBe("CONTEXT");
+  });
+
+  it("pages newest first by created_at then id, with state and before filters", async () => {
+    // A random instant in 2000 keeps these rows apart from every other test's and from earlier runs.
+    const at = new Date(Date.UTC(2000, 0, 1) + Math.floor(Math.random() * 300 * 86_400_000));
+    const tag = randomUUID().replaceAll("-", "");
+    const mk = (suffix: string, createdAt: Date, state = "ACTIVE") => ({
+      id: `ses_test_${tag}_${suffix}`,
+      agentId: "demo",
+      claimedEmail: "maya@demo.keel.test",
+      orderIds: [],
+      otpHash: "hash",
+      otpExpiresAt: createdAt,
+      expiresAt: createdAt,
+      createdAt,
+      state,
+    });
+    const anchor = mk("z", new Date(at.getTime() + 1));
+    const rows = [mk("a", at), mk("b", at, "QUARANTINED"), mk("c", at)];
+    await db.insert(sessions).values([anchor, ...rows]);
+    const page = async (opts: { before: string; state?: "QUARANTINED" }) =>
+      (await store.listSessions({ limit: 2, mode: "all", ...opts })).map((s) => s.id).filter((i) => i.includes(tag));
+    // Same created_at: the id breaks the tie, so no row is skipped or repeated across pages.
+    expect(await page({ before: anchor.id })).toEqual([rows[2]!.id, rows[1]!.id]);
+    expect(await page({ before: rows[1]!.id })).toEqual([rows[0]!.id]);
+    expect(await page({ before: anchor.id, state: "QUARANTINED" })).toEqual([rows[1]!.id]);
+    expect(await store.listSessions({ limit: 2, mode: "all", before: "ses_missing" })).toEqual([]);
   });
 
   it("reads sessions, turns and decisions for one session", async () => {
@@ -77,8 +104,10 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     const session = await store.session(id);
     expect(Object.keys(session!).sort()).toEqual(SUMMARY_KEYS);
     expect(session!.verified).toBe(false);
-    const listed = (await store.listSessions(100, "all")).find((s) => s.id === id);
-    expect(Object.keys(listed!).sort()).toEqual(SUMMARY_KEYS);
+    const listed = (await store.listSessions({ limit: 100, mode: "all" })).find((s) => s.id === id);
+    expect(Object.keys(listed!).sort()).toEqual([...SUMMARY_KEYS, "decision_count", "last_turn_at"].sort());
+    expect(listed!.decision_count).toBe(6);
+    expect(listed!.last_turn_at).toBe((await store.turns(id)).at(-1)!.created_at);
 
     const turns = await store.turns(id);
     expect(turns.map((t) => [t.role, t.decision_ids])).toEqual([

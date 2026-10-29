@@ -45,7 +45,7 @@ function setup(over: { row?: Partial<DisputeRow> | null; dispute?: Dispute; webh
   };
   const deps: DisputeDeps = {
     store: {
-      upsert: vi.fn(), context: vi.fn(), classify: vi.fn(), openIds: vi.fn(),
+      upsert: vi.fn(), context: vi.fn(), classify: vi.fn(), openIds: vi.fn(), markSynced: vi.fn(),
       setAction: async (_id, from, to, error) => {
         if (!row || !from.includes(row.action)) return false;
         row = { ...row, action: to, error };
@@ -60,6 +60,7 @@ function setup(over: { row?: Partial<DisputeRow> | null; dispute?: Dispute; webh
     operatorKey, merchantKey,
     store: {
       list: async () => [],
+      lastSyncedAt: async () => "2026-10-28T09:00:00.000Z",
       detail: async (id) => (row && id === row.id ? ({ id } as never) : null),
       row: async (id) => (row && id === row.id ? row : null),
       pdf: async (id) => (row && id === row.id ? row.evidence_pdf : null),
@@ -133,6 +134,12 @@ describe("operator disputes API", () => {
     expect((await t.app.request("/v1/disputes")).status).toBe(401);
     expect((await t.app.request("/v1/disputes", { headers: auth(merchantKey) })).status).toBe(403);
     expect((await t.app.request("/v1/disputes", { headers })).status).toBe(200);
+  });
+
+  it("lists disputes with when PayPal was last synced", async () => {
+    const t = setup();
+    const res = await t.app.request("/v1/disputes", { headers });
+    expect(await res.json()).toEqual({ items: [], last_synced_at: "2026-10-28T09:00:00.000Z" });
   });
 
   it("returns 404 for unknown or malformed ids", async () => {

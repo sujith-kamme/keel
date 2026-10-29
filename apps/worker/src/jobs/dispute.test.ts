@@ -72,6 +72,7 @@ function setup(opts: { d?: Dispute; ctx?: Partial<DisputeContext>; autoSubmit?: 
         return true;
       },
       openIds: async () => ["PP-D-3"],
+      markSynced: vi.fn(async () => undefined),
     },
     paypal,
     scan: opts.scan ?? (async () => false),
@@ -284,5 +285,15 @@ describe("helpers", () => {
     const t = setup();
     expect(await pollDisputes(t.deps)).toBe(3);
     expect((t.deps.enqueueSync as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0])).toEqual(["PP-D-1", "PP-D-2", "PP-D-3"]);
+    expect(t.deps.store.markSynced).toHaveBeenCalledOnce();
+  });
+
+  it("does not mark a poll synced when PayPal's list fails", async () => {
+    const t = setup();
+    t.deps.paypal.list = async () => {
+      throw new Error("paypal down");
+    };
+    await expect(pollDisputes(t.deps)).rejects.toThrow("paypal down");
+    expect(t.deps.store.markSynced).not.toHaveBeenCalled();
   });
 });

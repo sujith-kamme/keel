@@ -34,15 +34,22 @@ function setup(over: Partial<LedgerOptions> = {}) {
   const page = vi.fn<LedgerOptions["page"]>(async ({ beforeSeq, limit }) =>
     all.filter((r) => beforeSeq === undefined || r.seq < beforeSeq).slice(0, limit),
   );
+  const entry: LedgerOptions["entry"] = async (seq) => {
+    const asc = [...all].reverse();
+    const i = asc.findIndex((r) => r.seq === seq);
+    if (i < 0) return null;
+    const near = (r: LedgerPageRow | undefined) => (r ? { seq: r.seq, hash: r.hash } : null);
+    return { row: asc[i]!, prev: near(asc[i - 1]), next: near(asc[i + 1]) };
+  };
   const app = new Hono();
-  mountLedger(app, { operatorKey, merchantKey, page, chain: async () => chain(5), ...over });
+  mountLedger(app, { operatorKey, merchantKey, page, chain: async () => chain(5), count: async () => all.length, entry, ...over });
   return { app, page };
 }
 
 describe("ledger routes", () => {
   it("needs the operator key", async () => {
     const { app } = setup();
-    for (const path of ["/v1/ledger", "/v1/ledger/verify", "/v1/ledger/export.json"]) {
+    for (const path of ["/v1/ledger", "/v1/ledger/verify", "/v1/ledger/export.json", "/v1/ledger/3"]) {
       expect((await app.request(path)).status).toBe(401);
       expect((await app.request(path, { headers: auth(merchantKey) })).status).toBe(403);
     }
@@ -55,6 +62,7 @@ describe("ledger routes", () => {
     const body = (await res.json()) as { rows: { seq: number }[]; next_before_seq: number | null };
     expect(body.rows.map((r) => r.seq)).toEqual([5, 4]);
     expect(body.next_before_seq).toBe(4);
+    expect((body as unknown as { total: number }).total).toBe(5);
     expect(page).toHaveBeenCalledWith({ beforeSeq: undefined, limit: 2 });
 
     const older = (await (await app.request("/v1/ledger?before_seq=4&limit=3", { headers: auth(operatorKey) })).json()) as typeof body;
@@ -136,5 +144,43 @@ describe("ledger routes", () => {
     expect(body).toHaveLength(10_000);
     expect(body.at(-1)!.seq).toBe(10_001);
     expect(page).toHaveBeenCalledTimes(5);
+  });
+
+  it("returns one entry with its neighbours and checks its hash and link", async () => {
+    const { app } = setup();
+    const res = await app.request("/v1/ledger/3", { headers: auth(operatorKey) });
+    expect(res.status).toBe(200);
+    const all = chain(5);
+    expect(await res.json()).toMatchObject({
+      entry: { seq: 3, decision_id: "dec_3", tool: "offer_refund", hash: all[2]!.record.hash },
+      prev: { seq: 2, hash: all[1]!.record.hash },
+      next: { seq: 4, hash: all[3]!.record.hash },
+      hash_ok: true,
+      link_ok: true,
+    });
+    const first = (await (await app.request("/v1/ledger/1", { headers: auth(operatorKey) })).json()) as Record<string, unknown>;
+    expect(first).toMatchObject({ prev: null, hash_ok: true, link_ok: true });
+    expect(((await (await app.request("/v1/ledger/5", { headers: auth(operatorKey) })).json()) as { next: unknown }).next).toBeNull();
+  });
+
+  it("flags an entry whose content or link was changed", async () => {
+    const all = rows(3);
+    const neighbours = { prev: { seq: 1, hash: all[2]!.hash }, next: null };
+    const edited = { ...all[1]!, verdict: "BLOCK" as const };
+    const { app } = setup({ entry: async () => ({ row: edited, ...neighbours }) });
+    expect(await (await app.request("/v1/ledger/2", { headers: auth(operatorKey) })).json()).toMatchObject({ hash_ok: false, link_ok: true });
+    const relinked = { ...all[1]!, prev_hash: "f".repeat(64) };
+    const { app: app2 } = setup({ entry: async () => ({ row: relinked, ...neighbours }) });
+    // The hash covers prev_hash, so a relinked entry fails both checks.
+    expect(await (await app2.request("/v1/ledger/2", { headers: auth(operatorKey) })).json()).toMatchObject({ hash_ok: false, link_ok: false });
+  });
+
+  it("404s an unknown or malformed seq", async () => {
+    const { app } = setup();
+    for (const path of ["/v1/ledger/99", "/v1/ledger/0", "/v1/ledger/abc", "/v1/ledger/-1"]) {
+      const res = await app.request(path, { headers: auth(operatorKey) });
+      expect(res.status, path).toBe(404);
+      expect(await res.json()).toEqual({ error: "not_found" });
+    }
   });
 });

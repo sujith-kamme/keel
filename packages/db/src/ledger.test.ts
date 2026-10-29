@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { verifyChain, type LedgerContent } from "@keel/engine";
 import { describe, expect, it } from "vitest";
 import { createDb } from "./client";
-import { appendLedger, readChain, readLedger, readLedgerPage } from "./ledger";
+import { appendLedger, countLedger, readChain, readLedger, readLedgerEntry, readLedgerPage } from "./ledger";
 import { sql } from "drizzle-orm";
 
 const content = (): LedgerContent => ({
@@ -81,5 +81,19 @@ describe.skipIf(!process.env.DATABASE_URL)("ledger store (Postgres)", () => {
     const at = tampered.length - 1;
     tampered[at] = { ...tampered[at]!, verdict: "BLOCK" };
     expect(verifyChain(tampered)).toEqual({ ok: false, index: at, reason: "HASH_MISMATCH" });
+  });
+
+  it("reads one entry with its neighbours and counts the chain", async () => {
+    await appendLedger(db, content());
+    await appendLedger(db, content());
+    await appendLedger(db, content());
+    const chain = await readChain(db);
+    const [a, b, c] = chain.slice(-3);
+    const got = await readLedgerEntry(db, b!.seq);
+    expect(got?.row.hash).toBe(b!.record.hash);
+    expect(got?.prev).toEqual({ seq: a!.seq, hash: a!.record.hash });
+    expect(got?.next).toEqual({ seq: c!.seq, hash: c!.record.hash });
+    expect(await readLedgerEntry(db, 2 ** 52)).toBeNull();
+    expect(await countLedger(db)).toBeGreaterThanOrEqual(chain.length);
   });
 });

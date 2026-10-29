@@ -7,38 +7,39 @@ import { AddToGauntlet } from "@/components/add-to-gauntlet";
 import { ReleaseButton } from "@/components/release-button";
 import { KeelError, sessionDetail, type DecisionSummary, type SessionDetail } from "@/lib/keel";
 import { canLearn } from "@/lib/context-view";
+import { decision, utcTime } from "@/lib/overview-view";
+import { reasonLabel } from "@/lib/reason-labels";
 import { canRelease } from "@/lib/review-view";
-import { attachDecisions, riskLevel, riskWidth, signalLabel } from "@/lib/sessions-view";
+import { attachDecisions, relativeTime, riskLevel, riskWidth, sessionState, signalKind } from "@/lib/sessions-view";
 import { requireConsole } from "@/lib/operator";
 
-const VERDICT_STYLE: Record<string, string> = {
-  ALLOW: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
-  BLOCK: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
-  REWRITE: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
-  HOLD: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+const BOX_TONE: Record<string, { border: string; background: string }> = {
+  bad: { border: "var(--bad-line)", background: "var(--bad-bg)" },
+  warn: { border: "var(--warn-line)", background: "var(--warn-bg)" },
 };
 
-function Chip({ d }: { d: DecisionSummary }) {
-  const style = VERDICT_STYLE[d.verdict] ?? "bg-black/10 dark:bg-white/10";
-  return (
-    <span className={`rounded px-2 py-0.5 text-xs ${style}`}>
-      {[d.tool, d.verdict, d.reason_codes.join(", "), d.order_id].filter(Boolean).join(" · ")}
-    </span>
-  );
-}
-
-function GuardChip({ d }: { d: DecisionSummary & { guard: NonNullable<DecisionSummary["guard"]> } }) {
-  const { guard } = d;
-  const style = VERDICT_STYLE[d.verdict] ?? "bg-black/10 dark:bg-white/10";
+/** The guard's draft and the reply that was sent, the commitments it found, and the extractor's latency. */
+function GuardDetail({ d, guard }: { d: DecisionSummary; guard: NonNullable<DecisionSummary["guard"]> }) {
   const unavailable = guard.latency_ms === null || d.reason_codes.includes("EXTRACTOR_UNAVAILABLE");
+  const changed = guard.final_reply !== "" && guard.final_reply !== guard.draft;
   return (
-    <div className="flex flex-col gap-1">
-      <span className={`self-start rounded px-2 py-0.5 text-xs ${style}`}>{["guard", d.verdict, d.reason_codes.join(", ")].filter(Boolean).join(" · ")}</span>
-      <details open={d.verdict !== "ALLOW"} className="text-xs">
-        <summary className="cursor-pointer">Why</summary>
-        <p className={d.verdict === "ALLOW" ? "" : "line-through"}>{guard.draft}</p>
+    <details open={d.verdict !== "ALLOW"} className="sm" style={{ width: "100%" }}>
+      <summary style={{ cursor: "pointer" }} className="mut">
+        Why
+      </summary>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+        <div>
+          <span className="dim">Draft </span>
+          <span style={changed ? { textDecoration: "line-through" } : undefined}>{guard.draft}</span>
+        </div>
+        {changed && (
+          <div>
+            <span className="dim">Sent </span>
+            {guard.final_reply}
+          </div>
+        )}
         {guard.commitments.length > 0 ? (
-          <ul className="list-disc pl-4">
+          <ul style={{ margin: 0, paddingLeft: 16 }}>
             {guard.commitments.map((c, i) => (
               <li key={i}>
                 {c.type}: &ldquo;{c.quoted_text}&rdquo;
@@ -46,40 +47,70 @@ function GuardChip({ d }: { d: DecisionSummary & { guard: NonNullable<DecisionSu
             ))}
           </ul>
         ) : (
-          <p>No commitments found</p>
+          <div className="mut">No commitments found</div>
         )}
-        <p className="opacity-70">{unavailable ? "Extractor unavailable" : `Extractor: ${guard.latency_ms} ms`}</p>
-      </details>
+        <div className="dim">{unavailable ? "Extractor unavailable" : `Extractor: ${guard.latency_ms} ms`}</div>
+      </div>
+    </details>
+  );
+}
+
+function DecisionRow({ d }: { d: DecisionSummary }) {
+  const v = decision(d.verdict);
+  const tone = BOX_TONE[v.tone] ?? { border: "var(--line)", background: "var(--canvas)" };
+  const reasons = d.reason_codes.map(reasonLabel).join(", ");
+  return (
+    <div className="sm" style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", padding: "6px 10px", border: `1px solid ${tone.border}`, borderRadius: 6, background: tone.background }}>
+      <span className={`st ${v.tone}`}>{v.label}</span>
+      <span className="mono">{d.tool}</span>
+      <span className="mut">{[reasons, d.order_id].filter(Boolean).join(" · ")}</span>
+      <Link href={`/ledger/${d.seq}`} style={{ marginLeft: "auto" }}>
+        Ledger
+      </Link>
+      {d.guard && <GuardDetail d={d} guard={d.guard} />}
     </div>
   );
 }
 
-const DecisionChip = ({ d }: { d: DecisionSummary }) => (d.guard ? <GuardChip d={{ ...d, guard: d.guard }} /> : <Chip d={d} />);
-
-const RISK_BAR = { low: "bg-green-500", medium: "bg-amber-500", high: "bg-red-500" };
-
-function RiskMeter({ risk }: { risk: SessionDetail["risk"] }) {
-  if (!risk) return <p className="mt-4 text-sm opacity-70">Risk unavailable</p>;
+function RiskPanel({ risk }: { risk: SessionDetail["risk"] }) {
   const now = new Date();
   return (
-    <div className="mt-4 max-w-md">
-      <div className="flex justify-between text-xs">
-        <span>Risk</span>
-        <span>
-          {risk.score} / {risk.threshold}
-        </span>
+    <section className="pnl" aria-labelledby="rk-h">
+      <div className="pnl-h">
+        <h2 id="rk-h">Risk</h2>
+        {risk && (
+          <span className="sm mut">
+            {risk.score} of {risk.threshold} to quarantine
+          </span>
+        )}
       </div>
-      <div className="mt-1 h-2 rounded bg-black/10 dark:bg-white/10">
-        <div className={`h-2 rounded ${RISK_BAR[riskLevel(risk.score, risk.threshold)]}`} style={{ width: `${riskWidth(risk.score, risk.threshold)}%` }} />
-      </div>
-      {risk.signals.length > 0 && (
-        <ul className="mt-2 text-xs opacity-80">
-          {risk.signals.map((s, i) => (
-            <li key={i}>{signalLabel(s, now)}</li>
-          ))}
-        </ul>
+      {risk ? (
+        <>
+          <div className="pnl-b" style={{ paddingBottom: risk.signals.length > 0 ? 8 : 16 }}>
+            <div className="meter">
+              <span style={{ width: `${riskWidth(risk.score, risk.threshold)}%`, background: `var(--${{ low: "ok", medium: "warn", high: "bad" }[riskLevel(risk.score, risk.threshold)]}-dot)` }} />
+            </div>
+            {risk.signals.length === 0 && <p className="sm mut" style={{ margin: "10px 0 0" }}>No risk signals.</p>}
+          </div>
+          {risk.signals.length > 0 && (
+            <dl className="facts" style={{ margin: 0 }}>
+              {risk.signals.map((s, i) => (
+                <div key={i}>
+                  <dt>{signalKind(s.kind)}</dt>
+                  <dd>
+                    +{s.weight} · {relativeTime(s.at, now)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </>
+      ) : (
+        <p className="pnl-b sm mut" style={{ margin: 0 }}>
+          Risk unavailable.
+        </p>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -91,69 +122,138 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     if (e instanceof KeelError && e.status === 404) notFound();
     throw e;
   });
-  const { session } = detail;
+  const { session, risk } = detail;
   const { turns, unlinked } = attachDecisions(detail.turns, detail.decisions);
+  const st = sessionState(session.state);
+  const live = session.mode === "LIVE";
+  const count = (verdict: string) => detail.decisions.filter((d) => d.verdict === verdict).length;
+  const refused = [`${count("BLOCK")} blocked`, `${count("HOLD")} held`, `${count("REWRITE")} rewritten`].filter((s) => !s.startsWith("0 "));
+
   return (
     <>
-      <h1 className="text-2xl font-semibold">{session.claimed_email}</h1>
-      <p className="mt-1 text-sm opacity-70">
-        {session.verified ? "Verified" : "Not verified"} · {session.state} · agent {session.agent_id}
-        {session.state === "QUARANTINED" && (
-          <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs text-red-800 dark:bg-red-900/40 dark:text-red-200">QUARANTINED</span>
-        )}
-        {session.mode === "CONTEXT" && (
-          <span className="ml-2 rounded bg-black/10 px-2 py-0.5 text-xs dark:bg-white/10">Context run</span>
-        )}
-        {session.mode === "LIVE" && canRelease(session.state) && (
-          <span className="ml-2">
-            <ReleaseButton sessionId={session.id} />
+      <div className="dh">
+        <div>
+          <h1>{session.claimed_email}</h1>
+          <div className="meta">
+            <span className="mono">{session.id}</span>
+            <span>
+              with{" "}
+              <Link href="/agents" className="mono">
+                {session.agent_id}
+              </Link>
+            </span>
+            <span className={`st ${st.tone}`}>{st.label}</span>
+            {!live && <span className="bdg">Context run</span>}
+            <span>Started {utcTime(session.created_at)} UTC</span>
+          </div>
+        </div>
+        <div className="acts">
+          <Link className="b" href="/ledger">
+            Open in ledger
+          </Link>
+          {live && canLearn(session.state, detail.decisions.map((d) => d.verdict)) && <AddToGauntlet sessionId={session.id} className="b" />}
+          {live && canRelease(session.state) && <ReleaseButton sessionId={session.id} className="b pri" />}
+        </div>
+      </div>
+
+      <div className="kpis" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+        <div className="kpi">
+          <span className="lbl">Risk</span>
+          <span className="v">{risk ? risk.score : "—"}</span>
+          <span className="sm dim">{risk ? `${riskLevel(risk.score, risk.threshold)} · quarantine at ${risk.threshold}` : "unavailable"}</span>
+        </div>
+        <div className="kpi">
+          <span className="lbl">Decisions</span>
+          <span className="v">{detail.decisions.length}</span>
+          <span className="sm dim">{refused.length > 0 ? refused.join(" · ") : "none refused"}</span>
+        </div>
+        <div className="kpi">
+          <span className="lbl">Buyer</span>
+          <span className="v" style={{ fontSize: 18 }}>
+            {session.verified ? "Verified" : "Not verified"}
           </span>
-        )}
-        {session.mode === "LIVE" && canLearn(session.state, detail.decisions.map((d) => d.verdict)) && (
-          <span className="ml-2">
-            <AddToGauntlet sessionId={session.id} />
-          </span>
-        )}
-      </p>
-      <RiskMeter risk={detail.risk} />
-      <ol className="mt-6 flex max-w-2xl flex-col gap-3">
-        {turns.map((t, i) => (
-          <li key={i} className={`flex flex-col gap-1 ${t.role === "customer" ? "items-end" : "items-start"}`}>
-            <div className="rounded-lg bg-black/5 px-3 py-2 text-sm dark:bg-white/10">{t.text}</div>
-            {t.decisions.length > 0 && (
-              <div className="flex flex-wrap gap-1">
+          <span className="sm dim">{session.verified ? "payer confirmed by one-time code" : "one-time code not confirmed"}</span>
+        </div>
+      </div>
+
+      <div className="cols">
+        <section className="pnl" aria-labelledby="cv-h" style={{ minWidth: 0 }}>
+          <div className="pnl-h">
+            <h2 id="cv-h">Conversation</h2>
+            <span className="sm dim">Keel decisions shown under the turn they belong to</span>
+          </div>
+          <div className="pnl-b" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {turns.length === 0 && <p className="mut" style={{ margin: 0 }}>No turns yet.</p>}
+            {turns.map((t, i) => (
+              <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div>
+                  <div className="sm dim">
+                    {t.role === "customer" ? (
+                      "Customer"
+                    ) : (
+                      <>
+                        Agent · <span className="mono">{session.agent_id}</span>
+                      </>
+                    )}{" "}
+                    · {utcTime(t.created_at)}
+                  </div>
+                  <div style={{ marginTop: 2, whiteSpace: "pre-wrap" }}>{t.text}</div>
+                </div>
                 {t.decisions.map((d) => (
-                  <DecisionChip key={d.decision_id} d={d} />
+                  <DecisionRow key={d.decision_id} d={d} />
+                ))}
+              </div>
+            ))}
+            {unlinked.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--line-soft)", paddingTop: 14 }}>
+                <h3 className="sh" style={{ fontSize: 13 }}>
+                  Other decisions
+                </h3>
+                {unlinked.map((d) => (
+                  <DecisionRow key={d.decision_id} d={d} />
                 ))}
               </div>
             )}
-          </li>
-        ))}
-      </ol>
-      {unlinked.length > 0 && (
-        <div className="mt-6">
-          <h2 className="text-sm font-medium">Other decisions</h2>
-          <div className="mt-2 flex flex-wrap gap-1">
-            {unlinked.map((d) => (
-              <DecisionChip key={d.decision_id} d={d} />
-            ))}
           </div>
-        </div>
-      )}
+        </section>
+        <aside style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+          <RiskPanel risk={risk} />
+          <section className="pnl" aria-labelledby="by-h">
+            <div className="pnl-h">
+              <h2 id="by-h">Buyer</h2>
+            </div>
+            <dl className="facts" style={{ margin: 0 }}>
+              <div>
+                <dt>Claimed email</dt>
+                <dd>{session.claimed_email}</dd>
+              </div>
+              <div>
+                <dt>Verified</dt>
+                <dd>{session.verified ? "Yes" : "No"}</dd>
+              </div>
+              <div>
+                <dt>{session.order_ids.length === 1 ? "Order" : "Orders"}</dt>
+                <dd className="mono">{session.order_ids.length > 0 ? session.order_ids.join(", ") : "—"}</dd>
+              </div>
+            </dl>
+          </section>
+        </aside>
+      </div>
     </>
   );
 }
 
 export default function Page({ params }: PageProps<"/sessions/[id]">) {
   return (
-    <section>
-      <Link href="/sessions" className="text-sm underline">
-        ← Back to sessions
+    <>
+      <Link className="back" href="/sessions">
+        <i className="ic ic-back s14" aria-hidden="true" />
+        All sessions
       </Link>
-      <Suspense fallback={<p className="mt-4">Loading…</p>}>
+      <Suspense fallback={<p className="mut">Loading…</p>}>
         <Detail params={params} />
       </Suspense>
       <AutoRefresh ms={3000} />
-    </section>
+    </>
   );
 }

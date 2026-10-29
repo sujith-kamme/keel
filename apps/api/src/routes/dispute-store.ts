@@ -1,5 +1,5 @@
 import type { DisputeClassification } from "@keel/core";
-import { type Db, activePolicy, and, appendLedger, asc, desc, disputes, eq, inArray, ledgerEntries, sessionTurns, sessions, sql, storeOrders } from "@keel/db";
+import { type Db, activePolicy, and, appendLedger, asc, desc, disputes, eq, inArray, ledgerEntries, readSettings, sessionTurns, sessions, settings, sql, storeOrders } from "@keel/db";
 import type { LedgerContent } from "@keel/engine";
 import type { Dispute } from "@keel/paypal/disputes";
 import type { DisputeAction, DisputeContext, DisputeOutcome, DisputeRow, DisputeStore, LedgerRow } from "@keel/worker/dispute";
@@ -48,6 +48,9 @@ const ledgerRow = (r: typeof ledgerEntries.$inferSelect): LedgerRow => ({
   created_at: r.createdAt.toISOString(),
 });
 
+// A settings row, but not a setting: it is written by the poll, never by an operator, and has no ledger entry.
+const LAST_SYNCED = "disputes_last_synced_at";
+
 // Keep what the console shows; buyer messages are capped (they're untrusted text).
 function trimmed(d: Dispute): Dispute {
   return { ...d, messages: (d.messages ?? []).slice(0, 10).map((m) => ({ ...m, content: m.content.slice(0, 1000) })) };
@@ -76,7 +79,14 @@ export function createDisputeStore(db: Db): DisputeStore & DisputeApiStore {
           createdAt: now,
           ...fields,
         })
-        .onConflictDoUpdate({ target: disputes.id, set: fields })
+        // A poll that finds nothing new leaves updated_at alone, so "Updated" means the dispute changed.
+        .onConflictDoUpdate({
+          target: disputes.id,
+          set: {
+            ...fields,
+            updatedAt: sql`case when (${disputes.status}, ${disputes.stage}, ${disputes.outcome}, ${disputes.paypal}->>'update_time') is distinct from (excluded.status, excluded.stage, excluded.outcome, excluded.paypal->>'update_time') then ${now.toISOString()}::timestamptz else ${disputes.updatedAt} end`,
+          },
+        })
         .returning();
       return toRow(row as Row);
     },
@@ -175,6 +185,16 @@ export function createDisputeStore(db: Db): DisputeStore & DisputeApiStore {
       return rows.map((r) => r.id);
     },
 
+    markSynced: async (at) => {
+      const value = at.toISOString();
+      await db.insert(settings).values({ key: LAST_SYNCED, value }).onConflictDoUpdate({ target: settings.key, set: { value, updatedAt: at } });
+    },
+
+    lastSyncedAt: async () => {
+      const v = (await readSettings(db, [LAST_SYNCED]))[LAST_SYNCED];
+      return typeof v === "string" ? v : null;
+    },
+
     row: async (id) => {
       const r = await byId(id);
       return r ? toRow(r) : null;
@@ -195,6 +215,7 @@ export function createDisputeStore(db: Db): DisputeStore & DisputeApiStore {
       const view = (x: typeof ledgerEntries.$inferSelect) => {
         const payload = (x.payload ?? {}) as Record<string, unknown>;
         return {
+          seq: x.seq,
           decision_id: x.decisionId,
           session_id: x.sessionId,
           tool: String(payload.tool ?? ""),

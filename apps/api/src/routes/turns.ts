@@ -10,11 +10,21 @@ export interface SessionSummary {
   agent_id: string;
   claimed_email: string;
   verified: boolean;
+  order_ids: string[];
   state: string;
   mode: SessionMode;
   created_at: string;
   expires_at: string;
 }
+
+/** A list row: the summary plus what the console table shows. */
+export interface SessionRow extends SessionSummary {
+  /** Number of ledger rows for the session (tool calls, guard checks, risk rows). */
+  decision_count: number;
+  last_turn_at: string | null;
+}
+
+export type SessionState = "ACTIVE" | "ESCALATED" | "QUARANTINED";
 
 export interface Turn {
   role: "customer" | "agent";
@@ -24,6 +34,7 @@ export interface Turn {
 }
 
 export interface DecisionSummary {
+  seq: number;
   decision_id: string;
   tool: string;
   order_id: string | null;
@@ -45,8 +56,8 @@ export interface SessionRisk {
 }
 
 export interface TurnStore {
-  /** Newest first. */
-  listSessions: (limit: number, mode: SessionMode | "all") => Promise<SessionSummary[]>;
+  /** Newest first (created_at, then id); `before` is a session id: only sessions listed after it. */
+  listSessions: (opts: { limit: number; mode: SessionMode | "all"; state?: SessionState; before?: string }) => Promise<SessionRow[]>;
   session: (id: string) => Promise<SessionSummary | null>;
   /** Oldest first. */
   turns: (sessionId: string) => Promise<Turn[]>;
@@ -61,10 +72,16 @@ export interface TurnOptions {
   store: TurnStore;
   now: () => Date;
   riskDetail: (sessionId: string) => Promise<SessionRisk>;
+  /** Current risk score per session (batched); a missing id or a failed read shows as no score. */
+  scores: (sessionIds: string[]) => Promise<Map<string, number>>;
 }
 
-const ModeFilter = z.enum(["LIVE", "CONTEXT", "all"]);
-const Limit = z.coerce.number().int().min(1).max(100);
+const ListQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  mode: z.enum(["LIVE", "CONTEXT", "all"]).default("LIVE"),
+  state: z.enum(["ACTIVE", "ESCALATED", "QUARANTINED"]).optional(),
+  before: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/).optional(),
+});
 const AppendTurn = z.object({
   role: z.enum(["customer", "agent"]),
   text: z.string().min(1).max(4000),
@@ -82,11 +99,13 @@ export function mountTurns(app: Hono, opts: TurnOptions): void {
 
   app.get("/v1/sessions", async (c) => {
     if (!authorized(c)) return c.json({ error: "unauthorized" }, 401);
-    const limit = Limit.safeParse(c.req.query("limit") ?? 20);
-    if (!limit.success) return c.json({ error: "invalid_request" }, 400);
-    const mode = ModeFilter.safeParse(c.req.query("mode") ?? "LIVE");
-    if (!mode.success) return c.json({ error: "invalid_request" }, 400);
-    return c.json({ sessions: await opts.store.listSessions(limit.data, mode.data) });
+    const q = ListQuery.safeParse(c.req.query());
+    if (!q.success) return c.json({ error: "invalid_request" }, 400);
+    const rows = await opts.store.listSessions(q.data);
+    const scores = await opts.scores(rows.map((r) => r.id)).catch(() => new Map<string, number>());
+    // A full page may have more after it; the cursor is the last session's id.
+    const next = rows.length === q.data.limit ? rows.at(-1)!.id : null;
+    return c.json({ sessions: rows.map((r) => ({ ...r, risk_score: scores.get(r.id) ?? null })), next_before: next });
   });
 
   // Expired sessions stay readable: the console shows past conversations.

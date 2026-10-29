@@ -66,6 +66,8 @@ export interface DisputeStore {
   setAction: (id: string, from: (DisputeAction | null)[], to: DisputeAction, error: string | null, now: Date) => Promise<boolean>;
   /** Disputes Keel still has to watch (not resolved). */
   openIds: () => Promise<string[]>;
+  /** Records when a poll last reached PayPal, for the console's "synced" line. */
+  markSynced: (at: Date) => Promise<void>;
 }
 
 export interface LedgerEntry {
@@ -356,5 +358,6 @@ export async function pollDisputes(deps: DisputeDeps): Promise<number> {
   const since = new Date(deps.now().getTime() - 7 * 24 * 3600_000).toISOString();
   const ids = new Set([...(await deps.paypal.list(since)).map((s) => s.dispute_id), ...(await deps.store.openIds())]);
   for (const id of ids) await deps.enqueueSync(id);
+  await deps.store.markSynced(deps.now());
   return ids.size;
 }

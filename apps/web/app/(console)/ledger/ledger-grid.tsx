@@ -1,55 +1,74 @@
 "use client";
 
-import { type ColDef, type GridApi, type ICellRendererParams, type StructuredSchemaParams } from "ag-grid-community";
+import { type ColDef, type GridApi, type ICellRendererParams, type IRowNode, type StructuredSchemaParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import Link from "next/link";
 import { AskGrid } from "@/components/ask-grid";
-import { useMemo, useRef, useState, useTransition } from "react";
-import { VERDICT_STYLE, amountValue, chainMessage, type ChainResult, type LedgerPage, type LedgerRow } from "@/lib/ledger-view";
+import { type ReactNode, useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { amountValue, chainMessage, inRange, shortHash, utcStamp, type ChainResult, type LedgerPage, type LedgerRow, type Range } from "@/lib/ledger-view";
+import { decision } from "@/lib/overview-view";
 import { loadOlder, verify } from "./actions";
 import { useAgTheme } from "@/lib/ag-theme";
 
 import "@/lib/ag-grid";
 
+const n = (x: number) => x.toLocaleString("en-US");
+
 const link = (base: string) =>
   function IdLink({ value }: ICellRendererParams<LedgerRow, string | null>) {
-    if (!value) return null;
+    if (!value) return <span className="dim">—</span>;
     return (
-      <Link href={`/${base}/${encodeURIComponent(value)}`} className="underline">
+      <Link href={`/${base}/${encodeURIComponent(value)}`} className="mono">
         {value}
       </Link>
     );
   };
 
+function SeqLink({ value }: ICellRendererParams<LedgerRow, number>) {
+  return (
+    <Link href={`/ledger/${value}`} className="mono">
+      {value}
+    </Link>
+  );
+}
+
 function Verdict({ value }: ICellRendererParams<LedgerRow, string>) {
   if (!value) return null;
-  return <span className={`rounded px-2 py-0.5 text-xs ${VERDICT_STYLE[value] ?? "bg-black/10 dark:bg-white/10"}`}>{value}</span>;
+  const v = decision(value);
+  return <span className={`st ${v.tone}`}>{v.label}</span>;
 }
 
 function Payload({ data }: ICellRendererParams<LedgerRow>) {
-  return <pre className="overflow-x-auto p-4 text-xs">{JSON.stringify(data?.payload, null, 2)}</pre>;
+  return (
+    <pre className="mono" style={{ margin: 0, padding: "14px 16px", overflowX: "auto", fontSize: 12, lineHeight: "18px" }}>
+      {JSON.stringify(data?.payload, null, 2)}
+    </pre>
+  );
 }
 
 const set = { filter: "agSetColumnFilter", enableRowGroup: true } as const;
 
 const columns: ColDef<LedgerRow>[] = [
-  { headerName: "Seq", field: "seq", cellRenderer: "agGroupCellRenderer", filter: "agNumberColumnFilter", width: 120 },
+  // The group renderer gives the master-detail chevron; the seq itself opens the entry page.
+  { headerName: "Seq", field: "seq", cellRenderer: "agGroupCellRenderer", cellRendererParams: { innerRenderer: SeqLink }, filter: "agNumberColumnFilter", width: 120 },
   {
-    headerName: "Created",
+    headerName: "Time (UTC)",
     colId: "created_at",
     valueGetter: (p) => (p.data ? new Date(p.data.created_at) : null),
-    valueFormatter: (p) => (p.value ? (p.value as Date).toLocaleString() : ""),
+    valueFormatter: (p) => (p.data ? utcStamp(p.data.created_at) : ""),
     filter: "agDateColumnFilter",
     cellDataType: "date",
-    width: 190,
+    cellClass: "mono",
+    width: 170,
   },
   { headerName: "Verdict", field: "verdict", cellRenderer: Verdict, ...set, width: 120 },
-  { headerName: "Tool", field: "tool", ...set, width: 150 },
+  { headerName: "Tool", field: "tool", ...set, cellClass: "mono", width: 160 },
   {
-    headerName: "Reason codes",
+    headerName: "Reason",
     field: "reason_codes",
     valueFormatter: (p) => (Array.isArray(p.value) ? p.value.join(", ") : String(p.value ?? "")),
     ...set,
+    cellClass: "mono",
     flex: 1,
     minWidth: 180,
   },
@@ -60,13 +79,14 @@ const columns: ColDef<LedgerRow>[] = [
     filter: "agNumberColumnFilter",
     cellDataType: "number",
     enableValue: true,
+    type: "rightAligned",
     width: 110,
   },
   { headerName: "Session", field: "session_id", cellRenderer: link("sessions"), filter: "agTextColumnFilter", minWidth: 160 },
-  { headerName: "Order", field: "order_id", filter: "agTextColumnFilter", width: 130 },
+  { headerName: "Order", field: "order_id", filter: "agTextColumnFilter", cellClass: "mono", width: 150 },
   { headerName: "Dispute", field: "dispute_id", cellRenderer: link("disputes"), filter: "agTextColumnFilter", minWidth: 160 },
   { headerName: "Mode", field: "mode", ...set, width: 110 },
-  { headerName: "Hash", field: "hash", valueFormatter: (p) => (p.value ? `${String(p.value).slice(0, 12)}…` : ""), width: 140 },
+  { headerName: "Hash", field: "hash", valueFormatter: (p) => (p.value ? shortHash(String(p.value)) : ""), cellClass: "mono", width: 120 },
 ];
 
 const ASK_EXAMPLES = ["held refunds over $50 grouped by reason code", "blocked decisions this week, newest first", "dispute decisions only"];
@@ -81,18 +101,46 @@ const ASK_SCHEMA: StructuredSchemaParams = {
 };
 const ASK_FILTERS = ["created_at", "verdict", "tool", "reason_codes", "amount", "mode"];
 
-const btn = "rounded border border-black/20 px-3 py-1 text-sm hover:bg-black/5 disabled:opacity-50 dark:border-white/20 dark:hover:bg-white/10";
+const RANGES: { id: Range; label: string }[] = [
+  { id: "1h", label: "1h" },
+  { id: "24h", label: "24h" },
+  { id: "7d", label: "7d" },
+  { id: "all", label: "All" },
+];
+
+export function LedgerHeader({ children }: { children?: ReactNode }) {
+  return (
+    <div className="ph">
+      <div>
+        <h1>Ledger</h1>
+        <p>Append-only record of every decision. Each entry hashes the one before it.</p>
+      </div>
+      {children && <div className="acts">{children}</div>}
+    </div>
+  );
+}
 
 export function LedgerGrid({ initial }: { initial: LedgerPage }) {
   const { grid } = useAgTheme();
+  const theme = useMemo(() => grid.withParams({ wrapperBorder: false, wrapperBorderRadius: 0 }), [grid]);
   const gridRef = useRef<AgGridReact<LedgerRow>>(null);
   const [api, setApi] = useState<GridApi<LedgerRow> | null>(null);
   const [rows, setRows] = useState(initial.rows);
   const [next, setNext] = useState(initial.next_before_seq);
   const [chain, setChain] = useState<ChainResult | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [range, setRange] = useState<Range>("all");
+  const rangeRef = useRef<Range>("all");
   const [pending, start] = useTransition();
   const defaultColDef = useMemo<ColDef<LedgerRow>>(() => ({ sortable: true, resizable: true }), []);
+
+  const pickRange = (r: Range) => {
+    rangeRef.current = r;
+    setRange(r);
+    api?.onFilterChanged();
+  };
+  const isExternalFilterPresent = useCallback(() => rangeRef.current !== "all", []);
+  const doesExternalFilterPass = useCallback((node: IRowNode<LedgerRow>) => !node.data || inRange(node.data.created_at, rangeRef.current, new Date()), []);
 
   const runVerify = () => {
     setMessage(null);
@@ -114,46 +162,72 @@ export function LedgerGrid({ initial }: { initial: LedgerPage }) {
   };
 
   return (
-    <div className="mt-4">
-      <AskGrid api={api} examples={ASK_EXAMPLES} schemaParams={ASK_SCHEMA} filterColumns={ASK_FILTERS} />
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <button className={btn} onClick={() => gridRef.current?.api.exportDataAsCsv({ fileName: "keel-ledger.csv" })}>
-          Export CSV
-        </button>
-        <a className={btn} href="/ledger/export">
-          Export JSON
-        </a>
-        <button className={btn} disabled={pending} onClick={runVerify}>
+    <>
+      <LedgerHeader>
+        {chain && <span className={`st ${chain.ok ? "ok" : "bad"}`}>{chain.ok ? `Chain verified · ${n(chain.count)} entries` : chainMessage(chain)}</span>}
+        {message && (
+          <span className="sm" style={{ color: "var(--bad)" }}>
+            {message}
+          </span>
+        )}
+        <button className="b" disabled={pending} onClick={runVerify}>
+          <i className="ic ic-shield s14" aria-hidden="true" />
           Verify chain
         </button>
-        <button className={btn} disabled={pending || next === null} onClick={runOlder}>
-          Load older
+        <button className="b" onClick={() => gridRef.current?.api.exportDataAsCsv({ fileName: "keel-ledger.csv" })}>
+          <i className="ic ic-export s14" aria-hidden="true" />
+          Export CSV
         </button>
-        <span className="text-sm opacity-70">{rows.length.toLocaleString("en-US")} rows loaded</span>
-        {message && <span className="text-sm text-red-700 dark:text-red-300">{message}</span>}
-      </div>
-      {chain && (
-        <p
-          className={`mt-3 rounded px-3 py-2 text-sm ${chain.ok ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200" : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200"}`}
-        >
-          {chainMessage(chain)}
-        </p>
-      )}
-      <div className="mt-3" style={{ height: 640 }}>
-        <AgGridReact<LedgerRow>
-          ref={gridRef}
-          theme={grid}
-          rowData={rows}
-          columnDefs={columns}
-          defaultColDef={defaultColDef}
-          getRowId={(p) => String(p.data.seq)}
-          onGridReady={(e) => setApi(e.api)}
-          rowGroupPanelShow="always"
-          masterDetail
-          detailCellRenderer={Payload}
-          detailRowAutoHeight
-        />
-      </div>
-    </div>
+        <a className="b" href="/ledger/export">
+          <i className="ic ic-export s14" aria-hidden="true" />
+          Export JSON
+        </a>
+      </LedgerHeader>
+
+      <section className="pnl" style={{ minWidth: 0 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: "0 16px 12px", borderBottom: "1px solid var(--line)" }}>
+          <div style={{ flex: "1 1 360px", minWidth: 0 }}>
+            <AskGrid api={api} examples={ASK_EXAMPLES} schemaParams={ASK_SCHEMA} filterColumns={ASK_FILTERS} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
+            <div className="segc" role="group" aria-label="Time range over the loaded entries">
+              {RANGES.map((r) => (
+                <button key={r.id} type="button" className={range === r.id ? "on" : undefined} aria-pressed={range === r.id} onClick={() => pickRange(r.id)}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            <span className="sm dim">of loaded entries</span>
+          </div>
+        </div>
+        <div style={{ height: 640 }}>
+          <AgGridReact<LedgerRow>
+            ref={gridRef}
+            theme={theme}
+            rowData={rows}
+            columnDefs={columns}
+            defaultColDef={defaultColDef}
+            getRowId={(p) => String(p.data.seq)}
+            onGridReady={(e) => setApi(e.api)}
+            isExternalFilterPresent={isExternalFilterPresent}
+            doesExternalFilterPass={doesExternalFilterPass}
+            rowGroupPanelShow="always"
+            masterDetail
+            detailCellRenderer={Payload}
+            detailRowAutoHeight
+          />
+        </div>
+        <div className="tfoot">
+          <span>
+            {n(rows.length)} of {n(initial.total)} entries loaded · newest first
+          </span>
+          <span className="acts">
+            <button className="b xs" disabled={pending || next === null} onClick={runOlder}>
+              Older
+            </button>
+          </span>
+        </div>
+      </section>
+    </>
   );
 }

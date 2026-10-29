@@ -115,10 +115,15 @@ paths:
       tags: [Sessions]
       operationId: listSessions
       summary: List recent sessions, newest first
+      description: |
+        Pages by cursor: pass the previous page's `next_before` as `before`. `next_before` is null
+        when the page was not full.
       security: [{ merchantKey: [] }]
       parameters:
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
         - { name: mode, in: query, schema: { type: string, enum: [LIVE, CONTEXT, all], default: LIVE } }
+        - { name: state, in: query, schema: { type: string, enum: [ACTIVE, ESCALATED, QUARANTINED] } }
+        - { name: before, in: query, description: Session id; only sessions listed after it, schema: { type: string, pattern: "^[A-Za-z0-9_-]{1,64}$" } }
       responses:
         "200":
           description: Sessions
@@ -127,7 +132,8 @@ paths:
               schema:
                 type: object
                 properties:
-                  sessions: { type: array, items: { $ref: "#/components/schemas/SessionSummary" } }
+                  sessions: { type: array, items: { $ref: "#/components/schemas/SessionRow" } }
+                  next_before: { type: [string, "null"] }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
@@ -976,6 +982,7 @@ paths:
                 type: object
                 properties:
                   items: { type: array, items: { $ref: "#/components/schemas/Dispute" } }
+                  last_synced_at: { type: [string, "null"], format: date-time, description: When a poll (scheduled or Sync now) last reached PayPal; null before the first. }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
   /v1/disputes/sync:
@@ -1144,6 +1151,7 @@ paths:
                 properties:
                   rows: { type: array, items: { $ref: "#/components/schemas/LedgerRow" } }
                   next_before_seq: { type: [integer, "null"] }
+                  total: { type: integer, description: Entries in the whole ledger }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -1181,6 +1189,30 @@ paths:
               schema: { type: array, items: { $ref: "#/components/schemas/LedgerRow" } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+  /v1/ledger/{seq}:
+    get:
+      tags: [Ledger]
+      operationId: ledgerEntry
+      summary: One ledger entry, its chain neighbours and a check of its own hash and link
+      security: [{ operatorKey: [] }]
+      parameters:
+        - { name: seq, in: path, required: true, schema: { type: integer, minimum: 1 } }
+      responses:
+        "200":
+          description: The entry
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entry: { $ref: "#/components/schemas/LedgerRow" }
+                  prev: { type: ["object", "null"], properties: { seq: { type: integer }, hash: { type: string } } }
+                  next: { type: ["object", "null"], properties: { seq: { type: integer }, hash: { type: string } } }
+                  hash_ok: { type: boolean, description: The entry's hash recomputed from its content and prev_hash matches }
+                  link_ok: { type: boolean, description: prev_hash equals the previous entry's hash (null for the first entry) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/overview:
     get:
@@ -1537,10 +1569,19 @@ components:
         agent_id: { type: string }
         claimed_email: { type: string }
         verified: { type: boolean }
+        order_ids: { type: array, items: { type: string } }
         state: { type: string }
         mode: { type: string }
         created_at: { type: string, format: date-time }
         expires_at: { type: string, format: date-time }
+    SessionRow:
+      allOf:
+        - $ref: "#/components/schemas/SessionSummary"
+        - type: object
+          properties:
+            risk_score: { type: [number, "null"], description: Current risk score; null when it could not be read }
+            decision_count: { type: integer, description: Ledger rows for the session }
+            last_turn_at: { type: [string, "null"], format: date-time }
     Turn:
       type: object
       properties:

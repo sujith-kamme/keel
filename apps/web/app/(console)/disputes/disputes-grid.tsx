@@ -5,49 +5,81 @@ import { AgGridReact } from "ag-grid-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { CLASS_STYLE, OUTCOME_STYLE, type DisputeRow } from "@/lib/disputes-view";
+import { classTag, outcomeTag, type DisputeRow } from "@/lib/disputes-view";
 import { relativeTime } from "@/lib/sessions-view";
 import { checkPayPal, lookup } from "./actions";
 import { useAgTheme } from "@/lib/ag-theme";
 
 import "@/lib/ag-grid";
 
-const chip = (styles: Record<string, string>) =>
-  function Chip({ value }: ICellRendererParams<DisputeRow, string>) {
-    if (!value) return null;
-    return <span className={`rounded px-2 py-0.5 text-xs ${styles[value] ?? "bg-black/10 dark:bg-white/10"}`}>{value}</span>;
-  };
+const detailHref = (id: string) => `/disputes/${encodeURIComponent(id)}`;
+const ago = (p: { value?: string | null }) => (p.value ? relativeTime(p.value, new Date()) : "");
 
 const columns: ColDef<DisputeRow>[] = [
-  { headerName: "Updated", field: "updatedAt", valueFormatter: (p) => relativeTime(p.value, new Date()), width: 120 },
   {
     headerName: "Case",
     field: "id",
     cellRenderer: ({ value }: ICellRendererParams<DisputeRow, string>) => (
-      <Link href={`/disputes/${encodeURIComponent(value ?? "")}`} className="underline">
+      <Link href={detailHref(value ?? "")} className="mono" style={{ color: "var(--text)", fontWeight: 500 }}>
         {value}
       </Link>
     ),
     minWidth: 190,
   },
-  { headerName: "Reason", field: "reason", flex: 1, minWidth: 150 },
-  { headerName: "Amount", field: "amount", width: 120 },
-  { headerName: "Keel", field: "classification", cellRenderer: chip(CLASS_STYLE), width: 120 },
-  { headerName: "Action", field: "action", flex: 1, minWidth: 160 },
-  { headerName: "Outcome", field: "outcome", cellRenderer: chip(OUTCOME_STYLE), width: 120 },
+  { headerName: "Reason", field: "reason", filter: "agSetColumnFilter", flex: 1, minWidth: 150 },
+  { headerName: "Amount", field: "amount", type: "rightAligned", width: 110 },
+  {
+    headerName: "Keel decided",
+    field: "classification",
+    filter: "agSetColumnFilter",
+    width: 160,
+    cellRenderer: ({ value }: ICellRendererParams<DisputeRow, string>) => {
+      const t = classTag(value || null);
+      return <span className={`bdg ${t.tone}`}>{t.label}</span>;
+    },
+  },
+  { headerName: "Action taken", field: "action", filter: "agSetColumnFilter", flex: 1, minWidth: 160, cellClass: "mut" },
+  {
+    headerName: "Outcome",
+    field: "outcome",
+    filter: "agSetColumnFilter",
+    width: 140,
+    cellRenderer: ({ value }: ICellRendererParams<DisputeRow, string>) => {
+      const t = outcomeTag(value ?? "");
+      return <span className={`st ${t.tone}`}>{t.label}</span>;
+    },
+  },
+  // When Keel first synced the dispute, within minutes of PayPal opening it.
+  { headerName: "First seen", field: "createdAt", type: "rightAligned", valueFormatter: ago, width: 120 },
+  { headerName: "Updated", field: "updatedAt", type: "rightAligned", valueFormatter: ago, width: 120 },
 ];
 
-export function DisputesGrid({ rows }: { rows: DisputeRow[] }) {
+export function DisputesGrid({ rows, note }: { rows: DisputeRow[]; note: string }) {
+  const router = useRouter();
   const { grid } = useAgTheme();
+  const theme = useMemo(() => grid.withParams({ wrapperBorder: false, wrapperBorderRadius: 0 }), [grid]);
   const defaultColDef = useMemo<ColDef<DisputeRow>>(() => ({ sortable: true, resizable: true }), []);
   return (
-    <div className="mt-4">
-      <AgGridReact<DisputeRow> theme={grid} rowData={rows} columnDefs={columns} defaultColDef={defaultColDef} getRowId={(p) => p.data.id} domLayout="autoHeight" />
-    </div>
+    <section className="pnl" style={{ minWidth: 0 }}>
+      <AgGridReact<DisputeRow>
+        theme={theme}
+        rowData={rows}
+        columnDefs={columns}
+        defaultColDef={defaultColDef}
+        getRowId={(p) => p.data.id}
+        domLayout="autoHeight"
+        rowStyle={{ cursor: "pointer" }}
+        onRowClicked={(e) => e.data && router.push(detailHref(e.data.id))}
+      />
+      <div className="tfoot">
+        <span>
+          {rows.length} {rows.length === 1 ? "dispute" : "disputes"}
+        </span>
+        <span>{note}</span>
+      </div>
+    </section>
   );
 }
-
-const btn = "rounded border border-black/20 px-3 py-1 text-sm hover:bg-black/5 disabled:opacity-50 dark:border-white/20 dark:hover:bg-white/10";
 
 export function DisputeTools() {
   const router = useRouter();
@@ -63,29 +95,32 @@ export function DisputeTools() {
     });
   };
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-2">
-      <button className={btn} disabled={pending} onClick={run(checkPayPal, "Checking PayPal…")}>
-        Check PayPal now
-      </button>
+    <>
+      {message && <span className="sm mut">{message}</span>}
       <form
-        className="flex items-center gap-2"
+        className="acts"
         onSubmit={(e) => {
           e.preventDefault();
           run(() => lookup(caseId), "Looking it up…")();
         }}
       >
         <input
+          className="in"
           value={caseId}
           onChange={(e) => setCaseId(e.target.value)}
           placeholder="PayPal case ID"
+          aria-label="PayPal case ID"
           maxLength={64}
-          className="rounded border border-black/20 bg-transparent px-2 py-1 text-sm dark:border-white/20"
+          style={{ width: 200 }}
         />
-        <button className={btn} disabled={pending || !caseId.trim()}>
+        <button className="b" disabled={pending || !caseId.trim()}>
           Look up
         </button>
       </form>
-      {message && <span className="text-sm opacity-80">{message}</span>}
-    </div>
+      <button className="b" disabled={pending} onClick={run(checkPayPal, "Syncing with PayPal…")}>
+        <i className="ic ic-sync s14" aria-hidden="true" />
+        Sync now
+      </button>
+    </>
   );
 }

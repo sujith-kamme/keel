@@ -1,8 +1,8 @@
 import Link from "next/link";
 
-export function AddToGauntlet({ sessionId }: { sessionId: string }) {
+export function AddToGauntlet({ sessionId, className = "b xs" }: { sessionId: string; className?: string }) {
   return (
-    <Link href={`/context/learn?session=${encodeURIComponent(sessionId)}`} className="rounded border border-black/20 px-2 py-0.5 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10">
+    <Link href={`/context/learn?session=${encodeURIComponent(sessionId)}`} className={className}>
       Add to Gauntlet
     </Link>
   );

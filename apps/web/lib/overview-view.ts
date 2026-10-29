@@ -110,6 +110,9 @@ const TOOLS: Record<string, string> = {
   console_sessions_revoke: "Console sessions revoked",
 };
 
+/** Plain-words name for a ledger row's tool; the raw tool name when it isn't known. */
+export const toolLabel = (tool: string) => TOOLS[tool] ?? tool;
+
 export interface Activity {
   seq: number;
   time: string;
