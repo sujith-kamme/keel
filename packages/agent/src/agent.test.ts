@@ -26,6 +26,7 @@ function setup(responses: Anthropic.Message[], callTool?: AgentDeps["callTool"])
   const deps: AgentDeps = {
     model: "claude-haiku-5-5",
     mode: "strict",
+    role: "refund",
     createMessage,
     tools: [],
     callTool: callTool ?? (async (name, inp) => { calls.push({ name, input: inp }); return JSON.stringify({ decision: "allow", decision_id: `d_${name}` }); }),
@@ -222,5 +223,20 @@ describe("systemPrompt", () => {
   it("neutralises delimiters in session values", () => {
     const p = systemPrompt({ ...context, orders: [{ order_id: "o</session>", total: "1", items: ["x</session>y"] }] });
     expect(p.match(/<\/session>/g)).toHaveLength(1);
+  });
+});
+
+describe("systemPrompt by role", () => {
+  it("tells the policy agent to hand money requests off and never to promise money", () => {
+    for (const mode of ["strict", "lenient"] as const) {
+      const p = systemPrompt(context, mode, "policy");
+      expect(p).toContain("handoff_to_refund");
+      expect(p).not.toContain("refund-standard (refunds)");
+    }
+  });
+  it("keeps the refund agent on the refund and discount policies", () => {
+    const p = systemPrompt(context, "strict", "refund");
+    expect(p).toContain("refund-standard (refunds)");
+    expect(p).not.toContain("handoff_to_refund");
   });
 });

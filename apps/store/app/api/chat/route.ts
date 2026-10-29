@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     const agent = await connectAgentTools(env().keelApiUrl, chat.token);
     try {
       const { reply, decision_ids } = await runTurn(
-        { model: config.model, mode: config.prompt, createMessage: (p) => anthropic.messages.create(p), tools: agent.tools, callTool: agent.callTool },
+        { model: config.model, mode: config.prompt, role: "refund", createMessage: (p) => anthropic.messages.create(p), tools: agent.tools, callTool: agent.callTool },
         { context: { customer_email: chat.email, verified: chat.verified, orders: chat.orders }, history, customerText: text },
       );
       // Never send the unguarded draft: if the guard fails, hand off (DP-4).

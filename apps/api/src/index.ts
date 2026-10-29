@@ -314,7 +314,7 @@ if (process.env.RUN_WORKER === "true") {
           keel: client,
           scenarios: async (packs) => scenariosFor(await catalog(), packs),
           agent: async (token, v) => {
-            const demoAgent = { model: agentModel(v.agent_model), mode: promptMode(v.agent_prompt) };
+            const demoAgent = { model: agentModel(v.agent_model), mode: promptMode(v.agent_prompt), role: "refund" as const };
             const tools = await connectAgentTools(apiBase, token);
             return {
               turn: (input) => runTurn({ ...demoAgent, createMessage, tools: tools.tools, callTool: tools.callTool }, input),
