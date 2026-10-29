@@ -12,7 +12,6 @@ export const ORDER_ID = /^[A-Za-z0-9]{1,64}$/;
 
 export const SignInBody = z.object({ email: z.string().trim().toLowerCase().pipe(z.email().max(254)), password: z.string().min(1).max(200) });
 export const SessionBody = z.object({ order_id: z.string().regex(ORDER_ID) });
-export const VerifyBody = z.object({ code: z.string().regex(/^\d{6}$/) });
 export const ChatBody = z.object({ text: z.string().trim().min(1).max(1000) });
 
 /** Where to go after sign-in: a path on this site only, never another origin. */

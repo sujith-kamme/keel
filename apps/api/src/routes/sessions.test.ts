@@ -65,6 +65,21 @@ describe("sessions API", () => {
     expect(body).not.toHaveProperty("demo_otp");
   });
 
+  it("starts verified when the merchant has authenticated the customer", async () => {
+    const { app, rows } = setup();
+    const res = await post(app, "/v1/sessions", { ...start, customer_authenticated: true });
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).not.toHaveProperty("demo_otp");
+    expect(verifyToken(body.capability_token as string, signingKey, now)).toMatchObject({ verified_payer: "maya@demo.keel.test", orders: ["ORDER-1"] });
+    expect(rows.get("ses_1")).toMatchObject({ verifiedPayer: "maya@demo.keel.test" });
+  });
+
+  it("rejects customer_authenticated on a CONTEXT session", async () => {
+    const { app } = setup();
+    expect((await post(app, "/v1/sessions", { ...fixture, mode: "CONTEXT", customer_authenticated: true })).status).toBe(400);
+  });
+
   it("defaults to a LIVE session with an enforcing guard", async () => {
     const { app, rows } = setup();
     await post(app, "/v1/sessions", start);
