@@ -6,14 +6,17 @@ const reply = (status: number, body: unknown) =>
 
 describe("agentConfigReader", () => {
   it("returns the validated model and prompt", async () => {
-    const f = reply(200, { agents: { agt_refund: { model: "claude-sonnet-5-5", prompt: "strict" } } });
+    const f = reply(200, { agents: { agt_policy: { model: "claude-haiku-5-5", prompt: "strict" }, agt_refund: { model: "claude-sonnet-5-5", prompt: "lenient" } } });
     const read = agentConfigReader({ url: "http://api", key: "k", fetch: f as unknown as typeof fetch });
-    expect(await read()).toEqual({ model: "claude-sonnet-5-5", prompt: "strict" });
+    expect(await read()).toEqual({
+      agt_policy: { model: "claude-haiku-5-5", prompt: "strict" },
+      agt_refund: { model: "claude-sonnet-5-5", prompt: "lenient" },
+    });
     expect(f.mock.calls[0]![0]).toBe("http://api/v1/agent-config");
   });
 
   it("throws on an invalid model", async () => {
-    const read = agentConfigReader({ url: "http://api", key: "k", fetch: reply(200, { agents: { agt_refund: { model: "gpt-4", prompt: "strict" } } }) as unknown as typeof fetch });
+    const read = agentConfigReader({ url: "http://api", key: "k", fetch: reply(200, { agents: { agt_policy: { model: "gpt-4", prompt: "strict" }, agt_refund: { model: "claude-haiku-5-5", prompt: "strict" } } }) as unknown as typeof fetch });
     await expect(read()).rejects.toThrow(/must be one of/);
   });
 

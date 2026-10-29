@@ -1,9 +1,6 @@
-import { agentModel, promptMode, type AgentModel, type PromptMode } from "@keel/agent";
+import { AGENT_IDS, type AgentId, agentModel, promptMode, type AgentModel, type PromptMode } from "@keel/agent";
 
-export interface AgentConfig {
-  model: AgentModel;
-  prompt: PromptMode;
-}
+export type AgentConfig = Record<AgentId, { model: AgentModel; prompt: PromptMode }>;
 
 const TTL_MS = 5_000;
 const TIMEOUT_MS = 5_000;
@@ -21,10 +18,10 @@ export function agentConfigReader(deps: { url: string; key: string; fetch?: type
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`agent-config responded ${res.status}`);
-    // Interim until the store follows the handoff (Task 13): the refund agent holds the one capability scope the store still mints.
-    const body = (await res.json()) as { agents?: { agt_refund?: { model?: string; prompt?: string } } };
-    const cfg = body.agents?.agt_refund;
-    const value = { model: agentModel(cfg?.model), prompt: promptMode(cfg?.prompt) };
+    const body = (await res.json()) as { agents?: Record<string, { model?: string; prompt?: string }> };
+    const value = Object.fromEntries(
+      AGENT_IDS.map((id) => [id, { model: agentModel(body.agents?.[id]?.model), prompt: promptMode(body.agents?.[id]?.prompt) }]),
+    ) as AgentConfig;
     cached = { value, at: now() };
     return value;
   };

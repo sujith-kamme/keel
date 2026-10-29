@@ -33,6 +33,7 @@ export interface Turn {
   role: "customer" | "agent";
   text: string;
   decision_ids: string[];
+  agent_id: string | null;
   created_at: string;
 }
 
@@ -45,6 +46,7 @@ export interface DecisionSummary {
 }
 
 export interface SessionDetail {
+  session: { agent_id: string };
   turns: Turn[];
   decisions: DecisionSummary[];
 }
@@ -93,14 +95,16 @@ export const ordersFor = async (email: string) =>
   (await keel<{ orders: StoreOrder[] }>(`/v1/store/orders?customer_email=${encodeURIComponent(email)}`)).orders;
 
 export const startSession = (email: string, orderIds: string[]) =>
-  keel<StartedSession>("/v1/sessions", post({ agent_id: "agt_demo_store", customer_email: email, order_ids: orderIds }));
+  keel<StartedSession>("/v1/sessions", post({ customer_email: email, order_ids: orderIds }));
 
 export const verifySession = (id: string, code: string) =>
   keel<{ session_id: string; capability_token: string }>(`/v1/sessions/${encodeURIComponent(id)}/verify`, post({ code }));
 
 export const sessionDetail = (id: string) => keel<SessionDetail>(`/v1/sessions/${encodeURIComponent(id)}`);
 
-export const appendTurn = (id: string, turn: { role: "customer" | "agent"; text: string; decision_ids: string[] }) =>
+export const mintToken = (id: string) => keel<{ agent_id: string; capability_token: string }>(`/v1/sessions/${encodeURIComponent(id)}/token`, post({}));
+
+export const appendTurn = (id: string, turn: { role: "customer" | "agent"; text: string; decision_ids: string[]; agent_id?: string }) =>
   keel<unknown>(`/v1/sessions/${encodeURIComponent(id)}/turns`, post(turn));
 
 export interface GuardResult {
@@ -119,6 +123,6 @@ export const guardReply = (body: {
 }) => keel<GuardResult>("/v1/guard", post(body));
 
 let readAgentConfig: ReturnType<typeof agentConfigReader> | undefined;
-/** The agent model and prompt the Gauntlet certifies, read from the API settings (cached 5 s). */
+/** Each agent's model and prompt the Gauntlet certifies, read from the API settings (cached 5 s). */
 export const agentConfig = () => (readAgentConfig ??= agentConfigReader({ url: env().keelApiUrl, key: env().merchantKey }))();
 

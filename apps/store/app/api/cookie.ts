@@ -9,6 +9,7 @@ const NAME = "keel_chat";
 export interface ChatCookie {
   session_id: string;
   token: string;
+  agent_id: string; // the agent the token is for; changes once, at the handoff
   email: string;
   verified: boolean;
   expires_at: string; // session expiry, kept so verify can reseal with the same lifetime
