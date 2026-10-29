@@ -4,7 +4,7 @@ import { agentModel, connectAgentTools, promptMode, runTurn } from "@keel/agent"
 import { activePolicy, appendLedger, approveVersion, countLedger, createDb, discardVersion, decisionsByDay, disputeOutcomes, dollarsProtected, insertDraft, listPolicies, liveSessions, policyVersions, readChain, readLedgerEntry, readLedgerPage, sql, violations } from "@keel/db";
 import { PROMPT_VERSION, draftPolicy, extract } from "@keel/extractor";
 import { type Versions, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
-import { PayPalClient, configFromEnv } from "@keel/paypal";
+import { PayPalClient, PayPalError, configFromEnv } from "@keel/paypal";
 import { acceptClaim, adjudicate, escalate, getDispute, listDisputes, provideEvidence, verifyWebhook } from "@keel/paypal/disputes";
 import { type KeelClient, KeelHttpError, runGauntlet } from "@keel/worker/gauntlet";
 import { type DisputeDeps, pollDisputes, syncDispute } from "@keel/worker/dispute";
@@ -24,7 +24,7 @@ import { currentCertification, scenarioCatalog, scenariosFor } from "./routes/ga
 import { createGauntletStore } from "./routes/gauntlet-store";
 import { KNOWN_POLICY_IDS } from "./routes/guard";
 import { createReviewStore } from "./routes/review-store";
-import { createOrdersFor, createSessionDecisions, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
+import { createCatalog, createOrdersFor, createRecordOrder, createSessionDecisions, createSessionStore, createTurnDecisions, createTurnStore } from "./routes/session-store";
 import { createSettings } from "./settings";
 import type { SettingsStatus } from "./routes/settings";
 
@@ -140,7 +140,18 @@ const app = createApp({
     now,
     newId,
   },
-  store: { merchantKey: KEEL_MERCHANT_KEY, ordersFor: createOrdersFor(db) },
+  store: {
+    merchantKey: KEEL_MERCHANT_KEY,
+    ordersFor: createOrdersFor(db),
+    catalog: createCatalog(db),
+    checkout: {
+      create: (unit, requestId) => paypal.createCheckoutOrder(unit, "Tidewell", requestId),
+      details: (id) => paypal.getOrderDetails(id).catch((e) => (e instanceof PayPalError && e.status === 404 ? null : Promise.reject(e))),
+      capture: (id, requestId) => paypal.captureOrder(id, requestId),
+      record: createRecordOrder(db),
+    },
+    newId,
+  },
   turns: { merchantKey: KEEL_MERCHANT_KEY, store: turnStore, now, riskDetail: risk.detail, scores: risk.scores },
   guard: {
     merchantKey: KEEL_MERCHANT_KEY,

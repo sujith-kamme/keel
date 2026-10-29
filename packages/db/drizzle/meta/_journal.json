@@ -71,6 +71,13 @@
       "when": 1793243716530,
       "tag": "0009_thankful_jackal",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793297817152,
+      "tag": "0010_mature_frank_castle",
+      "breakpoints": true
     }
   ]
 }

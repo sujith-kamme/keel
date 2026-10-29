@@ -86,7 +86,7 @@ services:
   # Tidewell's storefront: the demo merchant's own site. The demo agent runs here as the merchant backend,
   # reaching Keel only with the merchant key. It never gets PayPal secrets or the operator key.
   - type: web
-    name: tidewell-store
+    name: keel-store
     runtime: node
     plan: free
     buildCommand: npm ci && npm run build -w @keel/store
@@ -99,6 +99,11 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: STORE_COOKIE_SECRET
+        sync: false
+      - key: DEMO_STORE_PASSWORD
+        sync: false
+      # Public client id for PayPal's checkout button (the same sandbox app as keel-api). No secret here.
+      - key: PAYPAL_CLIENT_ID
         sync: false
 
   - type: keyvalue
