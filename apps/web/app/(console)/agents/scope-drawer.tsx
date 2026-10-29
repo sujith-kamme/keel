@@ -22,6 +22,7 @@ export function ScopeDrawer({
   models,
   prompts,
   limits,
+  policy,
 }: {
   agentId: string;
   model: string;
@@ -29,6 +30,8 @@ export function ScopeDrawer({
   models: readonly string[];
   prompts: readonly string[];
   limits: { refunds: string | null; discounts: string | null };
+  /** The policy agent's settings, sent unchanged: the section is saved whole. Task 13 gives it its own drawer. */
+  policy: { model: string; prompt: string };
 }) {
   const router = useRouter();
   const ref = useRef<HTMLElement>(null);
@@ -43,7 +46,12 @@ export function ScopeDrawer({
   const save = () => {
     setError(null);
     start(async () => {
-      const r = await saveSection("agent", { agent_model: m, agent_prompt: p });
+      const r = await saveSection("agent", {
+        policy_agent_model: policy.model,
+        policy_agent_prompt: policy.prompt,
+        refund_agent_model: m,
+        refund_agent_prompt: p,
+      });
       if (r.ok) router.push("/agents", { scroll: false });
       else setError(r.message);
     });

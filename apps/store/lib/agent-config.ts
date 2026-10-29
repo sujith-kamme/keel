@@ -21,8 +21,10 @@ export function agentConfigReader(deps: { url: string; key: string; fetch?: type
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`agent-config responded ${res.status}`);
-    const body = (await res.json()) as { model?: string; prompt?: string };
-    const value = { model: agentModel(body.model), prompt: promptMode(body.prompt) };
+    // Interim until the store follows the handoff (Task 13): the refund agent holds the one capability scope the store still mints.
+    const body = (await res.json()) as { agents?: { agt_refund?: { model?: string; prompt?: string } } };
+    const cfg = body.agents?.agt_refund;
+    const value = { model: agentModel(cfg?.model), prompt: promptMode(cfg?.prompt) };
     cached = { value, at: now() };
     return value;
   };

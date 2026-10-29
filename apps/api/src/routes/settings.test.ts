@@ -92,7 +92,7 @@ describe("settings API", () => {
     expect((await put(app, "nope", { operator: "ops", values: {} })).status).toBe(404);
     expect((await put(app, "guard", { operator: "ops", values: { risk_threshold: 0 } })).status).toBe(400);
     expect((await put(app, "guard", { operator: "ops", values: { bogus: 1 } })).status).toBe(400);
-    expect((await put(app, "guard", { operator: "ops", values: { agent_model: "x" } })).status).toBe(400);
+    expect((await put(app, "guard", { operator: "ops", values: { refund_agent_model: "x" } })).status).toBe(400);
     expect((await put(app, "guard", { values: {} })).status).toBe(400);
     expect((await put(app, "guard", { operator: "ops", values: {}, extra: 1 })).status).toBe(400);
     expect((await put(app, "zapier", { operator: "ops", values: { zapier_hook_url: "https://evil.test/x" } })).status).toBe(400);
@@ -143,11 +143,12 @@ describe("settings API", () => {
     expect((await app.request("/v1/settings/zapier/test", { method: "POST", headers: op })).status).toBe(200);
   });
 
-  it("agent-config needs the merchant key and returns model and prompt", async () => {
+  it("agent-config needs the merchant key and returns both agents' model and prompt", async () => {
     const { app } = setup();
     expect((await app.request("/v1/agent-config")).status).toBe(401);
     expect((await app.request("/v1/agent-config", { headers: op })).status).toBe(401);
     const res = await app.request("/v1/agent-config", { headers: bearer(merchantKey) });
-    expect(await res.json()).toEqual({ model: SETTINGS_DEFAULTS.agent_model, prompt: SETTINGS_DEFAULTS.agent_prompt });
+    const d = { model: SETTINGS_DEFAULTS.policy_agent_model, prompt: SETTINGS_DEFAULTS.policy_agent_prompt };
+    expect(await res.json()).toEqual({ agents: { agt_policy: d, agt_refund: d } });
   });
 });

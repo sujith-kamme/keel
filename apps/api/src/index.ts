@@ -69,8 +69,8 @@ const currentVersions = async (): Promise<Versions> => {
     if (typeof version === "number") policies[id] = version;
   });
   return {
-    agent_model: s.agent_model,
-    agent_prompt: s.agent_prompt,
+    agent_model: s.refund_agent_model,
+    agent_prompt: s.refund_agent_prompt,
     extractor_model: s.extractor_model,
     extractor_prompt_version: PROMPT_VERSION,
     extractor_timeout_ms: s.extractor_timeout_ms,

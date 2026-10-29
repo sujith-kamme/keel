@@ -27,7 +27,7 @@ async function Agents() {
     // The 7-day panel is a nicety; the kill switches must still show without it.
     overview().catch(() => null),
   ]);
-  const prompt = String(s.values.agent_prompt);
+  const prompt = String(s.values.refund_agent_prompt);
   const active = ps.filter((p) => p.active !== null);
   const limits = agentLimits(active.flatMap((p) => p.active!.rules));
   return (
@@ -37,7 +37,7 @@ async function Agents() {
           {
             id: AGENT,
             name: "Store support agent",
-            model: String(s.values.agent_model),
+            model: String(s.values.refund_agent_model),
             prompt: PROMPTS[prompt]?.label ?? prompt,
             cert: certBadge(cert.status),
             frozen: agent.frozen,
@@ -131,10 +131,11 @@ async function Scope({ searchParams }: { searchParams: PageProps<"/agents">["sea
   const [s, ps] = await Promise.all([settings(), policies()]);
   return (
     <ScopeDrawer
-      key={`${s.values.agent_model}:${s.values.agent_prompt}`}
+      key={`${s.values.refund_agent_model}:${s.values.refund_agent_prompt}`}
       agentId={scope}
-      model={String(s.values.agent_model)}
-      prompt={String(s.values.agent_prompt)}
+      model={String(s.values.refund_agent_model)}
+      prompt={String(s.values.refund_agent_prompt)}
+      policy={{ model: String(s.values.policy_agent_model), prompt: String(s.values.policy_agent_prompt) }}
       models={AGENT_MODELS}
       prompts={PROMPT_MODES}
       limits={agentLimits(ps.flatMap((p) => p.active?.rules ?? []))}

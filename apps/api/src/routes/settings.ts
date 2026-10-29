@@ -1,7 +1,8 @@
+import { AGENT_IDS } from "@keel/agent";
 import type { Context, Hono } from "hono";
 import { z } from "zod";
 import type { SettingsService } from "../settings";
-import { SECTION_SCHEMAS, type Section } from "../settings-schema";
+import { SECTION_SCHEMAS, type Section, agentSettings } from "../settings-schema";
 import { merchantAuth } from "./merchant-auth";
 import { operatorAuth } from "./operator-auth";
 
@@ -90,6 +91,6 @@ export function mountSettings(app: Hono, opts: SettingsOptions): void {
   app.get("/v1/agent-config", async (c) => {
     if (!merchant(c)) return c.json({ error: "unauthorized" }, 401);
     const s = await settings.get();
-    return c.json({ model: s.agent_model, prompt: s.agent_prompt });
+    return c.json({ agents: Object.fromEntries(AGENT_IDS.map((id) => [id, agentSettings(s, id)])) });
   });
 }

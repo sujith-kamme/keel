@@ -22,7 +22,7 @@ describe("settings schema", () => {
     expect(bad({ dispute_poll_seconds: 29 })).toBe(false);
     expect(bad({ dispute_poll_seconds: 3601 })).toBe(false);
     expect(bad({ extractor_model: "gpt-4" })).toBe(false);
-    expect(bad({ agent_prompt: "loose" })).toBe(false);
+    expect(bad({ refund_agent_prompt: "loose" })).toBe(false);
     expect(bad({ zapier_hook_url: "https://example.com/hook" })).toBe(false);
     expect(bad({ zapier_hook_url: "https://hooks.zapier.com/hooks/catch/1/2" })).toBe(true);
   });
@@ -54,8 +54,10 @@ describe("settingsFromEnv", () => {
       extractor_timeout_ms: 2500,
       risk_threshold: 80,
       risk_half_life_min: 45,
-      agent_model: "claude-sonnet-5-5",
-      agent_prompt: "strict",
+      policy_agent_model: "claude-sonnet-5-5",
+      policy_agent_prompt: "strict",
+      refund_agent_model: "claude-sonnet-5-5",
+      refund_agent_prompt: "strict",
       gauntlet_customer_model: "claude-sonnet-5-5",
       gauntlet_concurrency: 3,
       dispute_auto_submit: true,
