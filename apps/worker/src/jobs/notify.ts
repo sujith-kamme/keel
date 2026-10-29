@@ -12,7 +12,7 @@ export type NotifyEvent =
     }
   | DisputeNotice;
 
-const HOOK_PREFIX = "https://hooks.zapier.com/";
+export const HOOK_PREFIX = "https://hooks.zapier.com/";
 
 export function notifyConfig(env: { ZAPIER_HOOK_URL?: string }): { hookUrl: string | null } {
   const url = env.ZAPIER_HOOK_URL?.trim();

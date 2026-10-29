@@ -5,6 +5,7 @@
   "exports": {
     "./dispute": "./src/jobs/dispute.ts",
     "./gauntlet": "./src/jobs/gauntlet.ts",
+    "./notify": "./src/jobs/notify.ts",
     "./queue": "./src/queue.ts",
     "./worker": "./src/worker.ts"
   },
