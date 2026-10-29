@@ -64,6 +64,10 @@ describe.skipIf(!process.env.DATABASE_URL)("handoff (Postgres)", () => {
         }
         expect(await deps.handoff(id, "agt_refund")).toBe("OK");
         expect(await agentOf()).toBe("agt_refund");
+        // A stale policy token can't re-handoff once the session has moved on.
+        await tx.update(sessions).set({ agentId: "agt_other" }).where(eq(sessions.id, id));
+        expect(await deps.handoff(id, "agt_refund")).toBe("NOT_POLICY_AGENT");
+        expect(await agentOf()).toBe("agt_other");
         throw rollback;
       }),
     ).rejects.toBe(rollback);

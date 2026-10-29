@@ -238,6 +238,9 @@ paths:
               properties:
                 role: { type: string, enum: [customer, agent] }
                 text: { type: string, minLength: 1, maxLength: 4000 }
+                agent_id:
+                  type: string
+                  description: The agent that wrote this turn (agent role only), for example agt_policy or agt_refund.
                 decision_ids:
                   type: array
                   maxItems: 10

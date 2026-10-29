@@ -1,4 +1,4 @@
-import { type Db, activePolicy, agentControls, appendLedger, eq, inArray, refundTotals, sessions, sql, storeOrders } from "@keel/db";
+import { type Db, activePolicy, agentControls, and, appendLedger, eq, inArray, refundTotals, sessions, sql, storeOrders } from "@keel/db";
 import type { PayPalClient } from "@keel/paypal";
 import { newId } from "../id";
 import type { RiskService } from "../risk";
@@ -26,8 +26,9 @@ export function createGatewayDeps(db: Db, paypal: PayPalClient, risk: RiskServic
       db.transaction(async (tx) => {
         const controls = await tx.select({ frozen: agentControls.frozen }).from(agentControls).where(inArray(agentControls.agentId, [to, "*"]));
         if (controls.some((c) => c.frozen)) return "FROZEN" as const;
-        await tx.update(sessions).set({ agentId: to }).where(eq(sessions.id, sessionId));
-        return "OK" as const;
+        // Only the policy agent hands off, so a stale policy token can't switch the session back.
+        const moved = await tx.update(sessions).set({ agentId: to }).where(and(eq(sessions.id, sessionId), eq(sessions.agentId, "agt_policy"))).returning({ id: sessions.id });
+        return moved.length === 0 ? ("NOT_POLICY_AGENT" as const) : ("OK" as const);
       }),
     // Serializes money decisions per session and per order across API instances,
     // so two concurrent refunds can't both see the same refunded-to-date or budget

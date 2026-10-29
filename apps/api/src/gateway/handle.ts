@@ -35,8 +35,8 @@ export interface GatewayDeps {
   policy: (policyId: string) => Promise<unknown>;
   appendLedger: (content: LedgerContent) => Promise<unknown>;
   escalate: (sessionId: string) => Promise<void>;
-  /** Moves the session to `to` unless that agent (or "*") is frozen. Throws on DB error. */
-  handoff: (sessionId: string, to: "agt_refund") => Promise<"OK" | "FROZEN">;
+  /** Moves the session from the policy agent to `to` unless that agent (or "*") is frozen; NOT_POLICY_AGENT if the session already moved. Throws on DB error. */
+  handoff: (sessionId: string, to: "agt_refund") => Promise<"OK" | "FROZEN" | "NOT_POLICY_AGENT">;
   /** Serializes money decisions: session lock, then order lock (fixed order), held until `fn` resolves. */
   withOrderLock: <T>(sessionId: string, orderId: string, fn: () => Promise<T>) => Promise<T>;
   control: (sessionId: string) => Promise<{ state: string; agent_frozen: boolean; score: number; mode: string; guard_mode: string }>;
@@ -169,7 +169,8 @@ async function run(deps: GatewayDeps, cap: Capability, call: Exclude<ToolCall, {
       const r = await deps.handoff(cap.session_id, "agt_refund").catch(() => null);
       if (r === null) return refuse("HOLD", "VERIFIER_UNAVAILABLE");
       if (r === "FROZEN") return refuse("HOLD", "AGENT_FROZEN");
-      return ok("A refunds specialist is joining. Tell the customer that in one short line and end your reply.");
+      if (r === "NOT_POLICY_AGENT") return refuse("BLOCK", "CAPABILITY_OUT_OF_SCOPE");
+      return { ...ok("A refunds specialist is joining. Tell the customer that in one short line and end your reply."), record: { handoff_to: "agt_refund" } };
     }
   }
 }

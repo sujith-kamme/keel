@@ -152,6 +152,13 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     expect(await createTurnDecisions(db)(a, [])).toEqual([]);
   });
 
+  it("turnDecisions carries the recorded agent_id", async () => {
+    const sid = `ses_test_${randomUUID().replaceAll("-", "")}`;
+    const decision_id = `dec_${randomUUID().replaceAll("-", "")}`;
+    await appendLedger(db, { decision_id, session_id: sid, order_id: null, capture_id: null, dispute_id: null, mode: "LIVE", verdict: "ALLOW", reason_codes: ["OK"], payload: { tool: "handoff_to_refund", args: {}, agent_id: "agt_policy" } });
+    expect(await createTurnDecisions(db)(sid, [decision_id])).toEqual([{ tool: "handoff_to_refund", verdict: "ALLOW", args: {}, agent_id: "agt_policy" }]);
+  });
+
   it("turnDecisions maps well-formed order_facts and ignores malformed ones", async () => {
     const sid = `ses_test_${randomUUID().replaceAll("-", "")}`;
     const mk = async (order_facts: unknown) => {

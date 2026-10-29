@@ -68,6 +68,9 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
     const session = await opts.session(req.session_id);
     if (!session || new Date(session.expires_at) <= opts.now()) return c.json({ error: "not_found" }, 404);
 
+    // The agent that acted this turn (hash-covered in its ledger rows); a mid-turn handoff changes session.agent_id.
+    const early = await opts.turnDecisions(req.session_id, req.tool_calls_this_turn).catch(() => null);
+    const agent_id = early?.find((d) => d.agent_id)?.agent_id ?? session.agent_id;
     let ctl: Awaited<ReturnType<GuardOptions["control"]>>;
     try {
       ctl = await opts.control(req.session_id);
@@ -82,7 +85,7 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
         mode: "LIVE",
         verdict: "BLOCK",
         reason_codes: ["VERIFIER_UNAVAILABLE"],
-        payload: { tool: "guard", agent_id: session.agent_id, draft: req.draft_reply, control_error: true },
+        payload: { tool: "guard", agent_id, draft: req.draft_reply, control_error: true },
       });
       return c.json({ verdict: "BLOCK", reason_codes: ["VERIFIER_UNAVAILABLE"], final_reply: SAFE_FALLBACK, decision_id, session_state: session.state, shadow: false });
     }
@@ -108,13 +111,13 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
         mode: ledgerMode(ctl.mode, "QUARANTINED"),
         verdict: "HOLD",
         reason_codes: ["RISK_THRESHOLD"],
-        payload: { tool: "guard", agent_id: session.agent_id, draft: req.draft_reply, quarantined: true, risk_score },
+        payload: { tool: "guard", agent_id, draft: req.draft_reply, quarantined: true, risk_score },
       });
       return held(decision_id);
     };
     if (ctl.state === "QUARANTINED") return hold(ctl.score);
 
-    const turn_decisions = await opts.turnDecisions(req.session_id, req.tool_calls_this_turn);
+    const turn_decisions = early ?? (await opts.turnDecisions(req.session_id, req.tool_calls_this_turn));
     // Fail closed: a failed lookup means fewer backings, so more blocking.
     let session_decisions: TurnDecision[] = [];
     try {
@@ -162,7 +165,7 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
       reason_codes: result.reason_codes,
       payload: {
         tool: "guard",
-        agent_id: session.agent_id,
+        agent_id,
         input,
         result,
         extractor: { ...extractor, latency_ms },

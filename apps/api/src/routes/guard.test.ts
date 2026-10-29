@@ -266,6 +266,16 @@ describe("POST /v1/guard", () => {
     }
   });
 
+  it("records the agent that acted this turn, not the session's current agent", async () => {
+    const acted: TurnDecision = { tool: "handoff_to_refund", verdict: "ALLOW", args: {}, agent_id: "agt_policy" };
+    const quarantined = async () => ({ state: "QUARANTINED", agent_frozen: false, score: 9, mode: "LIVE", guard_mode: "ENFORCE" });
+    for (const control of [undefined, quarantined]) {
+      const { app, ledger } = setup({ ...(control ? { control } : {}), turnDecisions: async () => [acted] });
+      await post(app, { ...valid, tool_calls_this_turn: ["dec_h"] });
+      expect(ledger[0]!.payload).toMatchObject({ tool: "guard", agent_id: "agt_policy" });
+    }
+  });
+
   describe("session mode", () => {
     const ctl = (over: Record<string, unknown>) => async () => ({ state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE", ...over });
     const blocking: Partial<GuardOptions> = { extract: async () => extraction([{ type: "DISCOUNT", quoted_text: "50% off", percent: 50 }]) };

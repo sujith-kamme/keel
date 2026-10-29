@@ -368,8 +368,14 @@ describe("handleTool: handoff_to_refund", () => {
     expect(r.decision).toBe("ALLOW");
     expect(deps.handoff).toHaveBeenCalledWith("ses_1", "agt_refund");
     expect(ledger).toHaveLength(1);
-    expect(ledger[0]!.payload).toMatchObject({ tool: "handoff_to_refund", agent_id: "agt_policy" });
+    expect(ledger[0]!.payload).toMatchObject({ tool: "handoff_to_refund", agent_id: "agt_policy", handoff_to: "agt_refund" });
     expect(JSON.stringify(r)).not.toMatch(/token|v1\./i);
+  });
+
+  it("blocks a stale-token re-handoff when the session is no longer on the policy agent", async () => {
+    const { deps, ledger } = fakes({ handoff: vi.fn(async () => "NOT_POLICY_AGENT" as const) });
+    expect(await handleTool(deps, policyCap, handoffCall)).toMatchObject({ decision: "BLOCK", reason_code: "CAPABILITY_OUT_OF_SCOPE" });
+    expect(ledger).toHaveLength(1);
   });
 
   it("holds when the refund agent is frozen", async () => {
