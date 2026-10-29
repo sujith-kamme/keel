@@ -17,7 +17,7 @@ export default function Page({ searchParams }: { searchParams: Promise<{ session
   return (
     <section>
       <Link href="/context" className="text-sm underline">
-        ← Back to Context Mode
+        ← Back to Simulations
       </Link>
       <h1 className="mt-2 text-2xl font-semibold">Add to Gauntlet</h1>
       <Suspense fallback={<p className="mt-4">Loading…</p>}>

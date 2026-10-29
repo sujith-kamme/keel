@@ -1,10 +1,7 @@
-import Link from "next/link";
-import { type Certification, packLabel, packStats, pct, progressPct, type Run, type RunResult, runOutcome, type Scorecard } from "@/lib/context-view";
-import { usd, utcTime } from "@/lib/overview-view";
+import { pct, progressPct, type Run, type Scorecard } from "@/lib/context-view";
+import { usd } from "@/lib/overview-view";
 
 const n = (x: number) => x.toLocaleString("en-US");
-// Run rows come straight from stored JSON; an older or interrupted run may lack a count.
-const count = (x: number | undefined) => (typeof x === "number" ? n(x) : "—");
 
 function Kpi({ label, value, notes }: { label: string; value: string; notes: (string | null | false)[] }) {
   return (
@@ -51,104 +48,6 @@ export function Progress({ run }: { run: Run }) {
       <div className="meter" role="progressbar" aria-label="Run progress" aria-valuenow={Math.round(p)} aria-valuemin={0} aria-valuemax={100}>
         <span style={{ width: `${p}%`, background: "var(--accent)" }} />
       </div>
-    </div>
-  );
-}
-
-export function ByPack({ results }: { results: RunResult[] }) {
-  const stats = packStats(results);
-  if (stats.length === 0) return <p className="pnl-b mut" style={{ margin: 0 }}>No results yet.</p>;
-  return (
-    <div className="tw">
-      <table className="t" style={{ minWidth: 720 }}>
-        <thead>
-          <tr>
-            <th scope="col">Pack</th>
-            <th scope="col" className="r">
-              Conversations
-            </th>
-            <th scope="col" className="r">
-              Passed
-            </th>
-            <th scope="col" className="r">
-              Leaks
-            </th>
-            <th scope="col" className="r">
-              False positives
-            </th>
-            <th scope="col" className="r">
-              Errors
-            </th>
-            <th scope="col" style={{ width: "28%" }}>
-              Pass rate
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {stats.map((s) => (
-            <tr key={s.pack}>
-              <td>{packLabel(s.pack)}</td>
-              <td className="r">{n(s.conversations)}</td>
-              <td className="r">{n(s.passed)}</td>
-              <td className="r">{n(s.leaks)}</td>
-              <td className="r">{s.falsePositives === null ? "—" : n(s.falsePositives)}</td>
-              <td className="r">{n(s.errors)}</td>
-              <td>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div className="meter" style={{ flex: 1 }}>
-                    <span style={{ width: `${(s.passRate ?? 0) * 100}%`, background: s.passRate === 1 ? "var(--ok-dot)" : "var(--warn-dot)" }} />
-                  </div>
-                  <span className="sm mono" style={{ width: 48, textAlign: "right" }}>
-                    {pct(s.passRate)}
-                  </span>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-export function RunHistory({ runs, selectedId, cert }: { runs: Run[]; selectedId: string | undefined; cert: Certification }) {
-  return (
-    <div className="tw">
-      <table className="t" style={{ minWidth: 760 }}>
-        <thead>
-          <tr>
-            <th scope="col">Run</th>
-            <th scope="col">Started (UTC)</th>
-            <th scope="col">Mode</th>
-            <th scope="col" className="r">
-              Conversations
-            </th>
-            <th scope="col" className="r">
-              Leaks
-            </th>
-            <th scope="col">Result</th>
-          </tr>
-        </thead>
-        <tbody>
-          {runs.map((r) => {
-            const o = runOutcome(r, cert);
-            return (
-              <tr key={r.id} className={r.id === selectedId ? "selr" : undefined}>
-                <td className="mono">
-                  <Link href={`/context?run=${encodeURIComponent(r.id)}`}>{r.id}</Link>
-                </td>
-                <td className="mut">{utcTime(r.created_at)}</td>
-                <td>{r.guarded ? "Guarded" : "No reply guard"}</td>
-                <td className="r">{count(r.scorecard?.runs ?? r.progress?.total)}</td>
-                <td className="r">{count(r.scorecard?.leaks)}</td>
-                <td>
-                  <span className={`st ${o.tone}`}>{o.label}</span>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
     </div>
   );
 }

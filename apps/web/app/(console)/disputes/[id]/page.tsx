@@ -35,7 +35,7 @@ function LedgerRows({ rows }: { rows: DisputeLedgerView[] }) {
             <th scope="col">Decision</th>
             <th scope="col">What</th>
             <th scope="col">Reason</th>
-            <th scope="col">Session</th>
+            <th scope="col">Conversation</th>
             <th scope="col" className="r">
               Entry
             </th>
@@ -243,7 +243,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
                 <dd>{money(d.amount, d.currency)}</dd>
               </div>
               <div>
-                <dt>Session</dt>
+                <dt>Conversation</dt>
                 <dd style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {sessions.length === 0
                     ? "—"

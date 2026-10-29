@@ -88,7 +88,7 @@ const columns: ColDef<ReviewRow>[] = [
   { headerName: "Order", field: "order", cellClass: "mono", width: 150, valueFormatter: (p) => p.value || "—" },
   { headerName: "Held because", field: "reasons", ...set, flex: 1, minWidth: 180 },
   {
-    headerName: "Session",
+    headerName: "Conversation",
     field: "sessionId",
     width: 160,
     cellRenderer: ({ value }: ICellRendererParams<ReviewRow, string>) => (
@@ -105,7 +105,7 @@ const columns: ColDef<ReviewRow>[] = [
 const ASK_EXAMPLES = ["refunds over $50", "group by reason", "newest first"];
 const ASK_SCHEMA: StructuredSchemaParams = {
   columns: {
-    action: { includeSetValues: true, description: "Refund or Discount for held actions; the state for flagged sessions" },
+    action: { includeSetValues: true, description: "Refund or Discount for held actions; the state for flagged conversations" },
     reasons: { includeSetValues: true, description: "Why Keel held it, comma-separated" },
     amount: { description: "Refund amount in dollars; empty for percent discounts" },
     createdAt: { description: "When it was held (ISO time)" },
@@ -114,8 +114,8 @@ const ASK_SCHEMA: StructuredSchemaParams = {
 
 const TABS: { id: ReviewTab; label: string; noun: [string, string] }[] = [
   { id: "held", label: "Held actions", noun: ["held action", "held actions"] },
-  { id: "quarantined", label: "Quarantined sessions", noun: ["quarantined session", "quarantined sessions"] },
-  { id: "escalated", label: "Escalated", noun: ["escalated session", "escalated sessions"] },
+  { id: "quarantined", label: "Quarantined conversations", noun: ["quarantined conversation", "quarantined conversations"] },
+  { id: "escalated", label: "Escalated", noun: ["escalated conversation", "escalated conversations"] },
 ];
 
 export function ReviewGrid({ rows }: { rows: ReviewRow[] }) {

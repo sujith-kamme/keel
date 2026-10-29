@@ -8,6 +8,7 @@ import { agentControl, type AgentControl, gauntletCertification, overview, polic
 import { usd, utcTime } from "@/lib/overview-view";
 import { PROMPTS } from "@/lib/prompt-labels";
 import { agentLimits } from "@/lib/settings-view";
+import { AgentGrid } from "./agent-grid";
 import { ScopeDrawer } from "./scope-drawer";
 
 const AGENT = "agt_demo_store";
@@ -26,51 +27,24 @@ async function Agents() {
     // The 7-day panel is a nicety; the kill switches must still show without it.
     overview().catch(() => null),
   ]);
-  const cb = certBadge(cert.status);
   const prompt = String(s.values.agent_prompt);
   const active = ps.filter((p) => p.active !== null);
   const limits = agentLimits(active.flatMap((p) => p.active!.rules));
   return (
     <>
-      <div className="pnl tw">
-        <table className="t" style={{ minWidth: 880 }}>
-          <thead>
-            <tr>
-              <th scope="col">Agent</th>
-              <th scope="col">Model</th>
-              <th scope="col">System prompt</th>
-              <th scope="col">Certification</th>
-              <th scope="col">State</th>
-              <th scope="col">Last change</th>
-              <th scope="col">
-                <span className="srr">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td style={{ height: "auto", padding: "8px 12px" }}>
-                <div style={{ fontWeight: 500 }}>Store support agent</div>
-                <div className="mono dim">{AGENT}</div>
-              </td>
-              <td className="mono">{String(s.values.agent_model)}</td>
-              <td>{PROMPTS[prompt]?.label ?? prompt}</td>
-              <td>
-                <Link href="/context" className={`st ${cb.tone}`} style={{ color: "var(--text)" }}>
-                  {cb.label}
-                </Link>
-              </td>
-              <td>
-                <span className={`st ${agent.frozen ? "bad" : "ok"}`}>{agent.frozen ? "Frozen" : "Active"}</span>
-              </td>
-              <td className="mut">{lastChange(agent)}</td>
-              <td className="r">
-                <KillSwitch agentId={AGENT} frozen={agent.frozen} label="agent" />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <AgentGrid
+        rows={[
+          {
+            id: AGENT,
+            name: "Store support agent",
+            model: String(s.values.agent_model),
+            prompt: PROMPTS[prompt]?.label ?? prompt,
+            cert: certBadge(cert.status),
+            frozen: agent.frozen,
+            lastChange: lastChange(agent),
+          },
+        ]}
+      />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" style={{ alignItems: "stretch" }}>
         <section className="pnl" aria-labelledby="sc-p-h">
           <div className="pnl-h">
@@ -184,7 +158,6 @@ export default function Page({ searchParams }: PageProps<"/agents">) {
       <div className="ph">
         <div>
           <h1>Agents</h1>
-          <p>AI agents that act through Keel. A frozen agent can still reply, but every money action it attempts is held.</p>
         </div>
       </div>
       <Suspense fallback={<Skeleton />}>

@@ -82,7 +82,7 @@ const columns: ColDef<LedgerRow>[] = [
     type: "rightAligned",
     width: 110,
   },
-  { headerName: "Session", field: "session_id", cellRenderer: link("sessions"), filter: "agTextColumnFilter", minWidth: 160 },
+  { headerName: "Conversation", field: "session_id", cellRenderer: link("sessions"), filter: "agTextColumnFilter", minWidth: 160 },
   { headerName: "Order", field: "order_id", filter: "agTextColumnFilter", cellClass: "mono", width: 150 },
   { headerName: "Dispute", field: "dispute_id", cellRenderer: link("disputes"), filter: "agTextColumnFilter", minWidth: 160 },
   { headerName: "Mode", field: "mode", ...set, width: 110 },
@@ -113,7 +113,6 @@ export function LedgerHeader({ children }: { children?: ReactNode }) {
     <div className="ph">
       <div>
         <h1>Ledger</h1>
-        <p>Append-only record of every decision. Each entry hashes the one before it.</p>
       </div>
       {children && <div className="acts">{children}</div>}
     </div>

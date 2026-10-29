@@ -115,10 +115,10 @@ async function Entry({ params }: { params: Promise<{ seq: string }> }) {
               </div>
               <div>
                 <dt>Mode</dt>
-                <dd>{r.mode === "LIVE" ? "Live" : r.mode === "CONTEXT" ? "Context Mode" : r.mode}</dd>
+                <dd>{r.mode === "LIVE" ? "Live" : r.mode === "CONTEXT" ? "Simulation" : r.mode}</dd>
               </div>
               <div>
-                <dt>Session</dt>
+                <dt>Conversation</dt>
                 <dd>
                   {r.session_id ? (
                     <Link href={`/sessions/${encodeURIComponent(r.session_id)}`} className="mono">

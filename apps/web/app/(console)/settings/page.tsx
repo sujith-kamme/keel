@@ -127,7 +127,6 @@ export default function Page() {
       <div className="ph" style={{ maxWidth: 1080, width: "100%" }}>
         <div>
           <h1>Settings</h1>
-          <p>Runs Keel without a redeploy. Every change is written to the ledger.</p>
         </div>
         <Link className="b" href="/ledger">
           Settings history

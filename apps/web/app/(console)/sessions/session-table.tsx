@@ -1,8 +1,10 @@
 "use client";
 
+import { type ColDef, type ICellRendererParams } from "ag-grid-community";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { ListGrid } from "@/components/list-grid";
 import { matchesSearch, SESSION_STATES, sessionState, sessionsHref } from "@/lib/sessions-view";
 
 export interface SessionListRow {
@@ -17,12 +19,54 @@ export interface SessionListRow {
   lastTurn: string | null;
 }
 
-/** One page of sessions: state tabs (server-filtered), a search over the loaded page, and cursor paging. */
+const href = (r: SessionListRow) => `/sessions/${encodeURIComponent(r.id)}`;
+
+const columns: ColDef<SessionListRow>[] = [
+  {
+    headerName: "Customer",
+    field: "email",
+    flex: 1,
+    minWidth: 220,
+    cellRenderer: ({ data, value }: ICellRendererParams<SessionListRow, string>) =>
+      data ? (
+        <>
+          <Link href={href(data)} style={{ color: "var(--text)", fontWeight: 500 }}>
+            {value}
+          </Link>
+          {!data.verified && <span className="sm dim"> · not verified</span>}
+        </>
+      ) : null,
+  },
+  { headerName: "Agent", field: "agentId", width: 170, cellClass: "mono mut" },
+  {
+    headerName: "Order",
+    colId: "order",
+    width: 160,
+    cellClass: "mono mut",
+    valueGetter: (p) => p.data?.orderIds[0] ?? "—",
+    valueFormatter: (p) => (p.data && p.data.orderIds.length > 1 ? `${p.value} +${p.data.orderIds.length - 1}` : p.value),
+    tooltipValueGetter: (p) => p.data?.orderIds.join(", "),
+  },
+  {
+    headerName: "State",
+    field: "state",
+    width: 140,
+    cellRenderer: ({ value }: ICellRendererParams<SessionListRow, string>) => {
+      const st = sessionState(value ?? "");
+      return <span className={`st ${st.tone}`}>{st.label}</span>;
+    },
+  },
+  { headerName: "Risk", field: "risk", width: 90, type: "rightAligned", cellClass: "mono", valueFormatter: (p) => (p.value === null ? "—" : String(p.value)) },
+  { headerName: "Decisions", field: "decisions", width: 110, type: "rightAligned" },
+  // Already relative ("2 min ago"), so it keeps the served order: newest first.
+  { headerName: "Last turn", field: "lastTurn", width: 130, type: "rightAligned", cellClass: "mut", sortable: false, valueFormatter: (p) => p.value ?? "—" },
+];
+
+/** One page of conversations: state tabs (server-filtered), a search over the loaded page, and cursor paging. */
 export function SessionTable({ rows, state, previous, next }: { rows: SessionListRow[]; state: string | null; previous: string | null; next: string | null }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const shown = rows.filter((r) => matchesSearch({ claimed_email: r.email, id: r.id, order_ids: r.orderIds }, query));
-  const href = (id: string) => `/sessions/${encodeURIComponent(id)}`;
   return (
     <>
       <div style={{ display: "flex", alignItems: "flex-end", gap: 16, flexWrap: "wrap", borderBottom: "1px solid var(--line)" }}>
@@ -37,74 +81,16 @@ export function SessionTable({ rows, state, previous, next }: { rows: SessionLis
           className="in"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Filter this page by email, order or session ID"
-          aria-label="Filter sessions on this page"
+          placeholder="Filter this page by email or order"
+          aria-label="Filter conversations on this page"
           style={{ width: 320, maxWidth: "100%", marginLeft: "auto", marginBottom: 6 }}
         />
       </div>
-      <div className="pnl tw">
-        <table className="t" style={{ minWidth: 960 }}>
-          <thead>
-            <tr>
-              <th scope="col">Customer</th>
-              <th scope="col">Agent</th>
-              <th scope="col">Order</th>
-              <th scope="col">State</th>
-              <th scope="col" className="r">
-                Risk
-              </th>
-              <th scope="col" className="r">
-                Decisions
-              </th>
-              <th scope="col" className="r">
-                Last turn
-              </th>
-              <th scope="col">
-                <span className="srr">Open</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {shown.map((r) => {
-              const st = sessionState(r.state);
-              return (
-                <tr key={r.id} className="go" onClick={() => router.push(href(r.id))}>
-                  <td style={{ height: "auto", padding: "8px 12px" }}>
-                    <Link href={href(r.id)} style={{ color: "var(--text)", fontWeight: 500 }}>
-                      {r.email}
-                    </Link>
-                    {!r.verified && <span className="sm dim"> · not verified</span>}
-                    <div className="mono dim">{r.id}</div>
-                  </td>
-                  <td className="mono mut">{r.agentId}</td>
-                  <td className={r.orderIds.length > 0 ? "mono mut" : "dim"} title={r.orderIds.join(", ")}>
-                    {r.orderIds[0] ?? "—"}
-                    {r.orderIds.length > 1 && <span className="sm dim"> +{r.orderIds.length - 1}</span>}
-                  </td>
-                  <td>
-                    <span className={`st ${st.tone}`}>{st.label}</span>
-                  </td>
-                  <td className="r mono">{r.risk ?? "—"}</td>
-                  <td className="r">{r.decisions}</td>
-                  <td className="r mut">{r.lastTurn ?? "—"}</td>
-                  <td className="chev">
-                    <i className="ic ic-chev" aria-hidden="true" />
-                  </td>
-                </tr>
-              );
-            })}
-            {shown.length === 0 && (
-              <tr>
-                <td colSpan={8} className="mut">
-                  {rows.length === 0 ? "No sessions here." : "No session on this page matches."}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <section className="pnl" style={{ minWidth: 0 }}>
+        <ListGrid rows={shown} columns={columns} rowId={(r) => r.id} href={href} empty={rows.length === 0 ? "No conversations here." : "No conversation on this page matches."} />
         <div className="tfoot">
           <span>
-            {query.trim() ? `${shown.length} of ${rows.length}` : rows.length} {rows.length === 1 ? "session" : "sessions"} on this page
+            {query.trim() ? `${shown.length} of ${rows.length}` : rows.length} {rows.length === 1 ? "conversation" : "conversations"} on this page
           </span>
           <span className="acts">
             {previous ? (
@@ -127,7 +113,7 @@ export function SessionTable({ rows, state, previous, next }: { rows: SessionLis
             )}
           </span>
         </div>
-      </div>
+      </section>
     </>
   );
 }

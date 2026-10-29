@@ -15,13 +15,13 @@ const SECTIONS: { title?: string; items: Item[] }[] = [
     items: [
       { href: "/policies", label: "Policies", icon: "policies" },
       { href: "/agents", label: "Agents", icon: "agents" },
-      { href: "/context", label: "Context Mode", icon: "context" },
+      { href: "/context", label: "Simulations", icon: "context" },
     ],
   },
   {
     title: "Operate",
     items: [
-      { href: "/sessions", label: "Live sessions", icon: "sessions" },
+      { href: "/sessions", label: "Conversations", icon: "sessions" },
       { href: "/review", label: "Review queue", icon: "review", count: true },
       { href: "/disputes", label: "Disputes", icon: "disputes" },
       { href: "/ledger", label: "Ledger", icon: "ledger" },
@@ -49,13 +49,9 @@ const AtPath = ({ children }: { children: (pathname: string) => ReactNode }) => 
   </Suspense>
 );
 
-const Mark = () => (
-  <span className="sb-logo">
-    <svg width="15" height="13" viewBox="0 0 24 20" aria-hidden="true">
-      <path d="M1 2h22l-2 4h-7l-3 12H7l3-12H3z" fill="currentColor" />
-    </svg>
-  </span>
-);
+/** The sidebar is always dark, so the wordmark is the on-dark version in both themes. */
+// eslint-disable-next-line @next/next/no-img-element -- static SVG
+const Logo = () => <img src="/keel-logo-on-dark-transparent.svg" alt="Keel" width={82} height={24} style={{ display: "block", width: 82, height: 24 }} />;
 
 /**
  * The console frame from the v3 boards. `user`, `reviewCount` and `env` are server-rendered slots
@@ -67,8 +63,7 @@ export function ConsoleShell({ user, reviewCount, env, children }: { user: React
   return (
     <div className={open ? "shell open" : "shell"}>
       <div className="sb-mbar">
-        <Mark />
-        <span>Keel</span>
+        <Logo />
         <button type="button" className="ib" aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} aria-controls="console-nav" onClick={() => setOpen(!open)}>
           <i className="ic ic-menu" aria-hidden="true" />
         </button>
@@ -76,8 +71,7 @@ export function ConsoleShell({ user, reviewCount, env, children }: { user: React
       <nav id="console-nav" className="sb" aria-label="Console">
         <div className="sb-in">
           <div className="sb-ws static">
-            <Mark />
-            <span style={{ fontWeight: 600, fontSize: 13 }}>Keel</span>
+            <Logo />
           </div>
           <div style={{ height: 8 }} />
           <AtPath>

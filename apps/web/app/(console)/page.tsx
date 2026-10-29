@@ -6,6 +6,7 @@ import { activity, certStrip, usd, VERDICT_SERIES, type Overview } from "@/lib/o
 import { reasonLabel } from "@/lib/reason-labels";
 import { REVIEW_LIMIT } from "@/lib/review-view";
 import { DecisionsChart } from "./overview-charts";
+import { RecentGrid } from "./recent-grid";
 
 const n = (x: number) => x.toLocaleString("en-US");
 
@@ -21,11 +22,7 @@ function Certification({ o }: { o: Overview }) {
       <i className="ic ic-shield" style={{ color: SHIELD[c.tone], width: 18, height: 18, maskSize: "18px 18px", WebkitMaskSize: "18px 18px" }} aria-hidden="true" />
       <span style={{ fontWeight: 600 }}>{c.title}</span>
       <span className="mut" style={{ minWidth: 0, flex: "1 1 320px" }}>
-        {c.runId && (
-          <>
-            Guarded run <span className="mono">{c.runId}</span>{" "}
-          </>
-        )}
+        {c.runId && "Guarded run "}
         {c.detail}
       </span>
       {c.runId && (
@@ -73,7 +70,7 @@ function Kpis({ o, inReview }: { o: Overview; inReview: number | null }) {
         </span>
       </div>
       <div className="kpi">
-        <span className="lbl">Live sessions</span>
+        <span className="lbl">Conversations</span>
         <span className="v">{n(o.sessions.active)}</span>
         <span className="sm dim">
           {n(o.sessions.quarantined)} quarantined
@@ -154,55 +151,9 @@ function RecentActivity({ o }: { o: Overview }) {
           No live activity yet.
         </p>
       ) : (
-        <div className="tw">
-          <table className="t" style={{ minWidth: 760 }}>
-            <thead>
-              <tr>
-                <th scope="col">Time (UTC)</th>
-                <th scope="col">Event</th>
-                <th scope="col">Reference</th>
-                <th scope="col" className="r">
-                  Amount
-                </th>
-                <th scope="col">Decision</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.seq}>
-                  <td className="mut">{r.time}</td>
-                  <td>
-                    <Link href={`/ledger/${r.seq}`} style={{ color: "var(--text)" }}>
-                      {r.event}
-                    </Link>
-                  </td>
-                  <td className="mono">{r.reference ?? "—"}</td>
-                  <td className="r">{r.amount ?? "—"}</td>
-                  <td>
-                    <span className={`st ${r.decision.tone}`}>{r.decision.label}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <RecentGrid rows={rows} />
       )}
     </section>
-  );
-}
-
-function KillSwitch() {
-  return (
-    <div className="pnl row">
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 600 }}>Kill switch</div>
-        <div className="sm mut">Freeze every agent, or one, from the Agents page.</div>
-      </div>
-      <Link className="b" href="/agents">
-        <i className="ic ic-agents s14" aria-hidden="true" />
-        Open Agents
-      </Link>
-    </div>
   );
 }
 
@@ -212,7 +163,7 @@ async function Body() {
   let o: Overview;
   let inReview: number | null;
   try {
-    // The review count is a nicety on the Live sessions card; the page still shows without it.
+    // The review count is a nicety on the Conversations card; the page still shows without it.
     [o, inReview] = await Promise.all([overview(), reviewQueue().then((q) => q.length, () => null)]);
   } catch (e) {
     return (
@@ -230,7 +181,6 @@ async function Body() {
         <ReasonCodes o={o} />
       </div>
       <RecentActivity o={o} />
-      <KillSwitch />
     </>
   );
 }
@@ -251,7 +201,6 @@ export default function Page() {
       <div className="ph">
         <div>
           <h1>Overview</h1>
-          <p>Decisions on live traffic. Gauntlet test runs are excluded.</p>
         </div>
         <div className="acts">
           <Link className="b pri" href="/context">

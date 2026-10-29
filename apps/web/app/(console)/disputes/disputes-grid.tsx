@@ -8,6 +8,7 @@ import { useMemo, useState, useTransition } from "react";
 import { classTag, outcomeTag, type DisputeRow } from "@/lib/disputes-view";
 import { relativeTime } from "@/lib/sessions-view";
 import { checkPayPal, lookup } from "./actions";
+import { gridFrame } from "@/components/list-grid";
 import { useAgTheme } from "@/lib/ag-theme";
 
 import "@/lib/ag-grid";
@@ -61,16 +62,18 @@ export function DisputesGrid({ rows, note }: { rows: DisputeRow[]; note: string 
   const defaultColDef = useMemo<ColDef<DisputeRow>>(() => ({ sortable: true, resizable: true }), []);
   return (
     <section className="pnl" style={{ minWidth: 0 }}>
-      <AgGridReact<DisputeRow>
-        theme={theme}
-        rowData={rows}
-        columnDefs={columns}
-        defaultColDef={defaultColDef}
-        getRowId={(p) => p.data.id}
-        domLayout="autoHeight"
-        rowStyle={{ cursor: "pointer" }}
-        onRowClicked={(e) => e.data && router.push(detailHref(e.data.id))}
-      />
+      <div style={gridFrame(rows.length).style}>
+        <AgGridReact<DisputeRow>
+          theme={theme}
+          rowData={rows}
+          columnDefs={columns}
+          defaultColDef={defaultColDef}
+          getRowId={(p) => p.data.id}
+          domLayout={gridFrame(rows.length).domLayout}
+          rowStyle={{ cursor: "pointer" }}
+          onRowClicked={(e) => e.data && router.push(detailHref(e.data.id))}
+        />
+      </div>
       <div className="tfoot">
         <span>
           {rows.length} {rows.length === 1 ? "dispute" : "disputes"}
