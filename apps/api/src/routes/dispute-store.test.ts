@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { appendLedger, createDb, disputes, eq, ledgerEntries, sessions, settings, sql, storeOrders } from "@keel/db";
+import { appendLedger, createDb, disputes, eq, ledgerEntries, sessionTurns, sessions, settings, sql, storeOrders } from "@keel/db";
 import type { Dispute } from "@keel/paypal/disputes";
 import type { Classified, LedgerEntry } from "@keel/worker/dispute";
 import { afterAll, describe, expect, it } from "vitest";
@@ -43,6 +43,10 @@ describe.skipIf(!process.env.DATABASE_URL)("dispute store (Postgres)", () => {
     const guard = `dec_${rid()}`;
     await appendLedger(db, { decision_id: refund, session_id: sessionId, order_id: orderId, capture_id: captureId, dispute_id: null, mode: "LIVE", verdict: "BLOCK", reason_codes: ["OUTSIDE_WINDOW"], payload: { tool: "offer_refund", args: { order_id: orderId, amount: "35.00", policy_id: "refund-standard" } } });
     await appendLedger(db, { decision_id: guard, session_id: sessionId, order_id: null, capture_id: null, dispute_id: null, mode: "LIVE", verdict: "ALLOW", reason_codes: ["OK"], payload: { tool: "guard" } });
+    await db.insert(sessionTurns).values([
+      { sessionId, role: "customer", text: "refund please", createdAt: new Date(now.getTime() - 2000) },
+      { sessionId, role: "agent", text: "That is outside the window.", agentId: "agt_refund", createdAt: new Date(now.getTime() - 1000) },
+    ]);
     return { orderId, captureId, sessionId, refund, guard };
   }
 
@@ -80,6 +84,7 @@ describe.skipIf(!process.env.DATABASE_URL)("dispute store (Postgres)", () => {
     const ctx = await store.context(h.captureId);
     expect(ctx.order).toMatchObject({ order_id: h.orderId, total: "35.00" });
     expect(ctx.rows.map((r) => r.decision_id)).toEqual([h.refund, h.guard]);
+    expect(ctx.turns.map((t) => [t.role, t.agent_id])).toEqual([["customer", null], ["agent", "agt_refund"]]);
   });
 
   it("classifies once and appends the ledger row in the same transaction", async () => {
