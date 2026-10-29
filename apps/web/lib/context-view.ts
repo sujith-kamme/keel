@@ -1,4 +1,4 @@
-import { AGENTS, type AgentId, isAgentId } from "@keel/agent";
+import { AGENTS, type AgentId, isAgentId } from "@keel/agent/agents";
 import { utcTime } from "./overview-view";
 
 export const PACKS = ["invented-policy", "price-manipulation", "refund-pressure", "prompt-injection", "honest", "least-privilege", "delegation", "learned"] as const;

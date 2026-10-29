@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { AGENT_IDS, AGENTS, type AgentId } from "@keel/agent";
+import { AGENT_IDS, AGENTS, type AgentId } from "@keel/agent/agents";
 import { packLabel } from "@/lib/context-view";
 import { useDrawer } from "@/lib/use-drawer";
 import { startRun } from "./actions";

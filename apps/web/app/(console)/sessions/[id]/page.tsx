@@ -1,4 +1,4 @@
-import { AGENTS, isAgentId } from "@keel/agent";
+import { AGENTS, isAgentId } from "@keel/agent/agents";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";

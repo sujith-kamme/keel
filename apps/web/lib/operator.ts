@@ -1,5 +1,5 @@
 import "server-only";
-import type { AgentId } from "@keel/agent";
+import type { AgentId } from "@keel/agent/agents";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
