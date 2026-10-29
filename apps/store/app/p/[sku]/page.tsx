@@ -47,8 +47,8 @@ export default async function ProductPage({ params }: PageProps<"/p/[sku]">) {
               <span>Standard shipping takes 3 to 7 business days.</span>
               <span>Unused items can be refunded within 30 days of delivery.</span>
               <span>
-                Questions?{" "}
-                <Link href="/help" style={{ textDecoration: "underline" }}>
+                Questions about an order?{" "}
+                <Link href="/orders" style={{ textDecoration: "underline" }}>
                   Chat with our support assistant
                 </Link>
                 .

@@ -100,6 +100,8 @@ services:
         sync: false
       - key: STORE_COOKIE_SECRET
         sync: false
+      - key: DEMO_STORE_PASSWORD
+        sync: false
 
   - type: keyvalue
     name: keel-kv

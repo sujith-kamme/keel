@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { currentCustomer } from "@/lib/customer";
 import { env } from "@/lib/env";
 import { seal, unseal } from "@/lib/seal";
 
@@ -27,5 +28,7 @@ export async function writeChatCookie(value: ChatCookie) {
 
 export async function readChatCookie(): Promise<ChatCookie | null> {
   const sealed = (await cookies()).get(NAME)?.value;
-  return sealed ? unseal<ChatCookie>(sealed, env().cookieSecret, "chat", new Date()) : null;
+  const chat = sealed ? unseal<ChatCookie>(sealed, env().cookieSecret, "chat", new Date()) : null;
+  // A chat belongs to the shopper who started it: signing out, or in as someone else, ends it.
+  return chat && chat.email === (await currentCustomer()) ? chat : null;
 }
