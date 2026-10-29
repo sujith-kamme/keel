@@ -5,8 +5,6 @@ import { useState, useTransition } from "react";
 import type { ActionResult } from "@/lib/operator";
 import { decide, sandbox } from "../actions";
 
-const btn = "rounded border border-black/20 px-3 py-1 text-sm hover:bg-black/5 disabled:opacity-50 dark:border-white/20 dark:hover:bg-white/10";
-
 function useAction() {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -23,40 +21,46 @@ function useAction() {
   return { pending, error, run };
 }
 
+const ErrorText = ({ message }: { message: string }) => (
+  <span className="sm" style={{ color: "var(--bad)" }}>
+    {message}
+  </span>
+);
+
 export function DecisionButtons({ id, actions }: { id: string; actions: ("evidence" | "accept")[] }) {
   const { pending, error, run } = useAction();
   return (
-    <div className="mt-4 flex flex-wrap items-center gap-2">
-      {actions.includes("evidence") && (
-        <button className={btn} disabled={pending} onClick={run("Submit Keel's evidence pack to PayPal?", () => decide(id, "evidence"))}>
-          Submit evidence
-        </button>
-      )}
+    <>
+      {error && <ErrorText message={error} />}
       {actions.includes("accept") && (
-        <button className={btn} disabled={pending} onClick={run("Accept the claim? PayPal refunds the buyer.", () => decide(id, "accept"))}>
+        <button className="b" disabled={pending} onClick={run("Accept the claim? PayPal refunds the buyer.", () => decide(id, "accept"))}>
           Accept claim
         </button>
       )}
-      {error && <span className="text-sm text-red-700 dark:text-red-300">{error}</span>}
-    </div>
+      {actions.includes("evidence") && (
+        <button className="b pri" disabled={pending} onClick={run("Submit Keel's evidence pack to PayPal?", () => decide(id, "evidence"))}>
+          Submit evidence
+        </button>
+      )}
+    </>
   );
 }
 
 export function SandboxButtons({ id, canEscalate, canRule }: { id: string; canEscalate: boolean; canRule: boolean }) {
   const { pending, error, run } = useAction();
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-2">
-      <button className={btn} disabled={pending || !canEscalate} onClick={run("Escalate this dispute to a claim?", () => sandbox(id, "escalate"))}>
+    <div className="acts" style={{ marginTop: 12 }}>
+      <button className="b xs" disabled={pending || !canEscalate} onClick={run("Escalate this dispute to a claim?", () => sandbox(id, "escalate"))}>
         Escalate to claim
       </button>
-      <button className={btn} disabled={pending || !canRule} onClick={run("Resolve in the merchant's favour?", () => sandbox(id, "seller"))}>
+      <button className="b xs" disabled={pending || !canRule} onClick={run("Resolve in the merchant's favour?", () => sandbox(id, "seller"))}>
         Resolve: seller wins
       </button>
-      <button className={btn} disabled={pending || !canRule} onClick={run("Resolve in the buyer's favour?", () => sandbox(id, "buyer"))}>
+      <button className="b xs" disabled={pending || !canRule} onClick={run("Resolve in the buyer's favour?", () => sandbox(id, "buyer"))}>
         Resolve: buyer wins
       </button>
-      {!canRule && <span className="text-xs opacity-70">PayPal hasn&apos;t offered a ruling yet.</span>}
-      {error && <span className="text-sm text-red-700 dark:text-red-300">{error}</span>}
+      {!canRule && <span className="sm dim">PayPal hasn&apos;t offered a ruling yet.</span>}
+      {error && <ErrorText message={error} />}
     </div>
   );
 }

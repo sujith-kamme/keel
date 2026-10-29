@@ -1,5 +1,6 @@
 // Shapes from GET /v1/disputes and GET /v1/disputes/:id, and how the console shows them.
-import { reasonLabel as reasonCodeLabel } from "./reason-labels";
+import { usd } from "./overview-view";
+import { relativeTime } from "./sessions-view";
 
 export interface DisputeItem {
   id: string;
@@ -17,7 +18,14 @@ export interface DisputeItem {
   updated_at: string;
 }
 
+export interface DisputeList {
+  items: DisputeItem[];
+  /** When a poll last reached PayPal; null before the first one. */
+  last_synced_at: string | null;
+}
+
 export interface DisputeLedgerView {
+  seq: number;
   decision_id: string;
   session_id: string | null;
   tool: string;
@@ -53,6 +61,7 @@ export interface DisputeRow {
   classification: string;
   action: string;
   outcome: string;
+  createdAt: string;
   updatedAt: string;
 }
 
@@ -80,44 +89,118 @@ const ACTIONS: Record<string, string> = {
   AWAITING_OPERATOR: "Needs a decision",
   FAILED: "Failed",
 };
-export const actionLabel = (a: string | null) => (a ? (ACTIONS[a] ?? a) : "Classifying…");
+/** No action yet reads "Classifying…" until Keel has classified the dispute, then "No action taken". */
+export const actionLabel = (a: string | null, classification: string | null) => (a ? (ACTIONS[a] ?? a) : classification ? "No action taken" : "Classifying…");
 
-// Dispute classifications explained in a sentence; every other code uses the shared short label.
-const CODES: Record<string, string> = {
-  DISPUTE_WITHIN_POLICY: "The agent acted within policy; the ledger backs the merchant.",
-  DISPUTE_UNHONORED_COMMITMENT: "The ledger shows a refund the customer was owed and never got.",
-  DISPUTE_NO_LEDGER_MATCH: "No order or conversation in the ledger matches this payment.",
-  DISPUTE_UNSUPPORTED_REASON: "The ledger can't speak to this kind of claim (who made the payment).",
-  INJECTION_DETECTED: "The buyer's text tries to give instructions; a person should look.",
-  EXTRACTOR_UNAVAILABLE: "The buyer's text couldn't be checked, so Keel won't act alone.",
-  CURRENCY_MISMATCH: "The disputed currency doesn't match the payment.",
-};
-export const codeLabel = (c: string) => CODES[c] ?? reasonCodeLabel(c);
+type Tag = { label: string; tone: string };
 
-export const CLASS_STYLE: Record<string, string> = {
-  DEFEND: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
-  CONCEDE: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
-  REVIEW: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
+const CLASSES: Record<string, Tag> = {
+  DEFEND: { label: "Defend", tone: "info" },
+  CONCEDE: { label: "Concede", tone: "warn" },
+  REVIEW: { label: "Review", tone: "bad" },
+};
+/** Keel's classification as a badge; "Classifying…" before there is one. */
+export const classTag = (c: string | null): Tag => (c ? (CLASSES[c] ?? { label: c, tone: "" }) : { label: "Classifying…", tone: "" });
+
+const OUTCOMES: Record<string, Tag> = {
+  WON: { label: "Won", tone: "ok" },
+  CONCEDED: { label: "Conceded", tone: "" },
+  LOST: { label: "Lost", tone: "bad" },
+  OPEN: { label: "Open", tone: "info" },
+};
+export const outcomeTag = (o: string): Tag => OUTCOMES[o] ?? { label: o, tone: "" };
+
+/** "$35.00" for USD, "35.00 EUR" otherwise. */
+export const money = (amount: string, currency: string) => (currency === "USD" ? usd(amount) : `${amount} ${currency}`);
+
+const cents = (amount: string) => {
+  const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(amount);
+  return m ? Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0")) : 0;
 };
 
-export const OUTCOME_STYLE: Record<string, string> = {
-  WON: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
-  CONCEDED: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
-  LOST: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200",
-  OPEN: "bg-black/10 dark:bg-white/10",
-};
+/** The total of some disputes, one figure per currency. */
+function total(items: DisputeItem[]): string {
+  const by = new Map<string, number>();
+  for (const d of items) by.set(d.currency, (by.get(d.currency) ?? 0) + cents(d.amount));
+  if (by.size === 0) return usd("0");
+  return [...by].map(([cur, c]) => money(`${Math.floor(c / 100)}.${String(c % 100).padStart(2, "0")}`, cur)).join(" + ");
+}
+
+/** Open disputes Keel left for a person, or whose action failed. */
+export const needsOperator = (d: Pick<DisputeItem, "outcome" | "action">) => d.outcome === "OPEN" && (d.action === "AWAITING_OPERATOR" || d.action === "FAILED");
+
+export interface DisputeKpis {
+  won: { count: number; total: string };
+  conceded: { count: number; total: string };
+  lost: { count: number; total: string };
+  needsYou: { count: number; total: string };
+}
+
+export function disputeKpis(items: DisputeItem[]): DisputeKpis {
+  const pick = (f: (d: DisputeItem) => boolean) => {
+    const xs = items.filter(f);
+    return { count: xs.length, total: total(xs) };
+  };
+  return {
+    won: pick((d) => d.outcome === "WON"),
+    conceded: pick((d) => d.outcome === "CONCEDED"),
+    lost: pick((d) => d.outcome === "LOST"),
+    needsYou: pick(needsOperator),
+  };
+}
+
+export const syncedText = (at: string | null, now: Date) => (at ? `PayPal synced ${relativeTime(at, now)}` : "Not synced with PayPal yet");
 
 export function buildDisputeRows(items: DisputeItem[]): DisputeRow[] {
   return items.map((d) => ({
     id: d.id,
     reason: reasonLabel(d.reason),
-    amount: `${d.amount} ${d.currency}`,
+    amount: money(d.amount, d.currency),
     classification: d.classification ?? "",
-    action: actionLabel(d.action),
+    action: actionLabel(d.action, d.classification),
     outcome: d.outcome,
+    createdAt: d.created_at,
     updatedAt: d.updated_at,
   }));
 }
+
+export interface TimelineEvent {
+  at: string;
+  label: string;
+  tone: string;
+  note: string | null;
+  /** The ledger entry behind the event, when there is one. */
+  seq: number | null;
+}
+
+const OPERATOR_ACTIONS: Record<string, string> = { submit_evidence: "Operator submitted evidence", accept_claim: "Operator accepted the claim" };
+
+/**
+ * What Keel can date: when it first saw the dispute, its own ledger rows (the classification and any operator action),
+ * and the last update. PayPal's own milestones aren't stored with times, so they aren't shown as events.
+ */
+export function disputeTimeline(d: Pick<DisputeDetail, "created_at" | "updated_at" | "decisions" | "evidence" | "outcome" | "status" | "stage" | "decision_id">): TimelineEvent[] {
+  const events: TimelineEvent[] = [{ at: d.created_at, label: "First seen by Keel", tone: "", note: null, seq: null }];
+  for (const r of d.decisions) {
+    if (r.tool === "dispute") {
+      const c = classTag(({ ALLOW: "CONCEDE", BLOCK: "DEFEND", HOLD: "REVIEW" } as Record<string, string>)[r.verdict] ?? null);
+      const matched = r.decision_id === d.decision_id ? `matched ${d.evidence.length} ledger ${d.evidence.length === 1 ? "entry" : "entries"}` : null;
+      events.push({ at: r.created_at, label: `Classified: ${c.label.toLowerCase()}`, tone: c.tone, note: matched, seq: r.seq });
+    } else {
+      const label = (r.action && OPERATOR_ACTIONS[r.action]) ?? (r.action ?? r.tool);
+      events.push({ at: r.created_at, label, tone: "info", note: r.reviewer ? `by ${r.reviewer}` : null, seq: r.seq });
+    }
+  }
+  const o = outcomeTag(d.outcome);
+  events.push({ at: d.updated_at, label: d.outcome === "OPEN" ? "Last updated" : `Last updated · ${o.label.toLowerCase()}`, tone: o.tone, note: `PayPal: ${paypalStatus(d)}`, seq: null });
+  return events.sort((a, b) => a.at.localeCompare(b.at));
+}
+
+/** PayPal's status and stage as the API gives them, e.g. "WAITING_FOR_SELLER_RESPONSE (INQUIRY)". */
+export const paypalStatus = (d: Pick<DisputeItem, "status" | "stage">) => `${d.status}${d.stage ? ` (${d.stage})` : ""}`;
+
+const INJECTION: Record<string, string> = { none: "Clean", flagged: "Flagged: treated as data only", scan_failed: "Scan failed" };
+export const injectionText = (v: string | null) => (v ? (INJECTION[v] ?? v) : "Not scanned yet");
 
 /** Operator buttons: only while open, not yet acted on (or failed), and only what PayPal offers now. */
 export function operatorActions(d: Pick<DisputeDetail, "outcome" | "action" | "classification" | "offered" | "has_evidence">): ("evidence" | "accept")[] {

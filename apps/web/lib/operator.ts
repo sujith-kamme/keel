@@ -5,7 +5,7 @@ import { cache } from "react";
 import { CONSOLE_COOKIE, consoleSessionChecker, consoleUser } from "./console-auth";
 import { env } from "./env";
 import type { Certification, Run, RunResult, ScenarioEntry, StartInput } from "./context-view";
-import type { DisputeDetail, DisputeItem } from "./disputes-view";
+import type { DisputeDetail, DisputeList } from "./disputes-view";
 import type { ChainResult, LedgerPage } from "./ledger-view";
 import type { Overview } from "./overview-view";
 import type { PolicyRow, PolicySummary, PolicyVersion, Rule } from "./policies-view";
@@ -110,7 +110,7 @@ export const draftScenario = async (sessionId: string) =>
 export const saveScenario = (scenario: Record<string, unknown>, sourceSessionId: string) =>
   operator<{ id: string }>("/v1/gauntlet/scenarios", post({ scenario, source_session_id: sourceSessionId }));
 
-export const disputes = async () => (await operator<{ items: DisputeItem[] }>("/v1/disputes")).items;
+export const disputes = () => operator<DisputeList>("/v1/disputes");
 
 export const dispute = (id: string) => operator<DisputeDetail>(`/v1/disputes/${encodeURIComponent(id)}`);
 
