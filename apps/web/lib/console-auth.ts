@@ -8,6 +8,10 @@ export function consoleSession(secret: string, now: Date, version: number): stri
   return seal({ sub: "console", v: version }, secret, "console", new Date(now.getTime() + CONSOLE_TTL_MS));
 }
 
+/** The console cookie's attributes (sign-in and the password change re-issue it). */
+export const consoleCookieOptions = () =>
+  ({ httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: CONSOLE_TTL_MS / 1000 }) as const;
+
 /** The session version a valid console cookie carries, else null. */
 export function consoleSessionVersion(value: string | undefined, secret: string, now: Date): number | null {
   if (!value) return null;

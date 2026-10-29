@@ -1,7 +1,11 @@
+import { AGENT_MODELS, PROMPT_MODES } from "@keel/agent";
+import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { KillSwitch } from "@/components/kill-switch";
-import { agentControl, type AgentControl, requireConsole } from "@/lib/operator";
+import { agentControl, type AgentControl, policies, requireConsole, settings } from "@/lib/operator";
+import { agentLimits } from "@/lib/settings-view";
+import { ScopeDrawer } from "./scope-drawer";
 
 function Status({ c }: { c: AgentControl }) {
   return (
@@ -23,7 +27,12 @@ async function Agents() {
   return (
     <div className="mt-4 flex max-w-xl flex-col gap-6">
       <div className="rounded border border-black/10 p-4 dark:border-white/10">
-        <h2 className="font-medium">agt_demo_store</h2>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-medium">agt_demo_store</h2>
+          <Link id="edit-scope" href="/agents?scope=agt_demo_store" scroll={false} className="text-sm">
+            Edit scope
+          </Link>
+        </div>
         <Status c={agent} />
         <div className="mt-3">
           <KillSwitch agentId="agt_demo_store" frozen={agent.frozen} label="agent" />
@@ -40,12 +49,35 @@ async function Agents() {
   );
 }
 
-export default function Page() {
+/** The scope drawer, route-driven: /agents?scope=agt_demo_store. The model and prompt are global settings. */
+async function Scope({ searchParams }: { searchParams: PageProps<"/agents">["searchParams"] }) {
+  await connection();
+  const { scope } = await searchParams;
+  if (scope !== "agt_demo_store") return null;
+  await requireConsole();
+  const [s, ps] = await Promise.all([settings(), policies()]);
+  return (
+    <ScopeDrawer
+      key={`${s.values.agent_model}:${s.values.agent_prompt}`}
+      agentId={scope}
+      model={String(s.values.agent_model)}
+      prompt={String(s.values.agent_prompt)}
+      models={AGENT_MODELS}
+      prompts={PROMPT_MODES}
+      limits={agentLimits(ps.flatMap((p) => p.active?.rules ?? []))}
+    />
+  );
+}
+
+export default function Page({ searchParams }: PageProps<"/agents">) {
   return (
     <section>
       <h1 className="text-2xl font-semibold">Agents</h1>
       <Suspense fallback={<p className="mt-4">Loading…</p>}>
         <Agents />
+      </Suspense>
+      <Suspense>
+        <Scope searchParams={searchParams} />
       </Suspense>
     </section>
   );

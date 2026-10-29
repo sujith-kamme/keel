@@ -147,6 +147,23 @@ export const overview = () => operator<Overview>("/v1/overview");
 
 export const settings = () => operator<Settings>("/v1/settings");
 
+const put = (body: unknown): RequestInit => ({ method: "PUT", body: JSON.stringify(body) });
+
+export const saveSettings = (section: string, values: Record<string, unknown>, operatorName: string) =>
+  operator<{ changes: Record<string, unknown>; poll_rescheduled?: boolean }>(`/v1/settings/${encodeURIComponent(section)}`, put({ operator: operatorName, values }));
+
+/** Posts a `keel.test` event to the saved hook. `status` is null when Zapier could not be reached. */
+export const testZapierHook = () => operator<{ ok: boolean; status: number | null }>("/v1/settings/zapier/test", { method: "POST" });
+
+export const changeConsoleEmail = (email: string, operatorName: string) => operator<{ email: string }>("/v1/console/email", put({ email, operator: operatorName }));
+
+/** Wrong current passwords count against `ip`'s sign-in limit. */
+export const changeConsolePassword = (current: string, next: string, operatorName: string, ip: string) =>
+  operator<{ session_version: number }>("/v1/console/password", put({ current_password: current, new_password: next, operator: operatorName, ip }));
+
+export const revokeConsoleSessions = (operatorName: string) =>
+  operator<{ session_version: number }>("/v1/console/sessions/revoke", post({ operator: operatorName }));
+
 /** Natural language → AG Grid state ("Ask the ledger"). Only the query and the grid's schema are sent, never rows. */
 export const gridQuery = async (query: string, schema: Record<string, unknown>) =>
   (await operator<{ state: Record<string, unknown> }>("/v1/grid-query", post({ query, schema }))).state;

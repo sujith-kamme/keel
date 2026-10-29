@@ -2,6 +2,7 @@ import { unstable_rethrow } from "next/navigation";
 import { connection } from "next/server";
 import { UserLabel } from "@/components/shell";
 import { requireConsole, reviewQueue, settings } from "@/lib/operator";
+import { REVIEW_LIMIT } from "@/lib/review-view";
 
 // The layout's dynamic parts, each behind its own Suspense boundary. API failures render nothing (the page
 // itself reports them); redirects and prerender signals are rethrown.
@@ -29,7 +30,7 @@ export async function ReviewCount() {
   if (n === 0) return null;
   return (
     <span className="sb-count">
-      {n}
+      {n >= REVIEW_LIMIT ? `${REVIEW_LIMIT}+` : n}
       <span className="srr"> waiting</span>
     </span>
   );

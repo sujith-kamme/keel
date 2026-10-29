@@ -60,6 +60,9 @@ export function buildRows(items: ReviewItem[]): ReviewRow[] {
 }
 
 /** Short inline message for a failed operator call. */
+/** GET /v1/review returns at most this many items (LIMIT in apps/api/src/routes/review.ts). */
+export const REVIEW_LIMIT = 200;
+
 export function errorMessage(status: number, error?: string, reasonCode?: string): string {
   if (status === 409 && error === "payment_unconfirmed") return "Payment unconfirmed: retry approve.";
   if (status === 409 && error === "not_flagged") return "Session is no longer flagged.";
