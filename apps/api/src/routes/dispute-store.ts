@@ -208,6 +208,7 @@ export function createDisputeStore(db: Db): DisputeStore & DisputeApiStore {
       const view = (x: typeof ledgerEntries.$inferSelect) => {
         const payload = (x.payload ?? {}) as Record<string, unknown>;
         return {
+          seq: x.seq,
           decision_id: x.decisionId,
           session_id: x.sessionId,
           tool: String(payload.tool ?? ""),

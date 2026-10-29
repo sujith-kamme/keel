@@ -24,6 +24,7 @@ export interface DisputeListItem {
 }
 
 export interface DisputeLedgerView {
+  seq: number;
   decision_id: string;
   session_id: string | null;
   tool: string;

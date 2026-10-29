@@ -81,6 +81,7 @@ describe.skipIf(!process.env.DATABASE_URL)("dispute store (Postgres)", () => {
     expect(await store.classify(d.dispute_id, classified(b), entry(d, b), now)).toBe(false);
     const rows = await db.select().from(ledgerEntries).where(eq(ledgerEntries.disputeId, d.dispute_id));
     expect(rows.map((r) => r.decisionId)).toEqual([a]);
+    expect((await store.detail(d.dispute_id))?.decisions.map((x) => [x.seq, x.decision_id])).toEqual([[rows[0]!.seq, a]]);
     expect(await store.pdf(d.dispute_id)).toEqual(new TextEncoder().encode("%PDF-1.4"));
   });
 
