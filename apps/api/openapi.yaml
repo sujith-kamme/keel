@@ -708,7 +708,7 @@ paths:
     get:
       tags: [Settings]
       operationId: getAgentConfig
-      summary: The storefront agent's model and prompt mode
+      summary: Both agents' model and prompt mode
       security: [{ merchantKey: [] }]
       responses:
         "200":
@@ -718,8 +718,19 @@ paths:
               schema:
                 type: object
                 properties:
-                  model: { type: string }
-                  prompt: { type: string }
+                  agents:
+                    type: object
+                    properties:
+                      agt_policy:
+                        type: object
+                        properties:
+                          model: { type: string }
+                          prompt: { type: string }
+                      agt_refund:
+                        type: object
+                        properties:
+                          model: { type: string }
+                          prompt: { type: string }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
   /v1/console/login:
