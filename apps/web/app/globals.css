@@ -201,16 +201,21 @@
   .facts dt{color:var(--text-3)}
   .facts dd{margin:0;text-align:right}
 
-  /* Console shell: sticky sidebar; at phone width it collapses behind a top bar with a menu button. */
+  /*
+   * Console shell. The sidebar column stretches to the page's full height (so its background never ends early);
+   * its contents stick to the viewport and scroll on their own, with the footer pinned at the bottom.
+   * At phone width it collapses behind a top bar with a menu button.
+   */
   .shell{display:flex;flex:1;min-width:0;min-height:100vh}
-  .shell>.sb{position:sticky;top:0;height:100vh;min-height:0;overflow-y:auto}
+  .sb-in{position:sticky;top:0;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
   .sb-mbar{display:none}
   @media (max-width:767px){
     .shell{flex-direction:column}
     .sb-mbar{display:flex;align-items:center;gap:10px;height:52px;padding:0 8px 0 16px;background:#09090B;color:#F4F4F5;font-size:13px;font-weight:600;position:sticky;top:0;z-index:20}
     .sb-mbar .ib{margin-left:auto;color:#A1A1AA}
     .sb-mbar .ib:hover{background:#18181B;color:#F4F4F5}
-    .shell>.sb{display:none;flex:none;top:52px;height:auto;max-height:calc(100vh - 52px);border-right:0;z-index:20}
+    .shell>.sb{display:none;flex:none;position:sticky;top:52px;min-height:0;max-height:calc(100vh - 52px);overflow-y:auto;border-right:0;z-index:20}
+    .sb-in{position:static;height:auto;overflow:visible}
     .shell.open>.sb{display:flex}
     .shell>.sb .sb-ws{display:none}
     .tb{padding:0 16px}

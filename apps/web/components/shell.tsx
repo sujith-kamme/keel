@@ -74,53 +74,55 @@ export function ConsoleShell({ user, reviewCount, env, children }: { user: React
         </button>
       </div>
       <nav id="console-nav" className="sb" aria-label="Console">
-        <div className="sb-ws static">
-          <Mark />
-          <span style={{ fontWeight: 600, fontSize: 13 }}>Keel</span>
-        </div>
-        <div style={{ height: 8 }} />
-        <AtPath>
-          {(pathname) =>
-            SECTIONS.map((s) => (
-              <Fragment key={s.title ?? "top"}>
-                {s.title && <div className="sb-sec">{s.title}</div>}
-                {s.items.map((i) => {
-                  const on = isActive(i.href, pathname);
-                  return (
-                    <Link key={i.href} href={i.href} className={on ? "sb-item on" : "sb-item"} aria-current={on ? "page" : undefined} onClick={close}>
-                      <i className={`ic ic-${i.icon}`} aria-hidden="true" />
-                      {i.label}
-                      {i.count && reviewCount}
-                    </Link>
-                  );
-                })}
-              </Fragment>
-            ))
-          }
-        </AtPath>
-        <div className="sb-foot">
-          <ThemeToggle className="sb-btn" />
-          <form action={logout}>
-            <button type="submit" className="sb-btn">
-              <i className="ic ic-logout" aria-hidden="true" />
-              Sign out
-            </button>
-          </form>
-          <div className="sb-user">
-            {user}
-            <AtPath>
-              {(pathname) => (
-                <Link
-                  href="/settings"
-                  aria-label="Settings"
-                  aria-current={isActive("/settings", pathname) ? "page" : undefined}
-                  onClick={close}
-                  style={{ marginLeft: "auto", color: "#A1A1AA", display: "flex" }}
-                >
-                  <i className="ic ic-settings" aria-hidden="true" />
-                </Link>
-              )}
-            </AtPath>
+        <div className="sb-in">
+          <div className="sb-ws static">
+            <Mark />
+            <span style={{ fontWeight: 600, fontSize: 13 }}>Keel</span>
+          </div>
+          <div style={{ height: 8 }} />
+          <AtPath>
+            {(pathname) =>
+              SECTIONS.map((s) => (
+                <Fragment key={s.title ?? "top"}>
+                  {s.title && <div className="sb-sec">{s.title}</div>}
+                  {s.items.map((i) => {
+                    const on = isActive(i.href, pathname);
+                    return (
+                      <Link key={i.href} href={i.href} className={on ? "sb-item on" : "sb-item"} aria-current={on ? "page" : undefined} onClick={close}>
+                        <i className={`ic ic-${i.icon}`} aria-hidden="true" />
+                        {i.label}
+                        {i.count && reviewCount}
+                      </Link>
+                    );
+                  })}
+                </Fragment>
+              ))
+            }
+          </AtPath>
+          <div className="sb-foot">
+            <ThemeToggle className="sb-btn" />
+            <form action={logout}>
+              <button type="submit" className="sb-btn">
+                <i className="ic ic-logout" aria-hidden="true" />
+                Sign out
+              </button>
+            </form>
+            <div className="sb-user">
+              {user}
+              <AtPath>
+                {(pathname) => (
+                  <Link
+                    href="/settings"
+                    aria-label="Settings"
+                    aria-current={isActive("/settings", pathname) ? "page" : undefined}
+                    onClick={close}
+                    style={{ marginLeft: "auto", color: "#A1A1AA", display: "flex" }}
+                  >
+                    <i className="ic ic-settings" aria-hidden="true" />
+                  </Link>
+                )}
+              </AtPath>
+            </div>
           </div>
         </div>
       </nav>
