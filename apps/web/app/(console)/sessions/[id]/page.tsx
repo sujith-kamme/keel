@@ -1,7 +1,8 @@
+import { AGENTS, isAgentId } from "@keel/agent";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { Suspense } from "react";
+import { Fragment, Suspense } from "react";
 import { AutoRefresh } from "@/components/auto-refresh";
 import { AddToGauntlet } from "@/components/add-to-gauntlet";
 import { ReleaseButton } from "@/components/release-button";
@@ -184,26 +185,31 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
           </div>
           <div className="pnl-b" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {turns.length === 0 && <p className="mut" style={{ margin: 0 }}>No turns yet.</p>}
-            {turns.map((t, i) => (
-              <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div>
-                  <div className="sm dim">
-                    {t.role === "customer" ? (
-                      "Customer"
-                    ) : (
-                      <>
-                        Agent · <span className="mono">{session.agent_id}</span>
-                      </>
-                    )}{" "}
-                    · {utcTime(t.created_at)}
+            {turns.map((t, i) => {
+              const prev = turns.slice(0, i).findLast((x) => x.role === "agent");
+              // A handoff: this agent turn's agent differs from the previous agent turn's.
+              const joined = t.role === "agent" && prev?.agent_id && isAgentId(t.agent_id) && prev.agent_id !== t.agent_id ? AGENTS[t.agent_id].name : null;
+              return (
+                <Fragment key={i}>
+                  {joined && (
+                    <p className="dim sm" style={{ margin: 0, textAlign: "center" }}>
+                      Handed off · {joined} joined
+                    </p>
+                  )}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div>
+                      <div className="sm dim">
+                        {t.role === "customer" ? "Customer" : <>Agent · {isAgentId(t.agent_id) ? <span className="st info">{AGENTS[t.agent_id].name}</span> : <span className="mono">{session.agent_id}</span>}</>} · {utcTime(t.created_at)}
+                      </div>
+                      <div style={{ marginTop: 2, whiteSpace: "pre-wrap" }}>{t.text}</div>
+                    </div>
+                    {t.decisions.map((d) => (
+                      <DecisionRow key={d.decision_id} d={d} />
+                    ))}
                   </div>
-                  <div style={{ marginTop: 2, whiteSpace: "pre-wrap" }}>{t.text}</div>
-                </div>
-                {t.decisions.map((d) => (
-                  <DecisionRow key={d.decision_id} d={d} />
-                ))}
-              </div>
-            ))}
+                </Fragment>
+              );
+            })}
             {unlinked.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--line-soft)", paddingTop: 14 }}>
                 <h3 className="sh" style={{ fontSize: 13 }}>

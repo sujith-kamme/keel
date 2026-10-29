@@ -1,4 +1,4 @@
-import { AGENT_MODELS, PROMPT_MODES } from "@keel/agent";
+import { AGENT_IDS, AGENT_MODELS, AGENTS, isAgentId, PROMPT_MODES } from "@keel/agent";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
@@ -11,49 +11,55 @@ import { agentLimits } from "@/lib/settings-view";
 import { AgentGrid } from "./agent-grid";
 import { ScopeDrawer } from "./scope-drawer";
 
-const AGENT = "agt_demo_store";
-
 const lastChange = (c: AgentControl) => (c.updated_at ? `${utcTime(c.updated_at)} UTC by ${c.updated_by ?? "unknown"}` : "No changes yet");
 
 async function Agents() {
   await connection();
   await requireConsole();
-  const [agent, all, s, cert, ps, o] = await Promise.all([
-    agentControl(AGENT),
+  const [controls, all, s, certs, ps, o] = await Promise.all([
+    Promise.all(AGENT_IDS.map((id) => agentControl(id))),
     agentControl("*"),
     settings(),
-    gauntletCertification(),
+    Promise.all(AGENT_IDS.map((id) => gauntletCertification(id))),
     policies(),
     // The 7-day panel is a nicety; the kill switches must still show without it.
     overview().catch(() => null),
   ]);
-  const prompt = String(s.values.refund_agent_prompt);
   const active = ps.filter((p) => p.active !== null);
   const limits = agentLimits(active.flatMap((p) => p.active!.rules));
   return (
     <>
       <AgentGrid
-        rows={[
-          {
-            id: AGENT,
-            name: "Store support agent",
-            model: String(s.values.refund_agent_model),
+        rows={AGENT_IDS.map((id, i) => {
+          const prompt = String(s.values[`${AGENTS[id].role}_agent_prompt`]);
+          return {
+            id,
+            name: AGENTS[id].name,
+            model: String(s.values[`${AGENTS[id].role}_agent_model`]),
             prompt: PROMPTS[prompt]?.label ?? prompt,
-            cert: certBadge(cert.status),
-            frozen: agent.frozen,
-            lastChange: lastChange(agent),
-          },
-        ]}
+            cert: certBadge(certs[i]!.status, certs[i]!.active_run),
+            frozen: controls[i]!.frozen,
+            lastChange: lastChange(controls[i]!),
+          };
+        })}
       />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" style={{ alignItems: "stretch" }}>
         <section className="pnl" aria-labelledby="sc-p-h">
           <div className="pnl-h">
-            <h2 id="sc-p-h">Scope · Store support agent</h2>
-            <Link id="edit-scope" href={`/agents?scope=${AGENT}`} scroll={false} className="sm">
-              Edit scope
-            </Link>
+            <h2 id="sc-p-h">Scope</h2>
           </div>
           <dl className="facts" style={{ margin: 0 }}>
+            {AGENT_IDS.map((id) => (
+              <div key={id}>
+                <dt>{AGENTS[id].name}</dt>
+                <dd>
+                  <span className="mono sm">{AGENTS[id].allow.join(", ")}</span>{" "}
+                  <Link id={`edit-scope-${id}`} href={`/agents?scope=${id}`} scroll={false} className="sm">
+                    Edit scope
+                  </Link>
+                </dd>
+              </div>
+            ))}
             <div>
               <dt>Refunds</dt>
               <dd>{limits.refunds ?? "No refund limits in the approved policies"}</dd>
@@ -122,20 +128,31 @@ async function Agents() {
   );
 }
 
-/** The scope drawer, route-driven: /agents?scope=agt_demo_store. The model and prompt are global settings. */
+/** The scope drawer, route-driven: /agents?scope=<agent id>. Each agent has its own model and prompt settings. */
 async function Scope({ searchParams }: { searchParams: PageProps<"/agents">["searchParams"] }) {
   await connection();
   const { scope } = await searchParams;
-  if (scope !== AGENT) return null;
+  if (!isAgentId(scope)) return null;
   await requireConsole();
   const [s, ps] = await Promise.all([settings(), policies()]);
+  const { name, role, allow } = AGENTS[scope];
+  const model = String(s.values[`${role}_agent_model`]);
+  const prompt = String(s.values[`${role}_agent_prompt`]);
   return (
     <ScopeDrawer
-      key={`${s.values.refund_agent_model}:${s.values.refund_agent_prompt}`}
+      key={`${scope}:${model}:${prompt}`}
       agentId={scope}
-      model={String(s.values.refund_agent_model)}
-      prompt={String(s.values.refund_agent_prompt)}
-      policy={{ model: String(s.values.policy_agent_model), prompt: String(s.values.policy_agent_prompt) }}
+      name={name}
+      role={role}
+      tools={allow}
+      model={model}
+      prompt={prompt}
+      section={{
+        policy_agent_model: String(s.values.policy_agent_model),
+        policy_agent_prompt: String(s.values.policy_agent_prompt),
+        refund_agent_model: String(s.values.refund_agent_model),
+        refund_agent_prompt: String(s.values.refund_agent_prompt),
+      }}
       models={AGENT_MODELS}
       prompts={PROMPT_MODES}
       limits={agentLimits(ps.flatMap((p) => p.active?.rules ?? []))}

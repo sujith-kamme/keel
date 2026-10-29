@@ -33,6 +33,8 @@ export interface Turn {
   role: "customer" | "agent";
   text: string;
   decision_ids: string[];
+  /** The agent that wrote an agent turn; null on customer turns and on turns from before the split. */
+  agent_id: string | null;
   created_at: string;
 }
 

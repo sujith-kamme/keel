@@ -198,7 +198,7 @@ export function mountGauntlet(app: Hono, opts: GauntletOptions): void {
     if (no) return no;
     const catalog = await opts.catalog();
     return c.json({
-      scenarios: catalog.map(({ scenario: s, source }) => ({ id: s.id, pack: s.pack, kind: s.kind, description: s.description, source })),
+      scenarios: catalog.map(({ scenario: s, source }) => ({ id: s.id, pack: s.pack, kind: s.kind, description: s.description, source, agents: s.agents })),
     });
   });
 

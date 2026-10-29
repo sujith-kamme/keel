@@ -3,15 +3,23 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
-import { P0_PACKS, packLabel } from "@/lib/context-view";
+import { AGENT_IDS, AGENTS, type AgentId } from "@keel/agent";
+import { packLabel } from "@/lib/context-view";
 import { useDrawer } from "@/lib/use-drawer";
 import { startRun } from "./actions";
 
-/** Starts a Gauntlet run (POST /v1/gauntlet/runs), opened from /context?new=1. `packs` carries each pack's scenario count. */
-export function NewRunDrawer({ packs, busy, closeHref }: { packs: { id: string; count: number }[]; busy: boolean; closeHref: string }) {
+type PackCount = { id: string; count: number };
+// The agent's own packs with scenarios; "learned" stays opt-in.
+const defaults = (packs: PackCount[]) => packs.filter((p) => p.id !== "learned" && p.count > 0).map((p) => p.id);
+
+/** Starts a Gauntlet run (POST /v1/gauntlet/runs), opened from /context?new=1. `packsByAgent` carries each agent's packs and scenario counts. */
+export function NewRunDrawer({ packsByAgent, busyAgents, closeHref }: { packsByAgent: Record<AgentId, PackCount[]>; busyAgents: string[]; closeHref: string }) {
   const router = useRouter();
   const ref = useRef<HTMLElement>(null);
-  const [picked, setPicked] = useState<string[]>(() => P0_PACKS.filter((p) => packs.some((x) => x.id === p && x.count > 0)));
+  const [agent, setAgent] = useState<AgentId>("agt_refund");
+  const packs = packsByAgent[agent];
+  const busy = busyAgents.includes(agent);
+  const [picked, setPicked] = useState<string[]>(() => defaults(packs));
   const [repeats, setRepeats] = useState(3);
   const [guarded, setGuarded] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +32,7 @@ export function NewRunDrawer({ packs, busy, closeHref }: { packs: { id: string; 
   const submit = () => {
     setError(null);
     start(async () => {
-      const r = await startRun({ packs: picked, repeats, guarded });
+      const r = await startRun({ agent, packs: picked, repeats, guarded });
       if (r.ok) router.push(`/context?run=${encodeURIComponent(r.runId)}`, { scroll: false });
       else setError(r.message);
     });
@@ -51,6 +59,31 @@ export function NewRunDrawer({ packs, busy, closeHref }: { packs: { id: string; 
         </div>
 
         <div style={{ flex: 1, overflow: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 24 }}>
+          <fieldset style={{ border: 0, margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+            <legend className="lbl" style={{ padding: 0, marginBottom: 8 }}>
+              Agent
+            </legend>
+            {AGENT_IDS.map((id) => (
+              <label key={id} className={`opt ${id === agent ? "on" : ""}`}>
+                <input
+                  type="radio"
+                  name="agent"
+                  checked={id === agent}
+                  onChange={() => {
+                    setAgent(id);
+                    setPicked(defaults(packsByAgent[id]));
+                  }}
+                />
+                <span>
+                  <span style={{ fontWeight: 500 }}>{AGENTS[id].name}</span>
+                  <span className="mono dim" style={{ display: "block", fontSize: 12 }}>
+                    {id}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+
           <fieldset style={{ border: 0, margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
             <legend className="lbl" style={{ padding: 0, marginBottom: 8 }}>
               Scenario packs
@@ -115,7 +148,7 @@ export function NewRunDrawer({ packs, busy, closeHref }: { packs: { id: string; 
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 24px", borderTop: "1px solid var(--line)", background: "var(--canvas)" }}>
           <span className={`sm ${error ? "msg bad" : "mut"}`} role="status" aria-live="polite">
-            {error ?? (busy ? "A run is in progress." : `${conversations.toLocaleString("en-US")} conversations`)}
+            {error ?? (busy ? "A run for this agent is in progress." : `${conversations.toLocaleString("en-US")} conversations`)}
           </span>
           <span className="acts">
             <Link className="b" href={closeHref} scroll={false}>

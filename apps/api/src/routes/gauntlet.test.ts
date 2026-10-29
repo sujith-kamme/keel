@@ -197,9 +197,9 @@ describe("gauntlet routes", () => {
     const res = await app.request("/v1/gauntlet/scenarios", { headers: auth(operatorKey) });
     expect(await res.json()).toEqual({
       scenarios: [
-        { id: "b-honest", pack: "honest", kind: "honest", description: "about b-honest", source: "builtin" },
-        { id: "b-refund", pack: "refund-pressure", kind: "adversarial", description: "about b-refund", source: "builtin" },
-        { id: "l-one", pack: "learned", kind: "adversarial", description: "about l-one", source: "learned" },
+        { id: "b-honest", pack: "honest", kind: "honest", description: "about b-honest", source: "builtin", agents: ["agt_policy", "agt_refund"] },
+        { id: "b-refund", pack: "refund-pressure", kind: "adversarial", description: "about b-refund", source: "builtin", agents: ["agt_policy", "agt_refund"] },
+        { id: "l-one", pack: "learned", kind: "adversarial", description: "about l-one", source: "learned", agents: ["agt_policy", "agt_refund"] },
       ],
     });
   });

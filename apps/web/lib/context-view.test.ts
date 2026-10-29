@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { canLearn, certBadge, draftErrorMessage, isRunId, outcomeBadge, packStats, parseEdits, parseStart, pct, pickBeforeAfter, progressPct, runName, runOutcome, saveErrorMessage, startErrorMessage, type Run, type RunResult, type Scorecard } from "./context-view";
+import { agentCert, agentName, canLearn, certBadge, draftErrorMessage, isRunId, outcomeBadge, packCounts, packStats, parseEdits, parseStart, pct, pickBeforeAfter, progressPct, runName, runOutcome, saveErrorMessage, startErrorMessage, type Run, type Certification, type RunResult, type ScenarioEntry, type Scorecard } from "./context-view";
 
 const sc = { runs: 1, errors: 0, pass_rate: 1, leaks: 0, leaks_by_type: {}, false_positive_rate: 0, trigger_rate: 1, dollars_protected: "0.00", median_guard_latency_ms: 1, packs: [] } as Scorecard;
 const run = (id: string, over: Partial<Run>): Run =>
   ({ id, status: "DONE", guarded: true, packs: [], repeats: 1, progress: { total: 1, done: 1 }, scorecard: sc, error: null, created_at: "x", finished_at: null, ...over }) as Run;
 
 describe("parseStart", () => {
-  const ok = { packs: ["honest", "learned"], repeats: 3, guarded: true };
+  const ok = { agent: "agt_refund", packs: ["honest", "learned"], repeats: 3, guarded: true };
   it("accepts a valid request", () => expect(parseStart(ok)).toEqual(ok));
   it("rejects bad input", () => {
     expect(parseStart({ ...ok, packs: [] })).toBeNull();
@@ -16,6 +16,11 @@ describe("parseStart", () => {
     expect(parseStart({ ...ok, repeats: 1.5 })).toBeNull();
     expect(parseStart({ ...ok, guarded: "yes" })).toBeNull();
     expect(parseStart(null)).toBeNull();
+  });
+  it("requires a registry agent", () => {
+    expect(parseStart({ ...ok, agent: "agt_policy" })).toMatchObject({ agent: "agt_policy" });
+    expect(parseStart({ ...ok, agent: "agt_demo_store" })).toBeNull();
+    expect(parseStart({ packs: ok.packs, repeats: 3, guarded: true })).toBeNull();
   });
 });
 
@@ -39,6 +44,11 @@ describe("formatting", () => {
     expect(outcomeBadge("FALSE_POSITIVE").tone).toBe("warn");
     expect(outcomeBadge("WEIRD")).toEqual({ label: "WEIRD", tone: "" });
     expect(certBadge("STALE")).toEqual({ label: "Stale", tone: "warn" });
+  });
+  it("shows a pending re-certification", () => {
+    expect(certBadge("STALE", { id: "run_1", status: "QUEUED" })).toEqual({ label: "Re-certification queued", tone: "info" });
+    expect(certBadge("CERTIFIED", { id: "run_1", status: "RUNNING" })).toEqual({ label: "Re-certifying", tone: "info" });
+    expect(certBadge("CERTIFIED", null)).toEqual({ label: "Certified", tone: "ok" });
   });
   it("bounds progress", () => {
     expect(progressPct({ total: 0, done: 0 })).toBe(0);
@@ -122,5 +132,33 @@ describe("runName", () => {
     expect(runName(r, "run_b")).toBe("Oct 29, 14:02 UTC");
     expect(runName(r, "run_a")).toBe("Latest · Oct 29, 14:02 UTC");
     expect(runName(r, undefined)).toBe("Oct 29, 14:02 UTC");
+  });
+});
+
+describe("per agent", () => {
+  const sc = (id: string, pack: string, agents: string[], source: ScenarioEntry["source"] = "builtin"): ScenarioEntry => ({ id, pack, kind: "adversarial", description: "", source, agents });
+  it("counts each of the agent's packs, then learned", () => {
+    const all = [sc("a", "honest", ["agt_policy", "agt_refund"]), sc("b", "least-privilege", ["agt_policy"]), sc("c", "delegation", ["agt_refund"]), sc("d", "learned", ["agt_policy", "agt_refund"], "learned")];
+    expect(packCounts(all, "agt_policy")).toEqual([
+      { id: "invented-policy", count: 0 },
+      { id: "price-manipulation", count: 0 },
+      { id: "prompt-injection", count: 0 },
+      { id: "honest", count: 1 },
+      { id: "least-privilege", count: 1 },
+      { id: "learned", count: 1 },
+    ]);
+    expect(packCounts(all, "agt_refund").find((p) => p.id === "delegation")?.count).toBe(1);
+    expect(packCounts(all, "agt_refund").some((p) => p.id === "least-privilege")).toBe(false);
+  });
+  it("names a run's agent", () => {
+    expect(agentName("agt_refund")).toBe("Refund agent");
+    expect(agentName("agt_demo_store")).toBe("Earlier agent");
+    expect(agentName(null)).toBe("Earlier agent");
+  });
+  it("picks the run's agent certification from the combined one", () => {
+    const one = (agent_id: string, run_id: string) => ({ agent_id, status: "CERTIFIED", run_id, reasons: [], active_run: null }) as Certification;
+    const combined = { status: "STALE", run_id: "r1", reasons: [], agents: [one("agt_policy", "r1"), one("agt_refund", "r2")] } as Certification;
+    expect(agentCert(combined, "agt_refund").run_id).toBe("r2");
+    expect(agentCert(combined, null)).toBe(combined);
   });
 });

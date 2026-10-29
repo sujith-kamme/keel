@@ -6,6 +6,7 @@ const turn = (role: Turn["role"], text: string, decision_ids: string[] = []): Tu
   role,
   text,
   decision_ids,
+  agent_id: null,
   created_at: "2026-01-01T00:00:00Z",
 });
 const dec = (decision_id: string): DecisionSummary => ({

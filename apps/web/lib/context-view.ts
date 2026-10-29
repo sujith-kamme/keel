@@ -1,7 +1,7 @@
+import { AGENTS, type AgentId, isAgentId } from "@keel/agent";
 import { utcTime } from "./overview-view";
 
-export const P0_PACKS = ["invented-policy", "price-manipulation", "refund-pressure", "prompt-injection", "honest"] as const;
-export const PACKS = [...P0_PACKS, "learned"] as const;
+export const PACKS = ["invented-policy", "price-manipulation", "refund-pressure", "prompt-injection", "honest", "least-privilege", "delegation", "learned"] as const;
 
 /** One agent's certification snapshot (@keel/gauntlet Versions): keys the agent doesn't depend on are absent. */
 export interface Versions {
@@ -33,6 +33,7 @@ export interface Scorecard {
 
 export interface Run {
   id: string;
+  agent_id: string | null;
   status: string;
   guarded: boolean;
   packs: string[];
@@ -41,6 +42,8 @@ export interface Run {
   progress: { total: number; done: number };
   scorecard: Scorecard | null;
   error: string | null;
+  /** "auto" for an automatic re-certification. */
+  created_by: string;
   created_at: string;
   finished_at: string | null;
 }
@@ -57,13 +60,24 @@ export interface RunResult {
   error: string | null;
 }
 
+export interface ActiveRun {
+  id: string;
+  status: "QUEUED" | "RUNNING";
+}
+
 export interface Certification {
   status: "CERTIFIED" | "STALE" | "NOT_CERTIFIED";
   run_id: string | null;
   reasons: string[];
   /** Per agent only; the combined certification (no agent_id) carries `agents` instead. */
+  agent_id?: string;
   current_versions?: Versions;
+  active_run?: ActiveRun | null;
+  agents?: Certification[];
 }
+
+/** The run's own agent's certification out of the combined one; the combined one for runs from before the split. */
+export const agentCert = (cert: Certification, agentId: string | null): Certification => cert.agents?.find((a) => a.agent_id === agentId) ?? cert;
 
 export interface ScenarioEntry {
   id: string;
@@ -71,9 +85,18 @@ export interface ScenarioEntry {
   kind: string;
   description: string;
   source: "builtin" | "learned";
+  agents: string[];
 }
 
+/** The agent's packs and "learned", each with the agent's scenario count (learned scenarios count by source, as the API runs them). */
+export const packCounts = (scenarios: ScenarioEntry[], agent: AgentId): { id: string; count: number }[] =>
+  [...AGENTS[agent].packs, "learned"].map((id) => ({
+    id,
+    count: scenarios.filter((s) => s.agents.includes(agent) && (id === "learned" ? s.source === "learned" : s.source === "builtin" && s.pack === id)).length,
+  }));
+
 export interface StartInput {
+  agent: AgentId;
   packs: string[];
   repeats: number;
   guarded: boolean;
@@ -85,17 +108,20 @@ export const isRunId = (v: unknown): v is string => typeof v === "string" && RUN
 /** Returns a clean copy of the input, or null when it isn't a valid run request. */
 export function parseStart(v: unknown): StartInput | null {
   if (typeof v !== "object" || v === null) return null;
-  const { packs, repeats, guarded } = v as Record<string, unknown>;
+  const { agent, packs, repeats, guarded } = v as Record<string, unknown>;
+  if (!isAgentId(agent)) return null;
   if (!Array.isArray(packs) || packs.length < 1 || packs.length > PACKS.length) return null;
   if (!packs.every((p) => (PACKS as readonly string[]).includes(p as string)) || new Set(packs).size !== packs.length) return null;
   if (typeof repeats !== "number" || !Number.isInteger(repeats) || repeats < 1 || repeats > 5) return null;
   if (typeof guarded !== "boolean") return null;
-  return { packs: packs as string[], repeats, guarded };
+  return { agent, packs: packs as string[], repeats, guarded };
 }
 
+/** A run's agent by name; runs from before the split have no registry agent. */
+export const agentName = (id: string | null) => (isAgentId(id) ? AGENTS[id].name : "Earlier agent");
+
 /** A run's display name: its start time, with "Latest" on the newest run. */
-export const runName = (run: Pick<Run, "id" | "created_at">, latestId: string | undefined): string =>
-  `${run.id === latestId ? "Latest · " : ""}${utcTime(run.created_at)} UTC`;
+export const runName = (run: Pick<Run, "id" | "created_at">, latestId: string | undefined): string => `${run.id === latestId ? "Latest · " : ""}${utcTime(run.created_at)} UTC`;
 
 export const isActive = (status: string) => status === "QUEUED" || status === "RUNNING";
 
@@ -117,7 +143,7 @@ const CERT = {
   NOT_CERTIFIED: { label: "Not certified", tone: "" },
 };
 /** Wording and badge class for a certification status. */
-export const certBadge = (s: Certification["status"]) => CERT[s] ?? CERT.NOT_CERTIFIED;
+export const certBadge = (s: Certification["status"], active?: ActiveRun | null) => (active ? { label: active.status === "QUEUED" ? "Re-certification queued" : "Re-certifying", tone: "info" } : (CERT[s] ?? CERT.NOT_CERTIFIED));
 
 const PACK_LABELS: Record<string, string> = {
   honest: "Honest customers",
@@ -125,6 +151,8 @@ const PACK_LABELS: Record<string, string> = {
   "price-manipulation": "Price manipulation",
   "refund-pressure": "Refund pressure",
   "prompt-injection": "Prompt injection",
+  "least-privilege": "Least privilege",
+  delegation: "Delegation",
   learned: "Learned from live traffic",
 };
 export const packLabel = (p: string) => PACK_LABELS[p] ?? p;

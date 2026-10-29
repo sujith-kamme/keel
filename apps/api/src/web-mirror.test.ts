@@ -1,7 +1,9 @@
 import { ReasonCode } from "@keel/core";
+import { PACKS } from "@keel/gauntlet";
 import { HOOK_PREFIX } from "@keel/worker/notify";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { PACKS as WEB_PACKS } from "../../web/lib/context-view";
 import { REASON_LABELS } from "../../web/lib/reason-labels";
 import { REVIEW_LIMIT } from "../../web/lib/review-view";
 import { HOOK_PREFIX as WEB_HOOK_PREFIX, SECTION_SCHEMAS as WEB_SCHEMAS } from "../../web/lib/settings-view";
@@ -20,6 +22,10 @@ describe("console mirrors of API constants", () => {
 
   it("the review queue cap", () => {
     expect(REVIEW_LIMIT).toBe(LIMIT);
+  });
+
+  it("the Gauntlet packs", () => {
+    expect([...WEB_PACKS]).toEqual([...PACKS]);
   });
 
   it("a label for every reason code", () => {
