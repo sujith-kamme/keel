@@ -200,6 +200,27 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/sessions/{id}/token:
+    post:
+      tags: [Sessions]
+      operationId: sessionToken
+      summary: Mint a capability token for the session's current agent (use after a handoff)
+      security: [{ merchantKey: [] }]
+      parameters: [{ $ref: "#/components/parameters/SessionId" }]
+      responses:
+        "200":
+          description: Token scoped to the current agent's tools
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_id: { type: string }
+                  agent_id: { type: string }
+                  capability_token: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/sessions/{id}/turns:
     post:
       tags: [Sessions]

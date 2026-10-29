@@ -38,8 +38,8 @@ const post = (app: Hono, path: string, body: unknown, key: string | null = merch
     body: JSON.stringify(body),
   });
 
-const start = { agent_id: "agt_demo", customer_email: "Maya@demo.keel.test", order_ids: ["ORDER-1", "NOPE"] };
-const fixture = { agent_id: "agt_demo", customer_email: "Gauntlet@demo.keel.test", order_ids: ["CTX-1"] };
+const start = { agent_id: "agt_policy", customer_email: "Maya@demo.keel.test", order_ids: ["ORDER-1", "NOPE"] };
+const fixture = { agent_id: "agt_policy", customer_email: "Gauntlet@demo.keel.test", order_ids: ["CTX-1"] };
 
 describe("sessions API", () => {
   it.each([null, "wrong".repeat(8)])("rejects merchant key %j", async (key) => {
@@ -145,5 +145,42 @@ describe("sessions API", () => {
   it("returns 404 for an unknown session", async () => {
     const { app } = setup();
     expect((await post(app, "/v1/sessions/ses_missing/verify", { code: "123456" })).status).toBe(404);
+  });
+
+  it("starts a live session at the policy agent with only its tools, whatever agent_id is sent", async () => {
+    const { app } = setup();
+    const res = await post(app, "/v1/sessions", { ...start, agent_id: "agt_refund" });
+    expect(res.status).toBe(201);
+    const cap = verifyToken(((await res.json()) as { capability_token: string }).capability_token, signingKey, now)!;
+    expect(cap.agent_id).toBe("agt_policy");
+    expect(cap.allow).toEqual(["get_order", "state_policy", "escalate_to_human", "handoff_to_refund"]);
+  });
+
+  it("lets a CONTEXT session start at a registry agent and rejects unknown ones", async () => {
+    const { app } = setup();
+    const ctx = (agent_id: string) => post(app, "/v1/sessions", { ...fixture, agent_id, mode: "CONTEXT" });
+    const ok = await ctx("agt_refund");
+    expect(verifyToken(((await ok.json()) as { capability_token: string }).capability_token, signingKey, now)!.allow).toContain("offer_refund");
+    expect((await ctx("agt_demo_store")).status).toBe(400);
+  });
+
+  it("POST /v1/sessions/:id/token mints for the session's current agent", async () => {
+    const { app, rows } = setup();
+    await post(app, "/v1/sessions", start);
+    rows.get("ses_1")!.agentId = "agt_refund"; // what a handoff does
+    const res = await post(app, "/v1/sessions/ses_1/token", {});
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { agent_id: string; capability_token: string };
+    expect(body.agent_id).toBe("agt_refund");
+    const cap = verifyToken(body.capability_token, signingKey, now)!;
+    expect(cap.allow).toContain("offer_refund");
+    expect(cap.orders).toEqual(["ORDER-1"]);
+    expect(cap.max_refund_total).toBe("100.00");
+  });
+
+  it("POST /v1/sessions/:id/token needs the merchant key and 404s for an unknown session", async () => {
+    const { app } = setup();
+    expect((await post(app, "/v1/sessions/ses_1/token", {}, null)).status).toBe(401);
+    expect((await post(app, "/v1/sessions/ses_missing/token", {})).status).toBe(404);
   });
 });
