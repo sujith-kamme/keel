@@ -48,10 +48,6 @@ export const settingsSchema = z.strictObject({
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
-export const SECTIONS = Object.fromEntries(
-  Object.entries(SECTION_SCHEMAS).map(([name, schema]) => [name, Object.keys(schema.shape)]),
-) as Record<Section, string[]>;
-
 export const SETTINGS_DEFAULTS: Settings = {
   extractor_model: "claude-haiku-5-5",
   extractor_timeout_ms: 4000,

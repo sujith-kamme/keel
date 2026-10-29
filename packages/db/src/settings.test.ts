@@ -39,8 +39,8 @@ describe.skipIf(!process.env.DATABASE_URL)("settings (Postgres)", () => {
     const [a, b] = [key(), key()];
     await seedSettings(db, { [a]: 1, [b]: "x" });
     const id = `dec_${rid()}`;
-    await writeSettings(db, { [a]: 2, [b]: null }, "op@test", entry(id));
-    const all = await readSettings(db);
+    await writeSettings(db, { [a]: 2, [b]: null }, "op@test", () => entry(id));
+    const all = await readSettings(db, keys);
     expect(all[a]).toBe(2);
     expect(all[b]).toBeNull();
     const [row] = await db.select().from(settings).where(eq(settings.key, a));
@@ -52,10 +52,10 @@ describe.skipIf(!process.env.DATABASE_URL)("settings (Postgres)", () => {
     const k = key();
     await seedSettings(db, { [k]: "first" });
     await seedSettings(db, { [k]: "second" });
-    expect((await readSettings(db))[k]).toBe("first");
+    expect((await readSettings(db, keys))[k]).toBe("first");
     const n = key();
     await seedSettings(db, { [n]: null });
-    expect((await readSettings(db))[n]).toBeNull();
+    expect((await readSettings(db, keys))[n]).toBeNull();
     const [row] = await db.select().from(settings).where(eq(settings.key, k));
     expect(row?.updatedBy).toBeNull();
   });
@@ -66,7 +66,7 @@ describe.skipIf(!process.env.DATABASE_URL)("settings (Postgres)", () => {
     const id = `dec_${rid()}`;
     await appendLedger(db, entry(id));
     // Same decision_id again violates the ledger's unique constraint.
-    await expect(writeSettings(db, { [k]: "after" }, "op@test", entry(id))).rejects.toThrow();
-    expect((await readSettings(db))[k]).toBe("before");
+    await expect(writeSettings(db, { [k]: "after" }, "op@test", () => entry(id))).rejects.toThrow();
+    expect((await readSettings(db, keys))[k]).toBe("before");
   });
 });

@@ -1,17 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { SECTIONS, SECTION_SCHEMAS, SETTINGS_DEFAULTS, settingsFromEnv, settingsSchema } from "./settings-schema";
+import { SECTION_SCHEMAS, SETTINGS_DEFAULTS, settingsFromEnv, settingsSchema } from "./settings-schema";
 
 const bad = (patch: object) => settingsSchema.safeParse({ ...SETTINGS_DEFAULTS, ...patch }).success;
 
 describe("settings schema", () => {
-  it("parses the defaults, and each section covers its own keys", () => {
+  it("parses the defaults, and the sections cover exactly the keys", () => {
     expect(settingsSchema.parse(SETTINGS_DEFAULTS)).toEqual(SETTINGS_DEFAULTS);
-    const all = Object.values(SECTIONS).flat();
+    const all = Object.values(SECTION_SCHEMAS).flatMap((schema) => Object.keys(schema.shape));
     expect(all.sort()).toEqual(Object.keys(SETTINGS_DEFAULTS).sort());
-    for (const [name, keys] of Object.entries(SECTIONS)) {
-      const part = Object.fromEntries(keys.map((k) => [k, SETTINGS_DEFAULTS[k as keyof typeof SETTINGS_DEFAULTS]]));
-      expect(SECTION_SCHEMAS[name as keyof typeof SECTION_SCHEMAS].safeParse(part).success).toBe(true);
-    }
   });
 
   it("rejects out-of-range and unknown values", () => {

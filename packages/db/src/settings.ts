@@ -1,5 +1,5 @@
 import type { LedgerContent } from "@keel/engine";
-import { sql } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import type { Db } from "./client";
 import { type DbOrTx, appendLedger } from "./ledger";
 import { settings } from "./schema";
@@ -7,8 +7,9 @@ import { settings } from "./schema";
 // Drizzle maps a bare null to SQL NULL; a null setting (e.g. no Zapier hook) must be stored as JSON null.
 const json = (v: unknown) => (v === null ? sql`'null'::jsonb` : v);
 
-export async function readSettings(db: DbOrTx): Promise<Record<string, unknown>> {
-  const rows = await db.select().from(settings);
+/** Reads only the named keys, so rows other code keeps in this table never leak in. */
+export async function readSettings(db: DbOrTx, keys: string[]): Promise<Record<string, unknown>> {
+  const rows = await db.select().from(settings).where(inArray(settings.key, keys));
   return Object.fromEntries(rows.map((r) => [r.key, r.value]));
 }
 
@@ -18,15 +19,33 @@ export async function seedSettings(db: DbOrTx, values: Record<string, unknown>):
   if (rows.length > 0) await db.insert(settings).values(rows).onConflictDoNothing();
 }
 
-/** Upsert the given keys and append the change's ledger row, in one transaction. */
-export async function writeSettings(db: Db, values: Record<string, unknown>, operator: string, entry: LedgerContent): Promise<void> {
-  await db.transaction(async (tx) => {
-    for (const [key, value] of Object.entries(values)) {
+export type SettingChanges = Record<string, { from: unknown; to: unknown }>;
+
+/**
+ * Under a lock, diff `values` against the stored rows, upsert only the keys that change, and append the
+ * ledger row built from those changes, in one transaction. Nothing changes: no write, no ledger row.
+ */
+export async function writeSettings(
+  db: Db,
+  values: Record<string, unknown>,
+  operator: string,
+  buildEntry: (changes: SettingChanges) => LedgerContent,
+): Promise<{ changes: SettingChanges }> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('keel_settings'))`);
+    const current = await readSettings(tx, Object.keys(values));
+    const changes: SettingChanges = {};
+    for (const [key, to] of Object.entries(values)) {
+      if (current[key] !== to) changes[key] = { from: current[key] ?? null, to };
+    }
+    if (Object.keys(changes).length === 0) return { changes };
+    for (const [key, { to }] of Object.entries(changes)) {
       await tx
         .insert(settings)
-        .values({ key, value: json(value), updatedBy: operator })
-        .onConflictDoUpdate({ target: settings.key, set: { value: json(value), updatedAt: sql`now()`, updatedBy: operator } });
+        .values({ key, value: json(to), updatedBy: operator })
+        .onConflictDoUpdate({ target: settings.key, set: { value: json(to), updatedAt: sql`now()`, updatedBy: operator } });
     }
-    await appendLedger(tx, entry);
+    await appendLedger(tx, buildEntry(changes));
+    return { changes };
   });
 }
