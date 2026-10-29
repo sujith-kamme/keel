@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addLine, itemCount, MAX_QTY, parseBag, setQty, subtotalCents } from "./bag";
+import { addLine, itemCount, MAX_QTY, parseBag, setQty, shippingCents, subtotalCents } from "./bag";
 
 const jacket = { sku: "SKU-1", size: "M", title: "Torrent Rain Jacket", image: null, price: "39.95" };
 const bottle = { sku: "SKU-2", size: null, title: "Classic Water Bottle", image: null, price: "13.99" };
@@ -39,5 +39,10 @@ describe("bag", () => {
     expect(parseBag(raw)).toEqual([good]);
     expect(parseBag("not json")).toEqual([]);
     expect(parseBag(null)).toEqual([]);
+  });
+
+  it("charges $4 shipping under $50", () => {
+    expect(shippingCents(4999)).toBe(400);
+    expect(shippingCents(5000)).toBe(0);
   });
 });

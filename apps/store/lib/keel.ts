@@ -15,7 +15,7 @@ export class KeelError extends Error {
 
 export interface StoreOrder {
   order_id: string;
-  scenario: string;
+  scenario: string | null;
   total: { value: string; currency: string };
   items: { sku: string; title: string; price: string }[];
   delivered_at: string | null;
@@ -76,6 +76,18 @@ export interface CatalogItem {
 }
 
 export const catalog = async () => (await keel<{ items: CatalogItem[] }>("/v1/store/catalog")).items;
+
+export interface CheckoutLine {
+  sku: string;
+  qty: number;
+  size: string | null;
+}
+
+export const createCheckout = (email: string, items: CheckoutLine[]) =>
+  keel<{ order_id: string; total: { value: string; currency: string } }>("/v1/store/checkout", post({ customer_email: email, items }));
+
+export const captureCheckout = (email: string, orderId: string) =>
+  keel<{ order_id: string; total: { value: string; currency: string } }>(`/v1/store/checkout/${encodeURIComponent(orderId)}/capture`, post({ customer_email: email }));
 
 export const ordersFor = async (email: string) =>
   (await keel<{ orders: StoreOrder[] }>(`/v1/store/orders?customer_email=${encodeURIComponent(email)}`)).orders;

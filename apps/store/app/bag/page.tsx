@@ -63,6 +63,11 @@ export default function BagPage() {
             </span>
             <span className="price">{usd(subtotalCents(bag), true)}</span>
           </div>
+          <div style={{ borderTop: "1px solid var(--line)", padding: "16px 20px", display: "flex", justifyContent: "flex-end" }}>
+            <Link className="sbtn pri" href="/checkout">
+              Check out
+            </Link>
+          </div>
         </section>
       )}
     </main>

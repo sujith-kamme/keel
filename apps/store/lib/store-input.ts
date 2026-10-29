@@ -18,3 +18,8 @@ export const ChatBody = z.object({ text: z.string().trim().min(1).max(1000) });
 /** Where to go after sign-in: a path on this site only, never another origin. */
 export const safeNext = (next: unknown): string =>
   typeof next === "string" && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") ? next : "/orders";
+
+export const CheckoutBody = z.object({
+  items: z.array(z.object({ sku: z.string().min(1).max(64), qty: z.number().int().min(1).max(10), size: z.string().regex(/^[A-Z0-9]{1,4}$/).nullable() })).min(1).max(20),
+});
+export const CaptureBody = z.object({ order_id: z.string().regex(ORDER_ID) });

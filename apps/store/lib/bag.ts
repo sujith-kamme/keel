@@ -56,3 +56,6 @@ export function parseBag(raw: string | null): BagLine[] {
     return [];
   }
 }
+
+/** Shipping as the API charges it: $4 under $50, free from $50. Display only. */
+export const shippingCents = (subtotal: number) => (subtotal >= 5000 ? 0 : 400);

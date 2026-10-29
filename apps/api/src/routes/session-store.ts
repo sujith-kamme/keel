@@ -2,7 +2,7 @@ import { type Db, and, asc, catalogItems, desc, eq, inArray, ledgerEntries, lt, 
 import { MAX_OTP_ATTEMPTS, QUARANTINE_TEMPLATE, SAFE_FALLBACK, type TurnDecision } from "@keel/engine";
 import type { GuardMode, SessionMode } from "../mode";
 import type { SessionStore } from "./sessions";
-import { type CatalogItem, category, type StoreOrderSummary } from "./store";
+import { type CatalogItem, category, type NewStoreOrder, type StoreOrderSummary } from "./store";
 import type { DecisionSummary, SessionRow, SessionSummary, TurnStore } from "./turns";
 
 export function createOrdersFor(db: Db): (email: string) => Promise<StoreOrderSummary[]> {
@@ -22,6 +22,12 @@ export function createCatalog(db: Db): () => Promise<CatalogItem[]> {
   return async () => {
     const rows = await db.select().from(catalogItems).orderBy(asc(catalogItems.title));
     return rows.map((r) => ({ sku: r.sku, title: r.title, image_url: r.imageUrl, price: r.listPrice, currency: r.currency, category: category(r.title) }));
+  };
+}
+
+export function createRecordOrder(db: Db): (order: NewStoreOrder) => Promise<void> {
+  return async (o) => {
+    await db.insert(storeOrders).values({ ...o, scenario: null, deliveredAt: null }).onConflictDoNothing({ target: storeOrders.orderId });
   };
 }
 

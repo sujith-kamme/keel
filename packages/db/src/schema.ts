@@ -56,7 +56,7 @@ export const policies = pgTable(
 export const storeOrders = pgTable("store_orders", {
   orderId: text("order_id").primaryKey(),
   captureId: text("capture_id").notNull(),
-  scenario: text("scenario").notNull().unique(),
+  scenario: text("scenario").unique(), // seeded demo orders only; null for orders bought in the store
   payerEmail: text("payer_email").notNull(),
   currency: text("currency").notNull(),
   total: text("total").notNull(),

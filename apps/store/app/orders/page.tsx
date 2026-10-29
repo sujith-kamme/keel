@@ -3,13 +3,25 @@ import { requireCustomer } from "@/lib/customer";
 import { catalog, ordersFor } from "@/lib/keel";
 import { usd } from "@/lib/money";
 import { orderStatus } from "@/lib/orders";
+import { customerName } from "@/lib/store-input";
 
-export default async function OrdersPage() {
+export default async function OrdersPage({ searchParams }: PageProps<"/orders">) {
   const email = await requireCustomer("/orders");
+  const { placed } = await searchParams;
   const [orders, items] = await Promise.all([ordersFor(email), catalog()]);
   const image = new Map(items.map((i) => [i.sku, i.image_url]));
+  // Only an order the shopper actually has gets the confirmation banner.
+  const justPlaced = typeof placed === "string" ? orders.find((o) => o.order_id === placed) : undefined;
   return (
     <main className="shop-main" style={{ maxWidth: 1080 }}>
+      {justPlaced && (
+        <div role="status" className="box" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 20px", background: "var(--ok-bg)", borderColor: "#BBF7D0", flexWrap: "wrap" }}>
+          <span className="chip-s ok">Order placed</span>
+          <span>
+            Thanks, {customerName(email)}. Your PayPal payment went through and order <span className="mono">{justPlaced.order_id}</span> is confirmed.
+          </span>
+        </div>
+      )}
       <h1 className="serif" style={{ margin: 0, fontSize: 32, lineHeight: "40px", fontWeight: 500 }}>
         Your orders
       </h1>

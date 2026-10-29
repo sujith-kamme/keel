@@ -102,6 +102,9 @@ services:
         sync: false
       - key: DEMO_STORE_PASSWORD
         sync: false
+      # Public client id for PayPal's checkout button (the same sandbox app as keel-api). No secret here.
+      - key: PAYPAL_CLIENT_ID
+        sync: false
 
   - type: keyvalue
     name: keel-kv
