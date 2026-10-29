@@ -146,8 +146,8 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     const rows = await createTurnDecisions(db)(a, ids);
     expect(rows).toHaveLength(2);
     expect(rows).toEqual(expect.arrayContaining([
-      { tool: "offer_refund", verdict: "ALLOW", args: { amount: "5.00" } },
-      { tool: "offer_discount", verdict: "BLOCK", args: {}, message: "I can't offer a discount that large." },
+      { decision_id: ids[0], tool: "offer_refund", verdict: "ALLOW", args: { amount: "5.00" } },
+      { decision_id: ids[1], tool: "offer_discount", verdict: "BLOCK", args: {}, message: "I can't offer a discount that large." },
     ]));
     expect(await createTurnDecisions(db)(a, [])).toEqual([]);
   });
@@ -156,7 +156,7 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
     const sid = `ses_test_${randomUUID().replaceAll("-", "")}`;
     const decision_id = `dec_${randomUUID().replaceAll("-", "")}`;
     await appendLedger(db, { decision_id, session_id: sid, order_id: null, capture_id: null, dispute_id: null, mode: "LIVE", verdict: "ALLOW", reason_codes: ["OK"], payload: { tool: "handoff_to_refund", args: {}, agent_id: "agt_policy" } });
-    expect(await createTurnDecisions(db)(sid, [decision_id])).toEqual([{ tool: "handoff_to_refund", verdict: "ALLOW", args: {}, agent_id: "agt_policy" }]);
+    expect(await createTurnDecisions(db)(sid, [decision_id])).toEqual([{ decision_id, tool: "handoff_to_refund", verdict: "ALLOW", args: {}, agent_id: "agt_policy" }]);
   });
 
   it("turnDecisions maps well-formed order_facts and ignores malformed ones", async () => {
@@ -167,8 +167,9 @@ describe.skipIf(!process.env.DATABASE_URL)("turn store (Postgres)", () => {
       return decision_id;
     };
     const facts = { order_id: "O-1", total: "500.00", currency: "USD", refunded: "35.00", item_prices: ["500.00"] };
-    const rows = await createTurnDecisions(db)(sid, [await mk(facts), await mk({ ...facts, total: 500 }), await mk(undefined)]);
-    expect(rows.filter((r) => r.order_facts)).toEqual([{ tool: "get_order", verdict: "ALLOW", args: {}, order_facts: facts }]);
+    const first = await mk(facts);
+    const rows = await createTurnDecisions(db)(sid, [first, await mk({ ...facts, total: 500 }), await mk(undefined)]);
+    expect(rows.filter((r) => r.order_facts)).toEqual([{ decision_id: first, tool: "get_order", verdict: "ALLOW", args: {}, order_facts: facts }]);
     expect(rows).toHaveLength(3);
   });
 

@@ -205,12 +205,12 @@ export function createTurnDecisions(db: Db): (sessionId: string, ids: string[]) 
   return async (sessionId, ids) => {
     if (ids.length === 0) return [];
     const rows = await db
-      .select({ payload: ledgerEntries.payload, verdict: ledgerEntries.verdict })
+      .select({ decisionId: ledgerEntries.decisionId, payload: ledgerEntries.payload, verdict: ledgerEntries.verdict })
       .from(ledgerEntries)
       .where(and(inArray(ledgerEntries.decisionId, ids), eq(ledgerEntries.sessionId, sessionId)));
     return rows.map((r) => {
       const p = r.payload as { tool: string; args?: Record<string, unknown>; message?: unknown; order_facts?: unknown; agent_id?: unknown };
-      const decision: TurnDecision = { tool: p.tool, verdict: r.verdict as TurnDecision["verdict"], args: p.args ?? {} };
+      const decision: TurnDecision = { tool: p.tool, verdict: r.verdict as TurnDecision["verdict"], args: p.args ?? {}, decision_id: r.decisionId };
       if (typeof p.message === "string") decision.message = p.message;
       if (typeof p.agent_id === "string") decision.agent_id = p.agent_id;
       if (isOrderFacts(p.order_facts)) decision.order_facts = p.order_facts;

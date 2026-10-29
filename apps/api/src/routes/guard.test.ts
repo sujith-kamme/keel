@@ -266,6 +266,13 @@ describe("POST /v1/guard", () => {
     }
   });
 
+  it("records the last acting agent in request order, whatever order rows come back in", async () => {
+    const row = (decision_id: string, agent_id: string): TurnDecision => ({ decision_id, tool: "handoff_to_refund", verdict: "ALLOW", args: {}, agent_id });
+    const { app, ledger } = setup({ turnDecisions: async () => [row("dec_b", "agt_refund2"), row("dec_a", "agt_policy")] });
+    await post(app, { ...valid, tool_calls_this_turn: ["dec_a", "dec_b"] });
+    expect(ledger[0]!.payload).toMatchObject({ agent_id: "agt_refund2" });
+  });
+
   it("records the agent that acted this turn, not the session's current agent", async () => {
     const acted: TurnDecision = { tool: "handoff_to_refund", verdict: "ALLOW", args: {}, agent_id: "agt_policy" };
     const quarantined = async () => ({ state: "QUARANTINED", agent_frozen: false, score: 9, mode: "LIVE", guard_mode: "ENFORCE" });

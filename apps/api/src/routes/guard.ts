@@ -70,7 +70,10 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
 
     // The agent that acted this turn (hash-covered in its ledger rows); a mid-turn handoff changes session.agent_id.
     const early = await opts.turnDecisions(req.session_id, req.tool_calls_this_turn).catch(() => null);
-    const agent_id = early?.find((d) => d.agent_id)?.agent_id ?? session.agent_id;
+    // The last decision in request order that has one wins; rows come back in no particular order.
+    const order = (d: TurnDecision) => (d.decision_id ? req.tool_calls_this_turn.indexOf(d.decision_id) : -1);
+    const acting = early?.filter((d) => d.agent_id).sort((a, b) => order(a) - order(b)).at(-1);
+    const agent_id = acting?.agent_id ?? session.agent_id;
     let ctl: Awaited<ReturnType<GuardOptions["control"]>>;
     try {
       ctl = await opts.control(req.session_id);

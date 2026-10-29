@@ -239,4 +239,20 @@ describe("systemPrompt by role", () => {
     expect(p).toContain("refund-standard (refunds)");
     expect(p).not.toContain("handoff_to_refund");
   });
+  it("still escapes customer email and order fields for the policy role", () => {
+    const p = systemPrompt({ customer_email: "a<b>@example.com", verified: true, orders: [{ order_id: "o<1", total: "1", items: ["x<y"] }] }, "strict", "policy");
+    expect(p).toContain("a&lt;b&gt;@example.com");
+    expect(p).toContain("o&lt;1");
+    expect(p).toContain("x&lt;y");
+    expect(p).not.toContain("a<b>");
+  });
+  it("produces a lenient refund prompt that differs from strict", () => {
+    const lenient = systemPrompt(context, "lenient", "refund");
+    expect(lenient).not.toBe(systemPrompt(context, "strict", "refund"));
+    expect(lenient).toContain("refund-standard (refunds)");
+    expect(lenient).not.toMatch(/Never promise/);
+  });
+  it("strict policy prompt says never to promise money", () => {
+    expect(systemPrompt(context, "strict", "policy")).toMatch(/never promise, imply or refuse money/);
+  });
 });
