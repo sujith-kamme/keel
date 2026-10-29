@@ -276,6 +276,8 @@ const staleBefore = process.env.RUN_WORKER === "true" ? new Date() : new Date(Da
 await gauntletStore.failStale(staleBefore, now()).catch((e: unknown) => {
   console.error("gauntlet stale-run cleanup failed:", e instanceof Error ? e.message : "unknown");
 });
+// After a deploy, certify any agent whose inputs changed without waiting for an edit.
+void recertify().catch((e: unknown) => console.error("recertify failed:", e instanceof Error ? e.name : "unknown"));
 
 // On Render's free tier there is no background-worker service, so the API
 // process also runs the job worker when RUN_WORKER=true.
