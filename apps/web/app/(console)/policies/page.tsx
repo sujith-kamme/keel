@@ -2,51 +2,65 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { policies, requireConsole } from "@/lib/operator";
-import { ruleSummary } from "@/lib/policies-view";
+import { enforces, policyDiff, policyName, policyType, shortDate } from "@/lib/policies-view";
+import { type PolicyListRow, PolicyTable } from "./policy-table";
 
 async function List() {
   await connection();
   await requireConsole();
   const list = await policies();
-  if (list.length === 0) return <p className="mt-4 text-sm">No policies yet. Run the policy seed.</p>;
+  if (list.length === 0) return <p className="mut">No policies yet. Run the policy seed.</p>;
+  const drafts = list.filter((p) => p.draft !== null);
+  const rows: PolicyListRow[] = list.map((p) => ({
+    id: p.policy_id,
+    name: policyName(p.policy_id),
+    type: policyType(p.type),
+    enforces: p.active ? enforces(p.active.rules) : "Nothing until a version is approved",
+    version: p.active?.version ?? null,
+    draft: p.draft?.version ?? null,
+    lastChange: shortDate([p.active?.created_at, p.draft?.created_at].filter((d) => d !== undefined).sort().at(-1) ?? ""),
+  }));
   return (
-    <ul className="mt-4 grid gap-4 lg:grid-cols-2">
-      {list.map((p) => (
-        <li key={p.policy_id}>
-          <Link href={`/policies/${encodeURIComponent(p.policy_id)}`} className="block h-full rounded border border-black/10 p-4 hover:bg-black/5 dark:border-white/10 dark:hover:bg-white/5">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-semibold">{p.policy_id}</h2>
-              <span className="rounded bg-black/10 px-2 py-0.5 text-xs dark:bg-white/10">{p.type}</span>
-              <span className="text-xs opacity-70">{p.active ? `v${p.active.version}` : "not approved"}</span>
-              {p.draft && <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">Draft pending (v{p.draft.version})</span>}
-            </div>
-            {p.active && (
-              <>
-                <p className="mt-2 text-sm">{p.active.approved_text}</p>
-                {p.active.rules.length > 0 && (
-                  <ul className="mt-2 list-disc pl-5 text-sm opacity-80">
-                    {p.active.rules.map((r, i) => (
-                      <li key={i}>{ruleSummary(r)}</li>
-                    ))}
-                  </ul>
+    <>
+      {drafts.length > 0 && (
+        <div className="pnl" style={{ display: "flex", flexDirection: "column", borderColor: "var(--warn-line)", background: "var(--warn-bg)" }}>
+          {drafts.map((p, i) => {
+            const changes = policyDiff(p.active, p.draft!).filter((d) => d.changed).length;
+            return (
+              <div key={p.policy_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 16px", flexWrap: "wrap", borderTop: i > 0 ? "1px solid var(--warn-line)" : undefined }}>
+                {i === 0 && (
+                  <span className="st warn" style={{ color: "var(--warn)", fontWeight: 500 }}>
+                    {drafts.length} {drafts.length === 1 ? "draft" : "drafts"} awaiting approval
+                  </span>
                 )}
-              </>
-            )}
-          </Link>
-        </li>
-      ))}
-    </ul>
+                <span className="mut">
+                  {policyName(p.policy_id)} v{p.draft!.version} · {changes === 1 ? "1 change" : `${changes} changes`}
+                </span>
+                <Link href={`/policies/${encodeURIComponent(p.policy_id)}`} className="b xs" style={{ marginLeft: "auto" }}>
+                  Review draft
+                </Link>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <PolicyTable rows={rows} />
+    </>
   );
 }
 
 export default function Page() {
   return (
-    <section>
-      <h1 className="text-2xl font-semibold">Policies</h1>
-      <p className="mt-1 text-sm opacity-80">What the agent may promise. The engine enforces the active version of each; drafts do nothing until approved.</p>
-      <Suspense fallback={<p className="mt-4">Loading…</p>}>
+    <>
+      <div className="ph">
+        <div>
+          <h1>Policies</h1>
+          <p>What your agent may commit to. Keel enforces the active version of each policy; drafts do nothing until approved.</p>
+        </div>
+      </div>
+      <Suspense fallback={<p className="mut">Loading…</p>}>
         <List />
       </Suspense>
-    </section>
+    </>
   );
 }

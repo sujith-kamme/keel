@@ -1,6 +1,6 @@
 "use server";
 
-import { type ActionResult, approvePolicy, draftPolicy, requireConsole, toResult } from "@/lib/operator";
+import { type ActionResult, approvePolicy, discardPolicy, draftPolicy, requireConsole, toResult } from "@/lib/operator";
 import { type Rule, documentProblem, isPolicyId, policyErrorMessage } from "@/lib/policies-view";
 
 const invalid: ActionResult = { ok: false, message: "Invalid request." };
@@ -19,4 +19,11 @@ export async function approve(id: string, version: number, approvedText: string,
   const { user } = await requireConsole();
   if (!isPolicyId(id) || !Number.isSafeInteger(version) || version < 1 || typeof approvedText !== "string" || !Array.isArray(rules)) return invalid;
   return toResult(() => approvePolicy(id, version, { reviewer: user, approved_text: approvedText, rules }), policyErrorMessage);
+}
+
+/** Marks a draft DISCARDED; the active version and certification are untouched. */
+export async function discard(id: string, version: number): Promise<ActionResult> {
+  const { user } = await requireConsole();
+  if (!isPolicyId(id) || !Number.isSafeInteger(version) || version < 1) return invalid;
+  return toResult(() => discardPolicy(id, version, user), policyErrorMessage);
 }

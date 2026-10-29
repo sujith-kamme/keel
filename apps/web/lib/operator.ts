@@ -186,6 +186,9 @@ export const draftPolicy = (id: string, document: string) =>
 export const approvePolicy = (id: string, version: number, edits: { reviewer: string; approved_text: string; rules: Rule[] }) =>
   operator<unknown>(`/v1/policies/${encodeURIComponent(id)}/versions/${version}/approve`, post(edits));
 
+export const discardPolicy = (id: string, version: number, reviewer: string) =>
+  operator<unknown>(`/v1/policies/${encodeURIComponent(id)}/versions/${version}/discard`, post({ reviewer }));
+
 /** The ledger JSON export as a stream. */
 export async function ledgerExport(): Promise<ReadableStream<Uint8Array>> {
   const { keelApiUrl, operatorKey } = env();

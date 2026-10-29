@@ -60,6 +60,107 @@ export function ruleSummary(r: Rule): string {
   }
 }
 
+// Display names for the seeded policies; any other id shows as itself.
+const NAMES: Record<string, string> = {
+  "refund-standard": "Standard refunds",
+  "discount-goodwill": "Goodwill discounts",
+  "price-catalog": "Catalog prices",
+  "policy-returns": "Returns",
+  "policy-bereavement": "Bereavement",
+  "policy-shipping": "Shipping",
+};
+export const policyName = (id: string) => NAMES[id] ?? id;
+
+const TYPES: Record<string, { label: string; tone: string }> = {
+  REFUND: { label: "Refund", tone: "info" },
+  DISCOUNT: { label: "Discount", tone: "vio" },
+  PRICE: { label: "Price", tone: "rose" },
+  POLICY_CLAIM: { label: "Stated policy", tone: "" },
+};
+/** Badge wording and tone (a .bdg modifier) for a policy type. */
+export const policyType = (type: string) => TYPES[type] ?? { label: type, tone: "" };
+
+/** What a policy's active version enforces, in one line. */
+export const enforces = (rules: Rule[]) => (rules.length === 0 ? "Reply text only" : rules.map(ruleSummary).join(" · "));
+
+/** The rule's name and its one parameter, as the engine stores them. */
+export function ruleParams(r: Rule): string {
+  switch (r.rule) {
+    case "within_days_of":
+      return `${r.rule} · ${r.field} · ${r.days}`;
+    case "discount_percent_le":
+      return `${r.rule} · ${r.percent}`;
+    case "session_budget_le":
+    case "daily_budget_le":
+    case "auto_approve_le":
+      return `${r.rule} · ${r.amount}`;
+    default:
+      return r.rule;
+  }
+}
+
+/** The verdict when a rule fails, as packages/engine/src/rules.ts returns it: budgets and approval limits hold, the rest block. */
+export function ruleOnFailure(r: Rule): "Block" | "Hold" {
+  return r.rule === "session_budget_le" || r.rule === "daily_budget_le" || r.rule === "auto_approve_le" ? "Hold" : "Block";
+}
+
+// One diff row per rule kind (within_days_of per field), named for the operator.
+const RULE_NAMES: Record<Rule["rule"], string> = {
+  max_amount_le_captured_minus_refunded: "No more than was paid",
+  within_days_of: "Refund window",
+  payer_verified: "Verified buyer only",
+  discount_percent_le: "Discount limit",
+  price_ge_min: "Catalog minimum price",
+  session_budget_le: "Per conversation",
+  daily_budget_le: "Per day",
+  auto_approve_le: "Auto-approve up to",
+};
+const ruleKey = (r: Rule) => (r.rule === "within_days_of" ? `${r.rule}:${r.field}` : r.rule);
+function ruleValue(r: Rule): string {
+  switch (r.rule) {
+    case "within_days_of":
+      return `${plural(r.days, "day")} of ${r.field === "delivered_at" ? "delivery" : "payment"}`;
+    case "discount_percent_le":
+      return `${r.percent}%`;
+    case "session_budget_le":
+    case "daily_budget_le":
+    case "auto_approve_le":
+      return `$${r.amount}`;
+    default:
+      return "On";
+  }
+}
+
+export interface DiffRow {
+  label: string;
+  before: string | null;
+  after: string | null;
+  changed: boolean;
+}
+
+/** Active vs draft: the customer-facing text, then each rule kind in either version (null where a version lacks it). */
+export function policyDiff(active: Pick<PolicyRow, "approved_text" | "rules"> | null, draft: Pick<PolicyRow, "approved_text" | "rules">): DiffRow[] {
+  const rows: DiffRow[] = [];
+  const text = active?.approved_text ?? null;
+  rows.push({ label: "Customer-facing text", before: text, after: draft.approved_text, changed: text !== draft.approved_text });
+  const was = new Map((active?.rules ?? []).map((r) => [ruleKey(r), r]));
+  const now = new Map(draft.rules.map((r) => [ruleKey(r), r]));
+  for (const key of new Set([...was.keys(), ...now.keys()])) {
+    const a = was.get(key);
+    const b = now.get(key);
+    const before = a ? ruleValue(a) : null;
+    const after = b ? ruleValue(b) : null;
+    rows.push({ label: RULE_NAMES[(a ?? b)!.rule], before, after, changed: before !== after });
+  }
+  return rows;
+}
+
+/** "Oct 28" in UTC; the input when it isn't a date. */
+export function shortDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
 export function policyErrorMessage(status: number, error?: string): string {
   if (status === 422 || error === "not_understood") return "Couldn't turn that document into a policy.";
   if (status === 504) return "Drafting took too long. Try a shorter document.";

@@ -3,11 +3,17 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { OperatorError, policyVersions, requireConsole } from "@/lib/operator";
-import { isPolicyId, ruleSummary } from "@/lib/policies-view";
+import { isPolicyId, policyName, policyType, type PolicyVersion, ruleOnFailure, ruleParams, ruleSummary, shortDate } from "@/lib/policies-view";
 import { DraftForm } from "./draft-form";
-import { RuleEditor } from "./rule-editor";
+import { DraftPanel } from "./draft-panel";
 
-const when = (iso: string) => iso.replace("T", " ").slice(0, 16);
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+function versionStatus(v: PolicyVersion, active: PolicyVersion | null) {
+  if (v === active) return "active";
+  if (v.status === "APPROVED") return "superseded";
+  return v.status.toLowerCase();
+}
 
 async function Detail({ params, searchParams }: Pick<PageProps<"/policies/[id]">, "params" | "searchParams">) {
   await connection();
@@ -21,73 +27,170 @@ async function Detail({ params, searchParams }: Pick<PageProps<"/policies/[id]">
   // Newest first: the first APPROVED is what the engine enforces; a DRAFT above it is pending.
   const active = versions.find((v) => v.status === "APPROVED") ?? null;
   const draft = versions[0]?.status === "DRAFT" ? versions[0] : null;
-  const { approved } = await searchParams;
-  const justApproved = active !== null && approved === String(active.version);
+  const sp = await searchParams;
+  const justApproved = active !== null && one(sp.approved) === String(active.version);
+  const discarded = one(sp.discarded);
+  const justDiscarded = versions.some((v) => v.status === "DISCARDED" && String(v.version) === discarded);
+  const drafting = one(sp.draft) === "new" && active !== null;
+  const type = policyType((active ?? versions[0])!.type);
+  const page = `/policies/${encodeURIComponent(id)}`;
 
   return (
     <>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <h1 className="text-2xl font-semibold">{id}</h1>
-        <span className="rounded bg-black/10 px-2 py-0.5 text-xs dark:bg-white/10">{(active ?? versions[0])?.type}</span>
+      <div className="dh">
+        <div>
+          <h1>{policyName(id)}</h1>
+          <div className="meta">
+            <span className="mono">{id}</span>
+            <span className={`bdg ${type.tone}`}>{type.label}</span>
+            {active ? <span className="st ok">Active v{active.version}</span> : <span className="st">No approved version</span>}
+          </div>
+        </div>
+        {active && (
+          <div className="acts">
+            <Link className="b" href={drafting ? page : `${page}?draft=new`} scroll={false}>
+              <i className="ic ic-plus s14" aria-hidden="true" />
+              Draft new version
+            </Link>
+          </div>
+        )}
       </div>
 
       {justApproved && (
-        <div className="mt-4 rounded border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-700 dark:bg-amber-900/30">
-          Version {active.version} approved and enforced. Certification is now stale:{" "}
-          <Link href="/context" className="underline">
-            re-run the Gauntlet
+        <div className="pnl" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderColor: "var(--ok-line)", background: "var(--ok-bg)", flexWrap: "wrap" }}>
+          <span className="st ok" style={{ color: "var(--ok)", fontWeight: 500 }}>
+            v{active.version} approved and enforced
+          </span>
+          <span className="mut">Certification is now stale.</span>
+          <Link className="b xs pri" href="/context" style={{ marginLeft: "auto" }}>
+            Run Gauntlet
           </Link>
-          .
+        </div>
+      )}
+      {justDiscarded && (
+        <div className="pnl" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", flexWrap: "wrap" }}>
+          <span className="st" style={{ fontWeight: 500 }}>
+            Draft v{discarded} discarded
+          </span>
+          <span className="mut">The active version and certification are unchanged.</span>
         </div>
       )}
 
-      {draft ? (
-        <RuleEditor key={draft.version} policyId={id} active={active} draft={draft} />
-      ) : (
-        active && (
-          <div className="mt-6 rounded border border-black/10 p-4 dark:border-white/10">
-            <h2 className="font-semibold">Active · v{active.version}</h2>
-            <p className="mt-2 text-sm whitespace-pre-wrap">{active.approved_text}</p>
-            {active.rules.length > 0 && (
-              <ul className="mt-3 list-disc pl-5 text-sm">
-                {active.rules.map((r, i) => (
-                  <li key={i}>{ruleSummary(r)}</li>
-                ))}
-              </ul>
-            )}
+      {drafting && (
+        <section className="pnl" aria-labelledby="dn-h">
+          <div className="pnl-h">
+            <h2 id="dn-h">Draft a new version</h2>
+            <Link href={page} scroll={false} className="sm">
+              Cancel
+            </Link>
           </div>
-        )
+          <DraftForm policyId={id} />
+        </section>
       )}
 
-      <div className="mt-6">
-        <h2 className="font-semibold">Draft a new version</h2>
-        {active ? <DraftForm policyId={id} /> : <p className="mt-2 text-sm opacity-70">Only policies with an approved version can be redrafted.</p>}
-      </div>
+      {draft && <DraftPanel key={draft.version} policyId={id} active={active} draft={draft} />}
 
-      <div className="mt-6">
-        <h2 className="font-semibold">Version history</h2>
-        <table className="mt-2 w-full text-left text-sm">
-          <thead className="text-xs opacity-70">
-            <tr>
-              <th className="py-1 pr-4 font-medium">Version</th>
-              <th className="py-1 pr-4 font-medium">Status</th>
-              <th className="py-1 pr-4 font-medium">Approved by</th>
-              <th className="py-1 pr-4 font-medium">Approved</th>
-              <th className="py-1 font-medium">Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {versions.map((v) => (
-              <tr key={v.version} className="border-t border-black/10 dark:border-white/10">
-                <td className="py-1 pr-4">v{v.version}</td>
-                <td className="py-1 pr-4">{v === active ? "ACTIVE" : v.status}</td>
-                <td className="py-1 pr-4">{v.approved_by ?? (v.status === "APPROVED" ? "seeded" : "")}</td>
-                <td className="py-1 pr-4">{v.approved_at ? when(v.approved_at) : ""}</td>
-                <td className="py-1">{when(v.created_at)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+        <div className="stk">
+          <section className="pnl" aria-labelledby="tx-h">
+            <div className="pnl-h">
+              <h2 id="tx-h">Customer-facing text</h2>
+            </div>
+            <div className="pnl-b">
+              {active ? (
+                <>
+                  <p style={{ margin: 0, fontSize: 15, lineHeight: "24px", whiteSpace: "pre-wrap" }}>{active.approved_text}</p>
+                  <p className="sm dim" style={{ margin: "8px 0 0" }}>
+                    What the agent may tell customers about this policy. Keel checks the agent&apos;s replies against it.
+                  </p>
+                </>
+              ) : (
+                <p className="mut" style={{ margin: 0 }}>
+                  Nothing is enforced until a version is approved.
+                </p>
+              )}
+            </div>
+          </section>
+          {active && (
+            <section className="pnl" aria-labelledby="ru-h">
+              <div className="pnl-h">
+                <h2 id="ru-h">Rules</h2>
+              </div>
+              {active.rules.length === 0 ? (
+                <p className="pnl-b mut" style={{ margin: 0 }}>
+                  No rules. Only the reply text is checked.
+                </p>
+              ) : (
+                <div className="tw">
+                  <table className="t">
+                    <thead>
+                      <tr>
+                        <th scope="col">Rule</th>
+                        <th scope="col">Parameters</th>
+                        <th scope="col">On failure</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {active.rules.map((r, i) => {
+                        const fail = ruleOnFailure(r);
+                        return (
+                          <tr key={i}>
+                            <td style={{ whiteSpace: "normal" }}>{ruleSummary(r)}</td>
+                            <td className="mono">{ruleParams(r)}</td>
+                            <td>
+                              <span className={`st ${fail === "Block" ? "bad" : "warn"}`}>{fail}</span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+        </div>
+        <aside className="stk">
+          <section className="pnl" aria-labelledby="dt-h">
+            <div className="pnl-h">
+              <h2 id="dt-h">Details</h2>
+            </div>
+            <dl className="facts" style={{ margin: 0 }}>
+              <div>
+                <dt>Policy ID</dt>
+                <dd className="mono">{id}</dd>
+              </div>
+              <div>
+                <dt>Active version</dt>
+                <dd className="mono">{active ? `v${active.version}` : "—"}</dd>
+              </div>
+              {active && (
+                <div>
+                  <dt>Approved by</dt>
+                  <dd>
+                    {active.approved_by ?? "Seeded"}
+                    {active.approved_at && <span className="dim"> · {shortDate(active.approved_at)}</span>}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </section>
+          <section className="pnl" aria-labelledby="vh-h">
+            <div className="pnl-h">
+              <h2 id="vh-h">Versions</h2>
+            </div>
+            <dl className="facts" style={{ margin: 0 }}>
+              {versions.map((v) => (
+                <div key={v.version}>
+                  <dt>
+                    <span className="mono">v{v.version}</span> · {versionStatus(v, active)}
+                  </dt>
+                  <dd className="mut">{shortDate(v.created_at)}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        </aside>
       </div>
     </>
   );
@@ -95,13 +198,14 @@ async function Detail({ params, searchParams }: Pick<PageProps<"/policies/[id]">
 
 export default function Page({ params, searchParams }: PageProps<"/policies/[id]">) {
   return (
-    <section>
-      <Link href="/policies" className="text-sm underline">
-        ← Policies
+    <>
+      <Link className="back" href="/policies" style={{ alignSelf: "flex-start" }}>
+        <i className="ic ic-back s14" aria-hidden="true" />
+        All policies
       </Link>
-      <Suspense fallback={<p className="mt-4">Loading…</p>}>
+      <Suspense fallback={<p className="mut">Loading…</p>}>
         <Detail params={params} searchParams={searchParams} />
       </Suspense>
-    </section>
+    </>
   );
 }
