@@ -6,6 +6,7 @@ export interface Env {
   anthropicKey: string;
   cookieSecret: string;
   demoPassword: string;
+  paypalClientId: string;
 }
 
 let cached: Env | undefined;
@@ -27,6 +28,8 @@ export function env(): Env {
     anthropicKey: required("ANTHROPIC_API_KEY"),
     cookieSecret,
     demoPassword: required("DEMO_STORE_PASSWORD"),
+    // Public: PayPal's checkout script needs it in the browser.
+    paypalClientId: required("PAYPAL_CLIENT_ID"),
   };
   return cached;
 }
