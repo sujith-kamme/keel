@@ -53,8 +53,8 @@ async function connect(token: string) {
 const health = await fetch(`${API}/health`, { signal: AbortSignal.timeout(90_000) });
 console.log(`health: ${health.status}`);
 
-const maya = byScenario((await merchant<Orders>("/v1/store/orders?customer_email=maya@demo.keel.test")).orders);
-const sam = byScenario((await merchant<Orders>("/v1/store/orders?customer_email=sam@demo.keel.test")).orders);
+const maya = byScenario((await merchant<Orders>("/v1/store/orders?customer_email=maya@gmail.com")).orders);
+const sam = byScenario((await merchant<Orders>("/v1/store/orders?customer_email=sam@gmail.com")).orders);
 const inPolicy = maya.get("in-policy")!;
 const oldOrder = maya.get("out-of-window")!;
 const large = maya.get("large-order")!;
@@ -67,7 +67,7 @@ const session = await merchant<{ session_id: string; capability_token: string; d
     method: "POST",
     body: JSON.stringify({
       agent_id: "agt_smoke",
-      customer_email: "maya@demo.keel.test",
+      customer_email: "maya@gmail.com",
       order_ids: [inPolicy, oldOrder, large, other],
     }),
   },

@@ -3,7 +3,7 @@ import { ChatBody, SessionBody, VerifyBody } from "./store-input";
 
 describe("store input", () => {
   it("accepts only demo customers", () => {
-    expect(SessionBody.safeParse({ email: "maya@demo.keel.test" }).success).toBe(true);
+    expect(SessionBody.safeParse({ email: "maya@gmail.com" }).success).toBe(true);
     expect(SessionBody.safeParse({ email: "eve@example.com" }).success).toBe(false);
   });
 

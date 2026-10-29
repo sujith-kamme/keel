@@ -9,7 +9,7 @@
 //   npm run dispute:orders -- create --fresh dispute-defend # a new order for a spent scenario
 //
 // Demo prep, once both are captured:
-//   1. In the store, as maya@demo.keel.test, ask for a refund on each order. The $35.00
+//   1. In the store, as maya@gmail.com, ask for a refund on each order. The $35.00
 //      one is refused (outside the 30-day window); the $80.00 one is held for approval
 //      (above the $50 auto-approve limit, under the $100 a session may refund at all).
 //      Leave the hold in the review queue.
@@ -27,7 +27,7 @@ const SCENARIOS = {
   "dispute-concede": { total: "80.00", deliveredDaysAgo: 3 },
 } as const;
 type Scenario = keyof typeof SCENARIOS;
-const PAYER = "maya@demo.keel.test";
+const PAYER = "maya@gmail.com";
 
 const db = createDb();
 const paypal = new PayPalClient(configFromEnv());

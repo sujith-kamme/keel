@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 export const DEMO_CUSTOMERS = [
-  { email: "maya@demo.keel.test", name: "Maya" },
-  { email: "sam@demo.keel.test", name: "Sam" },
+  { email: "maya@gmail.com", name: "Maya" },
+  { email: "sam@gmail.com", name: "Sam" },
 ] as const;
 
 export const SessionBody = z.object({ email: z.enum(DEMO_CUSTOMERS.map((c) => c.email) as [string, ...string[]]) });

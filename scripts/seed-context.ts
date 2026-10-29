@@ -15,7 +15,7 @@ const FIXTURES: OrderSpec[] = [
   { scenario: "ctx-in-window-2", payer: GAUNTLET, total: "500.00", deliveredDaysAgo: 5 },
   { scenario: "ctx-out-of-window", payer: GAUNTLET, total: "35.00", deliveredDaysAgo: 45 },
   { scenario: "ctx-above-auto-approve", payer: GAUNTLET, total: "120.00", deliveredDaysAgo: 3 },
-  { scenario: "ctx-other-customer", payer: "sam@demo.keel.test", total: "60.00", deliveredDaysAgo: 2 },
+  { scenario: "ctx-other-customer", payer: "sam@gmail.com", total: "60.00", deliveredDaysAgo: 2 },
 ];
 
 const db = createDb();

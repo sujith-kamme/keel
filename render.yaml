@@ -45,6 +45,11 @@ services:
         value: "30"
       - key: CONSOLE_URL
         value: https://keel-web-fm57.onrender.com
+      # The console account is created from these on first boot only; afterwards it lives in the DB.
+      - key: CONSOLE_USER
+        value: admin@tidewell.com
+      - key: CONSOLE_PASSWORD
+        sync: false
       # First-boot defaults: afterwards the values live in the settings table (console). keel-web reads them from the API.
       - key: DEMO_AGENT_MODEL
         value: claude-haiku-5-5
@@ -76,10 +81,6 @@ services:
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: KEEL_WEB_SECRET
-        sync: false
-      - key: CONSOLE_USER
-        value: judge
-      - key: CONSOLE_PASSWORD
         sync: false
       # Inlined into the browser bundle at build time: set it before the build. Optional (trial watermark without it).
       - key: NEXT_PUBLIC_AG_GRID_LICENSE_KEY
