@@ -29,7 +29,7 @@ export default function LoginPage() {
       <footer className="sm dim" style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 16, padding: 20, width: "100%", boxSizing: "border-box" }}>
         {sandbox && <span className="env">Sandbox environment</span>}
         {api && (
-          <a href={`${api}/openapi.yaml`} style={{ color: "var(--text-3)" }}>
+          <a href={`${api}/docs`} style={{ color: "var(--text-3)" }}>
             API reference
           </a>
         )}

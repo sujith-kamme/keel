@@ -23,6 +23,23 @@ export type HealthCheck = () => Promise<void>;
 // Hand-written spec (apps/api/openapi.yaml); src/openapi.test.ts keeps it in step with the routes.
 const OPENAPI = readFileSync(new URL("../openapi.yaml", import.meta.url), "utf8");
 
+// Swagger UI over the spec, like FastAPI's /docs.
+const SWAGGER = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14";
+const DOCS = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keel API</title>
+<link rel="stylesheet" href="${SWAGGER}/swagger-ui.css">
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="${SWAGGER}/swagger-ui-bundle.js"></script>
+<script>SwaggerUIBundle({ url: "/openapi.yaml", dom_id: "#swagger-ui" });</script>
+</body>
+</html>`;
+
 export function createApp(deps: {
   agents?: AgentOptions;
   settings?: SettingsOptions;
@@ -65,6 +82,7 @@ export function createApp(deps: {
   });
 
   app.get("/openapi.yaml", (c) => c.body(OPENAPI, 200, { "content-type": "application/yaml" }));
+  app.get("/docs", (c) => c.html(DOCS));
 
   if (deps.sessions) mountSessions(app, deps.sessions);
   if (deps.store) mountStore(app, deps.store);

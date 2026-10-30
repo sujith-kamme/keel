@@ -57,4 +57,11 @@ describe("openapi.yaml", () => {
     expect(res.headers.get("content-type")).toBe("application/yaml");
     expect(parse(await res.text())).toEqual(spec);
   });
+
+  it("serves Swagger UI at /docs", async () => {
+    const res = await app.request("/docs");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    expect(await res.text()).toContain('url: "/openapi.yaml"');
+  });
 });
