@@ -11,6 +11,7 @@ Keel is a commitment gateway between a merchant's AI support agent and PayPal. T
 | Operator console | https://keel-web-fm57.onrender.com (login `admin@tidewell.com`; password: see the Devpost submission) |
 | Demo store (Tidewell) | https://keel-store.onrender.com (sign in as `maya@gmail.com` or `sam@gmail.com`; password: see the Devpost submission) |
 | API | https://keel-api-y0wq.onrender.com |
+| API docs (Swagger UI) | https://keel-api-y0wq.onrender.com/docs |
 | OpenAPI 3.1 spec | https://keel-api-y0wq.onrender.com/openapi.yaml |
 | Postman | [`postman/`](postman/) |
 
