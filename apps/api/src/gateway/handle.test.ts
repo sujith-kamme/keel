@@ -85,6 +85,7 @@ function fakes(overrides: Partial<GatewayDeps> = {}) {
     control: vi.fn(async () => ({ agent_id: "agt_refund", state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" })),
     assess: vi.fn(async () => ({ score: 0, quarantined: false })),
     notifyHeld: vi.fn(async () => {}),
+    certified: vi.fn(async () => true),
     now: () => NOW,
     newId: (prefix) => `${prefix}_${++n}abcdefgh`,
     ...overrides,
@@ -260,6 +261,58 @@ describe("handleTool: other tools", () => {
     expect(result.decision).toBe("ALLOW");
     expect(deps.escalate).toHaveBeenCalledWith("ses_1");
     expect(ledger).toHaveLength(1);
+  });
+});
+
+describe("handleTool: certification gate", () => {
+  const discountCall = { tool: "offer_discount", args: { percent: 5, policy_id: "discount-goodwill" } } as const;
+
+  it("holds a LIVE refund by an uncertified agent without touching PayPal", async () => {
+    const { deps, ledger } = fakes({ certified: vi.fn(async () => false) });
+    const r = await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"));
+    expect(r).toMatchObject({ decision: "HOLD", reason_code: "AGENT_UNCERTIFIED", message: HOLD_MESSAGE });
+    expect(deps.certified).toHaveBeenCalledWith("agt_refund");
+    expect(deps.getOrderDetails).not.toHaveBeenCalled();
+    expect(deps.refundCapture).not.toHaveBeenCalled();
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0]).toMatchObject({ mode: "LIVE", verdict: "HOLD", reason_codes: ["AGENT_UNCERTIFIED"] });
+    expect(deps.notifyHeld).toHaveBeenCalledTimes(1);
+  });
+
+  it("holds an uncertified agent's discount", async () => {
+    const { deps } = fakes({ certified: async () => false });
+    expect(await handleTool(deps, cap(), discountCall)).toMatchObject({ decision: "HOLD", reason_code: "AGENT_UNCERTIFIED" });
+  });
+
+  it("fails closed when the certification lookup throws", async () => {
+    const { deps } = fakes({ certified: async () => { throw new Error("db"); } });
+    expect(await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"))).toMatchObject({ decision: "HOLD", reason_code: "VERIFIER_UNAVAILABLE" });
+    expect(deps.refundCapture).not.toHaveBeenCalled();
+  });
+
+  it("never gates a CONTEXT session, so a Gauntlet run can certify the agent", async () => {
+    const { deps } = fakes({
+      certified: vi.fn(async () => false),
+      control: async () => ({ agent_id: "agt_refund", state: "ACTIVE", agent_frozen: false, score: 0, mode: "CONTEXT", guard_mode: "ENFORCE" }),
+    });
+    expect(await handleTool(deps, cap(), refundCall("IN-POLICY", "10.00"))).toMatchObject({ decision: "ALLOW" });
+    expect(deps.certified).not.toHaveBeenCalled();
+  });
+
+  it("does not gate reads or the handoff", async () => {
+    const { deps } = fakes({
+      certified: vi.fn(async () => false),
+      control: async () => ({ agent_id: "agt_policy", state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" }),
+    });
+    const policyCap = cap({ agent_id: "agt_policy", allow: ["get_order", "state_policy", "escalate_to_human", "handoff_to_refund"] });
+    expect(await handleTool(deps, policyCap, { tool: "get_order", args: { order_id: "IN-POLICY" } })).toMatchObject({ decision: "ALLOW" });
+    expect(await handleTool(deps, policyCap, { tool: "handoff_to_refund", args: { order_id: "IN-POLICY", reason: "refund" } })).toMatchObject({ decision: "ALLOW" });
+    expect(deps.certified).not.toHaveBeenCalled();
+  });
+
+  it("blocks an out-of-scope call before checking certification", async () => {
+    const { deps } = fakes({ certified: async () => false });
+    expect(await handleTool(deps, cap({ orders: [] }), refundCall("IN-POLICY", "10.00"))).toMatchObject({ decision: "BLOCK", reason_code: "CAPABILITY_OUT_OF_SCOPE" });
   });
 });
 

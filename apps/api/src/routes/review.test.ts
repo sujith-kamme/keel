@@ -134,6 +134,7 @@ function setup(over: Partial<GatewayDeps> = {}, scores: ReviewOptions["scores"] 
     control: async () => ({ agent_id: "agt_refund", state: "ACTIVE", agent_frozen: false, score: 0, mode: "LIVE", guard_mode: "ENFORCE" }),
     assess: async () => ({}),
     notifyHeld: async () => {},
+    certified: vi.fn(async () => false),
     now: () => NOW,
     newId: (prefix) => `${prefix}_${++n}abcdefgh`,
     ...over,
@@ -237,6 +238,15 @@ describe("POST /v1/review/:id/approve", () => {
     expect(row).toMatchObject({ verdict: "BLOCK", reason_codes: ["AMOUNT_EXCEEDS_CAPTURED"] });
     expect(row!.payload).toMatchObject({ resolved: true });
     expect((await list(app)).some((i) => i.decision_id === "dec_refund")).toBe(false);
+  });
+
+  it("executes an AGENT_UNCERTIFIED hold: the reviewer stands in for the missing certification", async () => {
+    const { app, gateway, push } = setup();
+    push(held("dec_uncert", "offer_refund", "AGENT_UNCERTIFIED", { order_id: "IN-POLICY", amount: "20.00", reason: "damaged", policy_id: "refund-standard" }));
+    const res = await act(app, "dec_uncert", "approve");
+    expect(res.status).toBe(200);
+    expect(gateway.refundCapture).toHaveBeenCalledWith("CAP-IN-POLICY", { value: "20.00", currency: "USD" }, "dec_uncert");
+    expect(gateway.certified).not.toHaveBeenCalled();
   });
 
   it("executes an ABOVE_AUTO_APPROVE hold", async () => {

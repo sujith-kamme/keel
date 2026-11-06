@@ -43,6 +43,8 @@ export interface GatewayDeps {
   control: (sessionId: string) => Promise<{ agent_id: string; state: string; agent_frozen: boolean; score: number; mode: string; guard_mode: string }>;
   assess: (sessionId: string) => Promise<unknown>;
   notifyHeld: (e: { session_id: string; decision_id: string; reason_codes: string[] }) => Promise<void>;
+  /** True when the agent's latest Gauntlet certification is CERTIFIED for the versions running now. */
+  certified: (agentId: string) => Promise<boolean>;
   now: () => Date;
   newId: (prefix: string) => string;
 }
@@ -82,6 +84,9 @@ export async function handleTool(deps: GatewayDeps, cap: Capability, call: ToolC
   // A handoff leads to money tools, so it fails closed like one.
   const gated = isMoney || call.tool === "handoff_to_refund";
   let ctl = await deps.control(cap.session_id).catch(() => null);
+  // Live money waits for a person while the agent isn't certified; Gauntlet (CONTEXT) runs never do,
+  // or the agent could never certify. A failed lookup holds like any other gate.
+  const cert = isMoney && ctl && ctl.mode !== "CONTEXT" ? await deps.certified(cap.agent_id).then((c) => (c ? "ok" : "no")).catch(() => "error") : "ok";
 
   // Exactly one ledger row per call.
   const record = async (outcome: Outcome): Promise<string> => {
@@ -116,6 +121,8 @@ export async function handleTool(deps: GatewayDeps, cap: Capability, call: ToolC
     outcome = refuse("BLOCK", "CAPABILITY_OUT_OF_SCOPE");
   } else if (!checkScope(cap, { tool: call.tool, order_id: orderId, amount }, "0.00")) {
     outcome = refuse("BLOCK", "CAPABILITY_OUT_OF_SCOPE");
+  } else if (cert !== "ok") {
+    outcome = refuse("HOLD", cert === "no" ? "AGENT_UNCERTIFIED" : "VERIFIER_UNAVAILABLE");
   } else if (call.tool === "offer_refund") {
     // Record before the lock is released, so the next refund's budget facts include this one.
     const locked = await deps.withOrderLock(cap.session_id, call.args.order_id, async () => {

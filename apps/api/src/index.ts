@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
-import { AGENTS, type AgentId, agentModel, connectAgentTools, promptMode, runTurn } from "@keel/agent";
+import { AGENTS, type AgentId, agentModel, isAgentId, connectAgentTools, promptMode, runTurn } from "@keel/agent";
 import { activePolicy, appendLedger, approveVersion, countLedger, createDb, discardVersion, decisionsByDay, disputeOutcomes, dollarsProtected, insertDraft, listPolicies, liveSessions, policyVersions, readChain, readLedgerEntry, readLedgerPage, sql, violations } from "@keel/db";
 import { PROMPT_VERSION, draftPolicy, extract } from "@keel/extractor";
 import { type Versions, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
@@ -20,7 +20,7 @@ import { createAgentStore } from "./routes/agent-store";
 import { initConsoleAccount } from "./routes/console";
 import { createConsoleStore } from "./routes/console-store";
 import { createDisputeStore } from "./routes/dispute-store";
-import { combinedCertification, scenarioCatalog, scenariosFor, startRun } from "./routes/gauntlet";
+import { combinedCertification, currentCertification, scenarioCatalog, scenariosFor, startRun } from "./routes/gauntlet";
 import { createGauntletStore } from "./routes/gauntlet-store";
 import { KNOWN_POLICY_IDS } from "./routes/guard";
 import { createRecertify } from "./recertify";
@@ -53,7 +53,10 @@ const risk = createRisk(db, { cfg: riskCfg, enqueue: enqueueNotify, consoleUrl, 
 const notifyHeld = (e: { session_id: string; decision_id: string; reason_codes: string[] }) =>
   enqueueNotify({ event: "action.held", ...e, console_url: `${consoleUrl}/review`, at: now().toISOString() });
 const paypal = new PayPalClient(configFromEnv());
-const gateway = createGatewayDeps(db, paypal, risk, notifyHeld);
+// Called per live money action, after the Gauntlet store and versions below are set up.
+const certified = async (agentId: string) =>
+  isAgentId(agentId) && (await currentCertification({ store: gauntletStore.runs, versions: currentVersions }, agentId)).status === "CERTIFIED";
+const gateway = createGatewayDeps(db, paypal, risk, notifyHeld, certified);
 const anthropic = new Anthropic();
 const turnStore = createTurnStore(db);
 

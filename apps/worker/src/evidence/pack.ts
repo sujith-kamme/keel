@@ -47,6 +47,7 @@ const WORDS: Record<string, string> = {
   FREE_TEXT_COMMITMENT: "unapproved promise in the reply",
   INJECTION_DETECTED: "prompt injection detected",
   RISK_THRESHOLD: "session quarantined",
+  AGENT_UNCERTIFIED: "agent not certified",
   CAPABILITY_OUT_OF_SCOPE: "outside the agent's permissions",
   DISPUTE_WITHIN_POLICY: "the agent acted within policy",
   DISPUTE_UNHONORED_COMMITMENT: "an approved refund was not paid",
