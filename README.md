@@ -12,7 +12,6 @@ Keel is a commitment gateway between a merchant's AI support agent and PayPal. T
 | Demo store (Tidewell) | https://keel-store.onrender.com (sign in as `maya@gmail.com` or `sam@gmail.com`; password: see the Devpost submission) |
 | API | https://keel-api-y0wq.onrender.com |
 | API docs (Swagger UI) | https://keel-api-y0wq.onrender.com/docs |
-| OpenAPI 3.1 spec | https://keel-api-y0wq.onrender.com/openapi.yaml |
 | Postman | [`postman/`](postman/) |
 
 The hosted services run on Render's free tier and sleep after 15 minutes idle; the first request can take up to a minute.
