@@ -34,8 +34,9 @@ describe("anchorLedger", () => {
       vi.fn(async () => { throw new Error("network down"); }),
       vi.fn(async () => new Response("busy", { status: 503 })),
       vi.fn(async () => new Response(reply)),
+      vi.fn(async () => new Response(new Uint8Array(65 * 1024))),
     ];
-    const heads = [undefined, undefined, { seq: 42, hash: "00".repeat(32) }];
+    const heads = [undefined, undefined, { seq: 42, hash: "00".repeat(32) }, undefined];
     for (const [i, f] of failing.entries()) {
       const d = deps({ fetch: f as unknown as typeof fetch, head: heads[i] });
       expect(await anchorLedger(d)).toBeNull();

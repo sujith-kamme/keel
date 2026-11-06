@@ -7,6 +7,8 @@ import { readTimestampReply, timestampRequest } from "@keel/engine";
 export const TSA_URL = "https://freetsa.org/tsr";
 
 const TSA_TIMEOUT_MS = 15_000;
+// A real reply is a few KB (FreeTSA's is 4.5 KB); anything far larger isn't stored.
+const MAX_REPLY_BYTES = 64 * 1024;
 
 export interface AnchorDeps {
   head: () => Promise<{ seq: number; hash: string } | null>;
@@ -27,7 +29,9 @@ export async function anchorLedger(deps: AnchorDeps): Promise<number | null> {
       signal: AbortSignal.timeout(TSA_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`TSA answered ${res.status}`);
+    if (Number(res.headers.get("content-length") ?? 0) > MAX_REPLY_BYTES) throw new Error("TSA reply too large");
     const token = new Uint8Array(await res.arrayBuffer());
+    if (token.length > MAX_REPLY_BYTES) throw new Error("TSA reply too large");
     const reply = readTimestampReply(token, head.hash);
     if (!reply) throw new Error("TSA reply refused or for another hash");
     await deps.save({ seq: head.seq, hash: head.hash, tsa: TSA_URL, token, signed_at: reply.signed_at });

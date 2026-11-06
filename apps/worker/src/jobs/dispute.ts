@@ -232,7 +232,8 @@ async function classify(deps: DisputeDeps, d: Dispute, row: DisputeRow): Promise
       turns: ctx.turns,
       rows: rows.map(packRow),
       policies: ctx.policies,
-      anchor: rows.length ? await deps.anchor(Math.max(...rows.map((r) => r.seq))) : null,
+      // The timestamp is extra proof: a failed lookup leaves it out rather than holding up the evidence.
+      anchor: rows.length ? await deps.anchor(Math.max(...rows.map((r) => r.seq))).catch(() => null) : null,
     });
     const pdf = await renderPdf(pack);
     evidence = {

@@ -88,6 +88,13 @@ function setup(opts: { d?: Dispute; ctx?: Partial<DisputeContext>; autoSubmit?: 
 }
 
 describe("syncDispute", () => {
+  it("still builds and submits the evidence when the timestamp lookup fails", async () => {
+    const t = setup();
+    t.deps.anchor = vi.fn(async () => { throw new Error("db down"); });
+    await syncDispute(t.deps, "PP-D-1");
+    expect(t.rows.get("PP-D-1")!.action).toBe("EVIDENCE_SUBMITTED");
+  });
+
   it("defends a blocked out-of-window refund by submitting the evidence pack once", async () => {
     const t = setup();
     await syncDispute(t.deps, "PP-D-1");
