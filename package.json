@@ -32,7 +32,8 @@
     "dispute:sandbox": "tsx --env-file=.env scripts/dispute-sandbox.ts",
     "smoke:dispute": "tsx scripts/dispute-smoke.ts",
     "smoke:gauntlet": "tsx scripts/gauntlet-smoke.ts",
-    "postman": "tsx scripts/postman.ts"
+    "postman": "tsx scripts/postman.ts",
+    "numbers": "tsx --env-file=.env scripts/gauntlet-numbers.ts"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
