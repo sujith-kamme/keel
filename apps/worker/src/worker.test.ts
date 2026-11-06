@@ -21,4 +21,9 @@ describe("worker processor", () => {
     expect(fetch).toHaveBeenCalledOnce();
     expect(fetch.mock.calls[0]![0]).toBe(HOOK);
   });
+
+  it("runs the ledger anchor job", async () => {
+    const anchor = vi.fn(async () => 42);
+    expect(await processor({ hookUrl: async () => null, anchor })({ name: "ledger.anchor", data: {} })).toBe(42);
+  });
 });

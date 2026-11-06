@@ -119,6 +119,29 @@ export function mountGuard(app: Hono, opts: GuardOptions): void {
       return held(decision_id);
     };
     if (ctl.state === "QUARANTINED") return hold(ctl.score);
+    // A frozen agent says nothing of its own: its reply becomes the hand-off, like a quarantine.
+    if (ctl.agent_frozen) {
+      const decision_id = opts.newId("dec");
+      await opts.appendLedger({
+        decision_id,
+        session_id: req.session_id,
+        order_id: null,
+        capture_id: null,
+        dispute_id: null,
+        mode: ledgerMode(ctl.mode, ctl.state),
+        verdict: "HOLD",
+        reason_codes: ["AGENT_FROZEN"],
+        payload: { tool: "guard", agent_id, draft: req.draft_reply, frozen: true },
+      });
+      return c.json({
+        verdict: "HOLD",
+        reason_codes: ["AGENT_FROZEN"],
+        final_reply: shadow ? req.draft_reply : QUARANTINE_TEMPLATE,
+        decision_id,
+        session_state: session.state,
+        shadow,
+      });
+    }
 
     const turn_decisions = early ?? (await opts.turnDecisions(req.session_id, req.tool_calls_this_turn));
     // Fail closed: a failed lookup means fewer backings, so more blocking.

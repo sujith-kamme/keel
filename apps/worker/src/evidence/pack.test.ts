@@ -20,6 +20,7 @@ const input: PackInput = {
     { seq: 42, decision_id: "dec-b", at: "2026-10-27T09:00:05Z", tool: "guard", verdict: "ALLOW", reason_codes: ["OK"], detail: "reply checked", hash: "h42", prev_hash: "h41" },
   ],
   policies: [{ policy_id: "refund-window", version: 3, approved_text: "Refunds within 30 days of delivery." }],
+  anchor: null,
 };
 
 describe("buildPack", () => {
@@ -45,6 +46,20 @@ describe("buildPack", () => {
   it("carries a hash-chain excerpt matching the rows", () => {
     const chain = buildPack(input).sections.find((s) => s.heading === "Ledger hash chain")!;
     expect(chain.lines).toEqual(["#41 dec-a prev h40 hash h41", "#42 dec-b prev h41 hash h42"]);
+  });
+
+  it("cites the independent timestamp covering the rows, with its token", () => {
+    const anchor = { seq: 45, hash: "h45", tsa: "https://freetsa.org/tsr", token: Uint8Array.from([0x30, 0x03]), signed_at: new Date("2026-10-27T09:05:00Z") };
+    const lines = buildPack({ ...input, anchor }).sections.find((s) => s.heading === "Independent timestamp")!.lines.join("\n");
+    expect(lines).toContain("#45");
+    expect(lines).toContain("h45");
+    expect(lines).toContain("2026-10-27 09:05");
+    expect(lines).toContain("https://freetsa.org/tsr");
+    expect(lines).toContain("MAM=");
+  });
+
+  it("says when the rows aren't timestamped yet", () => {
+    expect(buildPack(input).sections.find((s) => s.heading === "Independent timestamp")!.lines).toEqual(["Not yet timestamped."]);
   });
 
   it("writes short notes for PayPal with the delivery date and the refusal", () => {

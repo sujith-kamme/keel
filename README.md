@@ -69,6 +69,16 @@ flowchart LR
 - **Policies.** Operators paste a policy document; Claude drafts a new version's rules and wording, which does nothing until an operator edits and approves it.
 - **Ask the ledger.** In the ledger, review and Gauntlet grids, an operator types a question ("held refunds over $50 this week grouped by reason code"); Claude fills AG Grid's state schema and the grid applies it. Row data never leaves the browser.
 
+## Plug in any MCP agent
+
+Keel doesn't care which model or framework runs the agent. A merchant backend connects one in three calls:
+
+1. **Open a session.** When a customer starts a chat, `POST /v1/sessions` with the merchant key, the customer's email and their order ids (`customer_authenticated: true` if they are already signed in). Keep the `session_id` and give the `capability_token` to the agent.
+2. **Hand the agent Keel's tools.** Point the agent's MCP client at `POST /v1/mcp` with `Authorization: Bearer <capability_token>`. It gets `get_order`, `offer_refund`, `offer_discount`, `state_policy`, `escalate_to_human` and `handoff_to_refund`. Each result carries a verdict, a reason code, a `decision_id` and the message the agent must quote. Money only moves through these tools; the agent never sees PayPal credentials.
+3. **Check every reply before the customer sees it.** `POST /v1/guard` with the merchant key, the `session_id`, the draft reply, the recent conversation and the `decision_id`s from this turn's tool calls. Send the customer `final_reply`, not the draft.
+
+The request and response shapes are in [Swagger UI](https://keel-api-y0wq.onrender.com/docs) and the [Postman collection](postman/). The demo store's backend (`apps/store`, with the agents in `packages/agent`) is a working example.
+
 ## Demo script (under 3 minutes)
 
 1. **Console:** policies approved; a Gauntlet run in Context Mode shows the unguarded agent leaking and the guarded one certified.
@@ -118,6 +128,8 @@ npm run typecheck
 ```
 
 Vitest reads `.env`; the Postgres tests run when `DATABASE_URL` is set and are skipped otherwise. `apps/api/src/openapi.test.ts` fails if a `/v1` route and `apps/api/openapi.yaml` drift apart.
+
+`npm run numbers` prints, per agent, the leak counts from the latest complete Gauntlet runs with the guard off and on, honest customers wrongly refused, and honest refunds paid. It only reads the database.
 
 ## Sponsor tools used
 

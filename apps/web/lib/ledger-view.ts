@@ -37,12 +37,17 @@ export interface LedgerEntry {
   link_ok: boolean;
 }
 
-export type ChainResult = { ok: true; count: number } | { ok: false; count: number; broken_at_seq: number; problem: string };
+export type ChainAnchor = { seq: number; hash: string; tsa: string; signed_at: string; matches: boolean };
+export type ChainResult = ({ ok: true; count: number } | { ok: false; count: number; broken_at_seq: number; problem: string }) & { anchor: ChainAnchor | null };
 
 export const isBeforeSeq = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) > 0;
 
 export const chainMessage = (r: ChainResult) =>
   r.ok ? `Chain intact: ${r.count.toLocaleString("en-US")} entries` : `Broken at seq ${r.broken_at_seq}: ${r.problem}`;
+
+/** The public timestamp line; a mismatch means the chain was rewritten after the authority signed it. */
+export const anchorMessage = (a: ChainAnchor | null) =>
+  !a ? "Not timestamped yet" : a.matches ? `Timestamped up to #${a.seq} at ${utcStamp(a.signed_at)}` : `Timestamp mismatch at #${a.seq}`;
 
 /** Amount as a number for the grid's number filter; null when absent or not numeric. */
 export const amountValue = (amount: string | null) => (amount !== null && /^\d+(\.\d+)?$/.test(amount) ? Number(amount) : null);

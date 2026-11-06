@@ -8,7 +8,7 @@ import type { GatewayDeps } from "./handle";
 const ORDER_LOCK_NAMESPACE = 4_242_002;
 const SESSION_LOCK_NAMESPACE = 4_242_003;
 
-export function createGatewayDeps(db: Db, paypal: PayPalClient, risk: RiskService, notifyHeld: GatewayDeps["notifyHeld"]): GatewayDeps {
+export function createGatewayDeps(db: Db, paypal: PayPalClient, risk: RiskService, notifyHeld: GatewayDeps["notifyHeld"], certified: GatewayDeps["certified"]): GatewayDeps {
   return {
     getOrderDetails: (orderId) => paypal.getOrderDetails(orderId),
     refundCapture: (captureId, amount, requestId) => paypal.refundCapture(captureId, amount, requestId),
@@ -42,6 +42,7 @@ export function createGatewayDeps(db: Db, paypal: PayPalClient, risk: RiskServic
     control: (sessionId) => risk.control(sessionId),
     assess: (sessionId) => risk.assess(sessionId),
     notifyHeld,
+    certified,
     now: () => new Date(),
     newId,
   };

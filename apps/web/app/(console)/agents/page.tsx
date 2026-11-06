@@ -69,6 +69,10 @@ async function Agents() {
               <dd>{limits.discounts ?? "No discount limit in the approved policies"}</dd>
             </div>
             <div>
+              <dt>Certification</dt>
+              <dd>Refunds and discounts wait for review until the agent is certified</dd>
+            </div>
+            <div>
               <dt>Policies</dt>
               <dd>
                 <Link href="/policies">{active.length} active</Link>

@@ -25,6 +25,8 @@ export interface PackInput {
   turns: { session_id: string; role: "customer" | "agent"; agent_id: string | null; text: string; at: string }[];
   rows: PackRow[];
   policies: { policy_id: string; version: number; approved_text: string }[];
+  /** The earliest RFC 3161 timestamp of the ledger head at or after the last row, if any. */
+  anchor: { seq: number; hash: string; tsa: string; token: Uint8Array; signed_at: Date } | null;
 }
 
 export interface Pack {
@@ -47,6 +49,7 @@ const WORDS: Record<string, string> = {
   FREE_TEXT_COMMITMENT: "unapproved promise in the reply",
   INJECTION_DETECTED: "prompt injection detected",
   RISK_THRESHOLD: "session quarantined",
+  AGENT_UNCERTIFIED: "agent not certified",
   CAPABILITY_OUT_OF_SCOPE: "outside the agent's permissions",
   DISPUTE_WITHIN_POLICY: "the agent acted within policy",
   DISPUTE_UNHONORED_COMMITMENT: "an approved refund was not paid",
@@ -85,6 +88,11 @@ export function buildPack(p: PackInput): Pack {
       { heading: "Policies in force", lines: p.policies.map((x) => `${x.policy_id} v${x.version}: ${x.approved_text}`) },
       { heading: "Conversation", lines: p.turns.map((t) => `${time(t.at)}  ${t.role === "customer" ? "Customer" : "Agent"}: ${redact(t.text)}`) },
       { heading: "Ledger hash chain", lines: p.rows.map((r) => `#${r.seq} ${r.decision_id} prev ${r.prev_hash ?? "-"} hash ${r.hash}`) },
+      { heading: "Independent timestamp", lines: p.anchor ? [
+        `${p.anchor.tsa} signed ledger hash ${p.anchor.hash} (row #${p.anchor.seq}) at ${time(p.anchor.signed_at.toISOString())} UTC. Each row above is chained into that hash, so none of them can have been written or changed later.`,
+        `To check: base64-decode the token below to token.tsr and run openssl ts -verify -in token.tsr -digest ${p.anchor.hash} -CAfile <the authority's CA certificate>.`,
+        `Token (base64): ${Buffer.from(p.anchor.token).toString("base64")}`,
+      ] : ["Not yet timestamped."] },
     ],
     notes: redact(notes).slice(0, 2000),
   };

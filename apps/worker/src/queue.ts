@@ -62,6 +62,12 @@ export async function scheduleDisputePoll(everySeconds: number): Promise<void> {
   await queue.upsertJobScheduler("dispute-poll", { every: everySeconds * 1000 }, { name: "dispute.poll", opts: { removeOnComplete: 10, removeOnFail: 50 } });
 }
 
+/** The ledger postmark (Phase 8b): a public timestamp of the ledger head when it moved. */
+export async function scheduleLedgerAnchor(everySeconds: number): Promise<void> {
+  queue ??= new Queue(QUEUE, { connection: redisConnection() });
+  await queue.upsertJobScheduler("ledger-anchor", { every: everySeconds * 1000 }, { name: "ledger.anchor", opts: { removeOnComplete: 10, removeOnFail: 50 } });
+}
+
 // One attempt: a half-finished run is marked FAILED, never re-run.
 export async function enqueueGauntlet(runId: string): Promise<void> {
   await add("gauntlet.run", { run_id: runId }, { attempts: 1, removeOnComplete: 100, removeOnFail: 500 });

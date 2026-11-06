@@ -42,7 +42,7 @@ function setup(over: Partial<LedgerOptions> = {}) {
     return { row: asc[i]!, prev: near(asc[i - 1]), next: near(asc[i + 1]) };
   };
   const app = new Hono();
-  mountLedger(app, { operatorKey, merchantKey, page, chain: async () => chain(5), count: async () => all.length, entry, ...over });
+  mountLedger(app, { operatorKey, merchantKey, page, chain: async () => chain(5), count: async () => all.length, entry, anchor: async () => null, ...over });
   return { app, page };
 }
 
@@ -106,7 +106,23 @@ describe("ledger routes", () => {
   it("verifies an intact chain", async () => {
     const { app } = setup();
     const res = await app.request("/v1/ledger/verify", { headers: auth(operatorKey) });
-    expect(await res.json()).toEqual({ ok: true, count: 5 });
+    expect(await res.json()).toEqual({ ok: true, count: 5, anchor: null });
+  });
+
+  it("returns the latest timestamp and whether the chain still has its hash", async () => {
+    const rows = chain(5);
+    const signed_at = new Date("2026-11-06T21:53:46Z");
+    const at = (seq: number, hash: string) => setup({ anchor: async () => ({ seq, hash, tsa: "https://freetsa.org/tsr", signed_at }) }).app;
+    const ok = await at(rows[3]!.seq, rows[3]!.record.hash).request("/v1/ledger/verify", { headers: auth(operatorKey) });
+    expect(((await ok.json()) as { anchor: unknown }).anchor).toEqual({ seq: rows[3]!.seq, hash: rows[3]!.record.hash, tsa: "https://freetsa.org/tsr", signed_at: signed_at.toISOString(), matches: true });
+    const rewritten = await at(rows[3]!.seq, "e".repeat(64)).request("/v1/ledger/verify", { headers: auth(operatorKey) });
+    expect(((await rewritten.json()) as { anchor: { matches: boolean } }).anchor.matches).toBe(false);
+  });
+
+  it("still verifies when the timestamp lookup fails", async () => {
+    const { app } = setup({ anchor: async () => { throw new Error("db down"); } });
+    const res = await app.request("/v1/ledger/verify", { headers: auth(operatorKey) });
+    expect(await res.json()).toEqual({ ok: true, count: 5, anchor: null });
   });
 
   it("reports the seq of a tampered row", async () => {
@@ -114,13 +130,13 @@ describe("ledger routes", () => {
     tampered[2] = { ...tampered[2]!, record: { ...tampered[2]!.record, verdict: "BLOCK" } };
     const { app } = setup({ chain: async () => tampered });
     const res = await app.request("/v1/ledger/verify", { headers: auth(operatorKey) });
-    expect(await res.json()).toEqual({ ok: false, count: 5, broken_at_seq: 103, problem: "HASH_MISMATCH" });
+    expect(await res.json()).toEqual({ ok: false, count: 5, broken_at_seq: 103, problem: "HASH_MISMATCH", anchor: null });
 
     const relinked = chain(3);
     relinked[1] = { ...relinked[1]!, record: { ...relinked[1]!.record, prev_hash: "f".repeat(64) } };
     const { app: app2 } = setup({ chain: async () => relinked });
     const res2 = await app2.request("/v1/ledger/verify", { headers: auth(operatorKey) });
-    expect(await res2.json()).toEqual({ ok: false, count: 3, broken_at_seq: 2, problem: "BROKEN_LINK" });
+    expect(await res2.json()).toEqual({ ok: false, count: 3, broken_at_seq: 2, problem: "BROKEN_LINK", anchor: null });
   });
 
   it("exports all rows newest first as a JSON attachment", async () => {

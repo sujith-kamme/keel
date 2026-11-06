@@ -19,6 +19,7 @@ export const REASON_LABELS: Record<string, string> = {
   VERIFIER_UNAVAILABLE: "Verifier unavailable",
   POLICY_INVALID: "Invalid policy",
   AGENT_FROZEN: "Agent frozen",
+  AGENT_UNCERTIFIED: "Agent not certified",
   DISPUTE_NO_LEDGER_MATCH: "No ledger match for the dispute",
   DISPUTE_UNHONORED_COMMITMENT: "Refund owed and never paid",
   DISPUTE_WITHIN_POLICY: "Agent acted within policy",

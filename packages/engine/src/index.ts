@@ -13,3 +13,4 @@ export { replay } from "./replay";
 export type { DecisionPayload } from "./replay";
 export { FREE_TEXT_FALLBACK, QUARANTINE_TEMPLATE, SAFE_FALLBACK, decideReply, policyRewrite, replayReply } from "./reply";
 export type { ReplyInput, ReplyResult, TurnDecision } from "./reply";
+export { readTimestampReply, timestampRequest } from "./timestamp";

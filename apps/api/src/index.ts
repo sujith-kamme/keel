@@ -1,14 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
-import { AGENTS, type AgentId, agentModel, connectAgentTools, promptMode, runTurn } from "@keel/agent";
-import { activePolicy, appendLedger, approveVersion, countLedger, createDb, discardVersion, decisionsByDay, disputeOutcomes, dollarsProtected, insertDraft, listPolicies, liveSessions, policyVersions, readChain, readLedgerEntry, readLedgerPage, sql, violations } from "@keel/db";
+import { AGENTS, type AgentId, agentModel, isAgentId, connectAgentTools, promptMode, runTurn } from "@keel/agent";
+import { activePolicy, anchorCovering, appendLedger, approveVersion, countLedger, createDb, discardVersion, decisionsByDay, disputeOutcomes, dollarsProtected, insertAnchor, insertDraft, latestAnchor, ledgerHead, listPolicies, liveSessions, policyVersions, readChain, readLedgerEntry, readLedgerPage, sql, violations } from "@keel/db";
 import { PROMPT_VERSION, draftPolicy, extract } from "@keel/extractor";
 import { type Versions, draftScenario, loadBuiltin, nextCustomerMessage } from "@keel/gauntlet";
 import { PayPalClient, PayPalError, configFromEnv } from "@keel/paypal";
 import { acceptClaim, adjudicate, escalate, getDispute, listDisputes, provideEvidence, verifyWebhook } from "@keel/paypal/disputes";
 import { type KeelClient, KeelHttpError, runGauntlet } from "@keel/worker/gauntlet";
 import { type DisputeDeps, pollDisputes, syncDispute } from "@keel/worker/dispute";
-import { enqueueDisputePoll, enqueueDisputeSync, enqueueGauntlet, enqueueNotify, scheduleDisputePoll } from "@keel/worker/queue";
+import { anchorLedger } from "@keel/worker/anchor";
+import { enqueueDisputePoll, enqueueDisputeSync, enqueueGauntlet, enqueueNotify, scheduleDisputePoll, scheduleLedgerAnchor } from "@keel/worker/queue";
 import { sendNotify } from "@keel/worker/notify";
 import { Redis } from "ioredis";
 import { createApp } from "./app";
@@ -20,7 +21,7 @@ import { createAgentStore } from "./routes/agent-store";
 import { initConsoleAccount } from "./routes/console";
 import { createConsoleStore } from "./routes/console-store";
 import { createDisputeStore } from "./routes/dispute-store";
-import { combinedCertification, scenarioCatalog, scenariosFor, startRun } from "./routes/gauntlet";
+import { combinedCertification, currentCertification, scenarioCatalog, scenariosFor, startRun } from "./routes/gauntlet";
 import { createGauntletStore } from "./routes/gauntlet-store";
 import { KNOWN_POLICY_IDS } from "./routes/guard";
 import { createRecertify } from "./recertify";
@@ -53,7 +54,10 @@ const risk = createRisk(db, { cfg: riskCfg, enqueue: enqueueNotify, consoleUrl, 
 const notifyHeld = (e: { session_id: string; decision_id: string; reason_codes: string[] }) =>
   enqueueNotify({ event: "action.held", ...e, console_url: `${consoleUrl}/review`, at: now().toISOString() });
 const paypal = new PayPalClient(configFromEnv());
-const gateway = createGatewayDeps(db, paypal, risk, notifyHeld);
+// Called per live money action, after the Gauntlet store and versions below are set up.
+const certified = async (agentId: string) =>
+  isAgentId(agentId) && (await currentCertification({ store: gauntletStore.runs, versions: currentVersions }, agentId)).status === "CERTIFIED";
+const gateway = createGatewayDeps(db, paypal, risk, notifyHeld, certified);
 const anthropic = new Anthropic();
 const turnStore = createTurnStore(db);
 
@@ -110,6 +114,7 @@ const disputeDeps: DisputeDeps = {
   notify: enqueueNotify,
   enqueueSync: enqueueDisputeSync,
   autoSubmit: async () => (await settings.get()).dispute_auto_submit,
+  anchor: (seq) => anchorCovering(db, seq),
   consoleUrl,
   newId,
   now,
@@ -232,6 +237,7 @@ const app = createApp({
     chain: () => readChain(db),
     count: () => countLedger(db),
     entry: (seq) => readLedgerEntry(db, seq),
+    anchor: () => latestAnchor(db),
   },
   overview: {
     operatorKey: KEEL_OPERATOR_KEY,
@@ -311,8 +317,10 @@ if (process.env.RUN_WORKER === "true") {
   };
   const createMessage = (p: Anthropic.MessageCreateParamsNonStreaming) => anthropic.messages.create(p);
   await scheduleDisputePoll((await settings.get()).dispute_poll_seconds);
+  await scheduleLedgerAnchor(300);
   startWorker({
     hookUrl: async () => (await settings.get()).zapier_hook_url,
+    anchor: () => anchorLedger({ head: () => ledgerHead(db), latest: () => latestAnchor(db), save: (a) => insertAnchor(db, a), fetch }),
     dispute: { sync: (id) => syncDispute(disputeDeps, id), poll: () => pollDisputes(disputeDeps) },
     // The agent runs on the run's own snapshot (what is certified); the customer model and
     // concurrency are read once, at run start, so every scenario in a run uses one config.

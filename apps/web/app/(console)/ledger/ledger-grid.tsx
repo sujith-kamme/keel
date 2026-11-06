@@ -5,7 +5,7 @@ import { AgGridReact } from "ag-grid-react";
 import Link from "next/link";
 import { AskGrid } from "@/components/ask-grid";
 import { type ReactNode, useCallback, useMemo, useRef, useState, useTransition } from "react";
-import { amountValue, chainMessage, inRange, shortHash, utcStamp, type ChainResult, type LedgerPage, type LedgerRow, type Range } from "@/lib/ledger-view";
+import { amountValue, anchorMessage, chainMessage, inRange, shortHash, utcStamp, type ChainResult, type LedgerPage, type LedgerRow, type Range } from "@/lib/ledger-view";
 import { decision } from "@/lib/overview-view";
 import { loadOlder, verify } from "./actions";
 import { useAgTheme } from "@/lib/ag-theme";
@@ -164,6 +164,7 @@ export function LedgerGrid({ initial }: { initial: LedgerPage }) {
     <>
       <LedgerHeader>
         {chain && <span className={`st ${chain.ok ? "ok" : "bad"}`}>{chain.ok ? `Chain verified · ${n(chain.count)} entries` : chainMessage(chain)}</span>}
+        {chain && <span className={`st ${!chain.anchor ? "warn" : chain.anchor.matches ? "ok" : "bad"}`}>{anchorMessage(chain.anchor)}</span>}
         {message && (
           <span className="sm" style={{ color: "var(--bad)" }}>
             {message}

@@ -15,6 +15,8 @@ export interface LedgerOptions {
   count: () => Promise<number>;
   /** One entry with the entries either side of it in the chain; null when the seq doesn't exist. */
   entry: (seq: number) => Promise<{ row: LedgerPageRow; prev: { seq: number; hash: string } | null; next: { seq: number; hash: string } | null } | null>;
+  /** The newest RFC 3161 timestamp of the ledger head, or null. */
+  anchor: () => Promise<{ seq: number; hash: string; tsa: string; signed_at: Date } | null>;
 }
 
 const PageQuery = z.strictObject({
@@ -71,10 +73,13 @@ export function mountLedger(app: Hono, opts: LedgerOptions): void {
   app.get("/v1/ledger/verify", async (c) => {
     const no = denied(c);
     if (no) return no;
-    const chain = await opts.chain();
+    // The timestamp is extra proof: failing to read it never fails the chain check.
+    const [chain, a] = await Promise.all([opts.chain(), opts.anchor().catch(() => null)]);
     const check = verifyChain(chain.map((r) => r.record));
-    if (check.ok) return c.json({ ok: true, count: chain.length });
-    return c.json({ ok: false, count: chain.length, broken_at_seq: chain[check.index]!.seq, problem: check.reason });
+    // A rewritten chain no longer holds the hash the authority signed.
+    const anchor = a && { seq: a.seq, hash: a.hash, tsa: a.tsa, signed_at: a.signed_at.toISOString(), matches: chain.find((r) => r.seq === a.seq)?.record.hash === a.hash };
+    if (check.ok) return c.json({ ok: true, count: chain.length, anchor });
+    return c.json({ ok: false, count: chain.length, broken_at_seq: chain[check.index]!.seq, problem: check.reason, anchor });
   });
 
   app.get("/v1/ledger/export.json", async (c) => {

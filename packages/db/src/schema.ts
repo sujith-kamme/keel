@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { bigserial, boolean, check, customType, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { bigint, bigserial, boolean, check, customType, index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
 const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
   dataType: () => "bytea",
@@ -178,6 +178,22 @@ export const gauntletScenarios = pgTable("gauntlet_scenarios", {
   createdBy: text("created_by").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// RFC 3161 timestamps of the ledger head (Phase 8b): `token` is the authority's signed
+// TimeStampResp for `hash`, the chain hash at `seq`. Checkable with `openssl ts -verify`.
+export const ledgerAnchors = pgTable(
+  "ledger_anchors",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    seq: bigint("seq", { mode: "number" }).notNull(),
+    hash: text("hash").notNull(),
+    tsa: text("tsa").notNull(),
+    token: bytea("token").notNull(),
+    signedAt: timestamp("signed_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("ledger_anchors_seq_idx").on(t.seq)],
+);
 
 // PayPal disputes (Phase 6). Keel's decision about a dispute is a ledger row;
 // this row tracks PayPal's side (status, stage, outcome) and the evidence sent.

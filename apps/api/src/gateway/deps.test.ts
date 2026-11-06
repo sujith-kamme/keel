@@ -8,7 +8,7 @@ import { createGatewayDeps } from "./deps";
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 describe.skipIf(!process.env.DATABASE_URL)("withOrderLock (Postgres)", () => {
-  const deps = createGatewayDeps(createDb(), {} as PayPalClient, {} as RiskService, async () => {});
+  const deps = createGatewayDeps(createDb(), {} as PayPalClient, {} as RiskService, async () => {}, async () => true);
 
   async function overlap(a: [string, string], b: [string, string]) {
     const events: string[] = [];
@@ -50,7 +50,7 @@ describe.skipIf(!process.env.DATABASE_URL)("handoff (Postgres)", () => {
     const rollback = new Error("rollback");
     await expect(
       db.transaction(async (tx) => {
-        const deps = createGatewayDeps(tx as unknown as Db, {} as PayPalClient, {} as RiskService, async () => {});
+        const deps = createGatewayDeps(tx as unknown as Db, {} as PayPalClient, {} as RiskService, async () => {}, async () => true);
         const id = `ses_${randomUUID()}`;
         const later = new Date(Date.now() + 600_000);
         await tx.insert(sessions).values({ id, agentId: "agt_policy", claimedEmail: "a@b.test", orderIds: [], otpHash: "x", otpExpiresAt: later, expiresAt: later });

@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./anchor": "./src/jobs/anchor.ts",
     "./dispute": "./src/jobs/dispute.ts",
     "./gauntlet": "./src/jobs/gauntlet.ts",
     "./notify": "./src/jobs/notify.ts",
@@ -18,6 +19,7 @@
     "@keel/agent": "*",
     "@keel/core": "*",
     "@keel/db": "*",
+    "@keel/engine": "*",
     "@keel/paypal": "*",
     "@keel/gauntlet": "*",
     "bullmq": "5.81.5",

@@ -92,6 +92,13 @@
       "when": 1793301243848,
       "tag": "0012_agent_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794002117775,
+      "tag": "0013_ledger_anchors",
+      "breakpoints": true
     }
   ]
 }
