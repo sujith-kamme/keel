@@ -314,6 +314,13 @@ describe("POST /v1/guard", () => {
       expect(ledger[0]).toMatchObject({ mode: "CONTEXT", verdict: "HOLD", payload: { quarantined: true } });
     });
 
+    it("on a frozen SHADOW session records the HOLD row but returns the draft", async () => {
+      const { app, ledger } = setup({ control: ctl({ mode: "CONTEXT", guard_mode: "SHADOW", agent_frozen: true }) });
+      const body = await (await post(app, valid)).json();
+      expect(body).toMatchObject({ verdict: "HOLD", reason_codes: ["AGENT_FROZEN"], final_reply: "Hello there", shadow: true });
+      expect(ledger[0]).toMatchObject({ mode: "CONTEXT", verdict: "HOLD", reason_codes: ["AGENT_FROZEN"] });
+    });
+
     it("still fails closed when control fails", async () => {
       const { app } = setup({ control: async () => { throw new Error("db"); } });
       expect(await (await post(app, valid)).json()).toMatchObject({ verdict: "BLOCK", final_reply: SAFE_FALLBACK, shadow: false });
@@ -321,6 +328,21 @@ describe("POST /v1/guard", () => {
   });
 
   describe("risk control", () => {
+    it("holds a frozen agent's reply without calling the extractor", async () => {
+      const { app, ledger, calls } = setup({ control: async () => ({ state: "ACTIVE", agent_frozen: true, score: 0, mode: "LIVE", guard_mode: "ENFORCE" }) });
+      const res = await post(app, valid);
+      expect(await res.json()).toMatchObject({
+        verdict: "HOLD",
+        reason_codes: ["AGENT_FROZEN"],
+        final_reply: QUARANTINE_TEMPLATE,
+        session_state: "ACTIVE",
+        shadow: false,
+      });
+      expect(calls.extract).toHaveLength(0);
+      expect(ledger).toHaveLength(1);
+      expect(ledger[0]).toMatchObject({ mode: "LIVE", verdict: "HOLD", reason_codes: ["AGENT_FROZEN"], payload: { tool: "guard", agent_id: "agt_refund", frozen: true } });
+    });
+
     it("holds a quarantined session without calling the extractor", async () => {
       const { app, ledger, calls } = setup({ control: async () => ({ state: "QUARANTINED", agent_frozen: false, score: 9, mode: "LIVE", guard_mode: "ENFORCE" }) });
       const res = await post(app, valid);
