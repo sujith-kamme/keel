@@ -8,6 +8,7 @@ export interface WorkerHandlers {
   hookUrl: () => Promise<string | null>;
   gauntlet?: (runId: string) => Promise<void>;
   dispute?: { sync: (disputeId: string) => Promise<void>; poll: () => Promise<number> };
+  anchor?: () => Promise<number | null>;
 }
 
 /** The job processor; exported so tests can run jobs without Redis. */
@@ -23,6 +24,10 @@ export function processor(handlers: WorkerHandlers) {
       if (!handlers.dispute) throw new Error("No dispute handler: run the worker inside the API (RUN_WORKER=true)");
       if (job.name === "dispute.poll") return handlers.dispute.poll();
       return handlers.dispute.sync((job.data as { dispute_id: string }).dispute_id);
+    }
+    if (job.name === "ledger.anchor") {
+      if (!handlers.anchor) throw new Error("No anchor handler: run the worker inside the API (RUN_WORKER=true)");
+      return handlers.anchor();
     }
     throw new Error(`Unknown job: ${job.name}`);
   };

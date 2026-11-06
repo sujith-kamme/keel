@@ -79,6 +79,7 @@ function setup(opts: { d?: Dispute; ctx?: Partial<DisputeContext>; autoSubmit?: 
     notify: vi.fn(async () => void notices.push(1)),
     enqueueSync: vi.fn(async () => undefined),
     autoSubmit: async () => opts.autoSubmit ?? true,
+    anchor: vi.fn(async () => null),
     consoleUrl: "https://console.test",
     newId: (p) => `${p}_1`,
     now: () => new Date("2026-10-28T09:00:00Z"),
@@ -93,6 +94,8 @@ describe("syncDispute", () => {
     const r = t.rows.get("PP-D-1")!;
     expect(r.classification).toBe("DEFEND");
     expect(r.action).toBe("EVIDENCE_SUBMITTED");
+    // The pack cites the timestamp covering its last ledger row.
+    expect(t.deps.anchor).toHaveBeenCalledWith(1);
     expect(t.paypal.provideEvidence).toHaveBeenCalledTimes(1);
     const [, evidence, requestId] = t.paypal.provideEvidence.mock.calls[0] as unknown as [string, { evidence_type: string; file: { bytes: Uint8Array } }, string];
     expect(evidence.evidence_type).toBe("PROOF_OF_FULFILLMENT");

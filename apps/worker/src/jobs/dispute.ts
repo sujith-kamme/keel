@@ -110,6 +110,8 @@ export interface DisputeDeps {
   enqueueSync: (id: string) => Promise<void>;
   /** Read when deciding, so a changed setting applies to the next sync. */
   autoSubmit: () => Promise<boolean>;
+  /** The earliest ledger timestamp at or after this seq; null when none covers it yet. */
+  anchor: (seq: number) => Promise<PackInput["anchor"]>;
   consoleUrl: string;
   newId: (prefix: string) => string;
   now: () => Date;
@@ -230,6 +232,7 @@ async function classify(deps: DisputeDeps, d: Dispute, row: DisputeRow): Promise
       turns: ctx.turns,
       rows: rows.map(packRow),
       policies: ctx.policies,
+      anchor: rows.length ? await deps.anchor(Math.max(...rows.map((r) => r.seq))) : null,
     });
     const pdf = await renderPdf(pack);
     evidence = {

@@ -1314,6 +1314,15 @@ paths:
                   count: { type: integer }
                   broken_at_seq: { type: integer }
                   problem: { type: string }
+                  anchor:
+                    description: Newest RFC 3161 timestamp of the ledger head; matches is false when the chain no longer holds the signed hash
+                    type: [object, "null"]
+                    properties:
+                      seq: { type: integer }
+                      hash: { type: string }
+                      tsa: { type: string }
+                      signed_at: { type: string, format: date-time }
+                      matches: { type: boolean }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
   /v1/ledger/export.json:

@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { amountValue, chainMessage, entrySentence, entryTitle, hashCheck, inRange, isBeforeSeq, shortHash, utcStamp } from "./ledger-view";
+import { amountValue, anchorMessage, chainMessage, entrySentence, entryTitle, hashCheck, inRange, isBeforeSeq, shortHash, utcStamp } from "./ledger-view";
 
 describe("ledger view", () => {
   it("words the verify result", () => {
-    expect(chainMessage({ ok: true, count: 1234 })).toBe("Chain intact: 1,234 entries");
-    expect(chainMessage({ ok: false, count: 9, broken_at_seq: 7, problem: "HASH_MISMATCH" })).toBe("Broken at seq 7: HASH_MISMATCH");
+    expect(chainMessage({ ok: true, count: 1234, anchor: null })).toBe("Chain intact: 1,234 entries");
+    expect(chainMessage({ ok: false, count: 9, broken_at_seq: 7, problem: "HASH_MISMATCH", anchor: null })).toBe("Broken at seq 7: HASH_MISMATCH");
+  });
+
+  it("words the public timestamp", () => {
+    const a = { seq: 812, hash: "a".repeat(64), tsa: "https://freetsa.org/tsr", signed_at: "2026-11-06T21:53:46.000Z", matches: true };
+    expect(anchorMessage(a)).toBe(`Timestamped up to #812 at ${utcStamp(a.signed_at)}`);
+    expect(anchorMessage({ ...a, matches: false })).toBe("Timestamp mismatch at #812");
+    expect(anchorMessage(null)).toBe("Not timestamped yet");
   });
 
   it("accepts only positive integer seqs", () => {
