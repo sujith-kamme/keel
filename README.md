@@ -103,7 +103,6 @@ Suggested: Overview, Gauntlet scorecard (guard off vs on), quarantined session i
 | Operator console | https://keel-web-fm57.onrender.com | `admin@tidewell.com`, password in the Devpost submission |
 | Demo store (Tidewell) | https://keel-store.onrender.com | `maya@gmail.com` or `sam@gmail.com`, password in the Devpost submission |
 | API docs (Swagger UI) | https://keel-api-y0wq.onrender.com/docs | |
-| OpenAPI 3.1 spec | https://keel-api-y0wq.onrender.com/openapi.yaml | |
 | Postman | [`postman/`](postman/) | keys in the Devpost submission |
 
 Remember to wake the API first: open `/health` and wait for `"status":"ok"` before signing in to the console or the store.
