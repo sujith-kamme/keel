@@ -89,12 +89,6 @@ The questions a skeptical reviewer asks, and the answer in the code:
 - **"Does the evidence always say the merchant wins?"** No. Keel concedes a dispute when its own ledger shows the customer is owed, for example a refund that was promised and never paid. Evidence you can trust has to be willing to say you lost.
 - **"Can my agent use this?"** Yes, with any model or framework. See [Plug in any MCP agent](#plug-in-any-mcp-agent).
 
-## Screenshots
-
-<!-- TODO: add screenshots, e.g.
-<p align="center"><img src="assets/readme/screens/overview.png" alt="Console overview" width="100%"></p>
-Suggested: Overview, Gauntlet scorecard (guard off vs on), quarantined session in Conversations, review queue, Disputes with the evidence PDF, store chat. -->
-
 ## Try it
 
 | | URL | Sign in |
@@ -129,41 +123,6 @@ Keel doesn't care which model or framework runs the agent. A merchant backend co
 
 The request and response shapes are in [Swagger UI](https://keel-api-y0wq.onrender.com/docs) and the [Postman collection](postman/). The demo store's backend (`apps/store`, with the agents in `packages/agent`) is a working example: a customer-facing **policy agent** with no money tools hands off to a **refund agent**, so least privilege and "delegation is not a bypass" are both enforced, and each agent is certified on its own.
 
-## Architecture
-
-```mermaid
-flowchart LR
-  customer([Customer]) --> agent[Merchant AI agent<br/>demo store backend]
-  agent -- "sessions, /v1/guard" --> api
-  agent -- "MCP tools<br/>(capability token)" --> api
-  subgraph keel[Keel]
-    api[Keel API<br/>Hono]
-    engine[Engine<br/>rules, policies, reason codes]
-    verifiers[Verifiers<br/>orders, catalog, budgets]
-    extractor[Extractor<br/>Claude, fails closed]
-    risk[Risk scoring<br/>quarantine]
-    worker[Worker<br/>BullMQ]
-    db[(Postgres<br/>hash-chained ledger)]
-    redis[(Redis)]
-    console[Operator console<br/>Next.js + AG Grid]
-  end
-  api --> engine
-  engine --> verifiers
-  api --> extractor
-  api --> risk
-  api --> db
-  api --> redis
-  redis --> worker
-  worker -- "Gauntlet runs,<br/>dispute sync, notify" --> db
-  verifiers --> paypal[(PayPal Sandbox<br/>orders, refunds, disputes)]
-  api -- refunds --> paypal
-  worker -- evidence, adjudication --> paypal
-  worker -- "ledger head hash" --> tsa[RFC 3161<br/>timestamp authority]
-  paypal -- signed webhooks --> api
-  console -- operator key --> api
-  worker -- quarantine and dispute events --> zapier[Zapier]
-```
-
 ## How it works
 
 - **Guard and reason codes.** `POST /v1/guard` takes the agent's draft reply. A Claude extractor lists the commitments in it (refunds, discounts, policy claims); deterministic code checks each one against this turn's tool decisions and the approved policy text. The verdict is `ALLOW`, `REWRITE` (approved wording substituted), `BLOCK` (safe fallback) or `HOLD`, with reason codes such as `FREE_TEXT_COMMITMENT`, `POLICY_UNAPPROVED_CLAIM`, `AMOUNT_EXCEEDS_CAPTURED`, `OUTSIDE_WINDOW`, `PRICE_BELOW_MIN`, `AGENT_UNCERTIFIED`. If the extractor or a fact lookup fails, the reply is blocked.
@@ -175,17 +134,22 @@ flowchart LR
 - **Policies.** Operators paste a policy document; Claude drafts a new version's rules and wording, which does nothing until an operator edits and approves it.
 - **Ask the ledger.** In the ledger, review and Gauntlet grids, an operator types a question ("held refunds over $50 this week grouped by reason code"); Claude fills AG Grid's state schema and the grid applies it. Row data never leaves the browser.
 
-## Built with
+## Sponsor tools used
+
+| Sponsor | How Keel uses it |
+|---|---|
+| **AG Grid** Enterprise + AI Toolkit | Every console list (ledger, review queue, conversations, Gauntlet results) is an AG Grid. **Ask the ledger**: an operator types a question ("held refunds over $50 this week grouped by reason code"), Claude fills AG Grid's state schema, and the grid applies it; row data never leaves the browser. AG Charts draw the Overview. |
+| **Render** | Hosts all of Keel: the API (running the worker with `RUN_WORKER=true`), the operator console, the Tidewell demo store, and Render Key Value as the BullMQ queue. |
+| **Channel3** | Real product data for the demo store catalog (`scripts/seed-store.ts`). The same catalog backs Keel's price checks, so a "$1 discount" attack is refused against real prices. |
+| **Postman** | Collection and environment in [`postman/`](postman/), generated from the OpenAPI spec (`npm run postman`), ready to run against the hosted API. |
+| **Zapier** | Quarantine, held-action and dispute events go to a Zapier webhook that alerts the reviewer in Discord (`apps/worker/src/jobs/notify.ts`). |
+
+## Also built with
 
 | Tool | Where |
 |---|---|
 | PayPal Sandbox | Orders and JS SDK checkout, Payments (refunds), Disputes (evidence, accept claim, escalate, adjudicate), signed webhooks |
 | Anthropic Claude | Commitment extractor, the Gauntlet's simulated customer, the demo store's agents, policy drafting, scenario drafting, Ask the ledger |
-| AG Grid Enterprise + AI Toolkit | Console grids (ledger, review queue, Gauntlet results) and "Ask the ledger"; AG Charts on the Overview |
-| Render | Hosts the API (with the worker), the console, the demo store and Redis |
-| Channel3 | Product data for the demo store catalog (`scripts/seed-store.ts`); the catalog backs the price checks |
-| Postman | Collection and environment in `postman/`, generated from the OpenAPI spec |
-| Zapier | Quarantine, held-action and dispute events go to a Zapier webhook that notifies the reviewer (`apps/worker/src/jobs/notify.ts`) |
 | FreeTSA | Public RFC 3161 timestamps for the ledger head |
 
 Stack: TypeScript monorepo, Hono, Next.js, BullMQ, Postgres (Neon) with Drizzle, Redis, Vitest.
