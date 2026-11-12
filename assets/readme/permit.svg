@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="240" viewBox="0 0 1280 240" role="img" aria-label="Certified, pinned to model, prompt and policy. Then Stale when the agent model changes. Then Held: refunds wait in the review queue. Then Re-certified: the Gauntlet re-runs on its own.">
+  <title>The certificate is a permit.</title>
+  <rect width="1280" height="240" rx="16" fill="#FAFAFA"/>
+  <g font-family="'IBM Plex Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <g stroke="#A1A1AA" stroke-width="3" fill="#A1A1AA">
+      <line x1="308" y1="120" x2="340" y2="120"/><path d="M340 113 L352 120 L340 127 Z" stroke="none"/>
+      <line x1="620" y1="120" x2="652" y2="120"/><path d="M652 113 L664 120 L652 127 Z" stroke="none"/>
+      <line x1="932" y1="120" x2="964" y2="120"/><path d="M964 113 L976 120 L964 127 Z" stroke="none"/>
+    </g>
+    <g transform="translate(32 40)">
+      <rect width="272" height="160" rx="8" fill="#FFFFFF" stroke="#E4E4E7"/>
+      <rect x="24" y="24" width="112" height="34" rx="5" fill="#F0FDF4" stroke="#BBF7D0"/>
+      <text x="80" y="47" text-anchor="middle" fill="#15803D" font-size="17" font-weight="500">Certified</text>
+      <text fill="#52525B" font-size="18"><tspan x="24" y="100">Pinned to model,</tspan><tspan x="24" y="126">prompt and policy</tspan></text>
+    </g>
+    <g transform="translate(344 40)">
+      <rect width="272" height="160" rx="8" fill="#FFFFFF" stroke="#E4E4E7"/>
+      <rect x="24" y="24" width="76" height="34" rx="5" fill="#FFFBEB" stroke="#FDE68A"/>
+      <text x="62" y="47" text-anchor="middle" fill="#B45309" font-size="17" font-weight="500">Stale</text>
+      <text fill="#52525B" font-size="18"><tspan x="24" y="100">Reason:</tspan><tspan x="24" y="126" fill="#18181B" font-family="'IBM Plex Mono', ui-monospace, Menlo, monospace" font-size="16">agent_model changed</tspan></text>
+    </g>
+    <g transform="translate(656 40)">
+      <rect width="272" height="160" rx="8" fill="#FFFFFF" stroke="#E4E4E7"/>
+      <rect x="24" y="24" width="72" height="34" rx="5" fill="#FFFBEB" stroke="#FDE68A"/>
+      <text x="60" y="47" text-anchor="middle" fill="#B45309" font-size="17" font-weight="500">Held</text>
+      <text fill="#52525B" font-size="18"><tspan x="24" y="100">Refunds wait in</tspan><tspan x="24" y="126">the review queue</tspan></text>
+    </g>
+    <g transform="translate(968 40)">
+      <rect width="280" height="160" rx="8" fill="#FFFFFF" stroke="#E4E4E7"/>
+      <rect x="24" y="24" width="136" height="34" rx="5" fill="#F0FDF4" stroke="#BBF7D0"/>
+      <text x="92" y="47" text-anchor="middle" fill="#15803D" font-size="17" font-weight="500">Re-certified</text>
+      <text fill="#52525B" font-size="18"><tspan x="24" y="100">The Gauntlet re-runs</tspan><tspan x="24" y="126">on its own</tspan></text>
+    </g>
+  </g>
+</svg>

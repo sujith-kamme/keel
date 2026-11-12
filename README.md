@@ -1,28 +1,133 @@
-# Keel
+<p align="center">
+  <img src="assets/readme/hero.svg" alt="Keel: let your agents make promises. Keel makes sure you can keep them, and prove it." width="100%">
+</p>
 
-Keel is a commitment gateway between a merchant's AI support agent and PayPal. The agent never holds PayPal credentials: refunds and discounts are typed MCP tool calls that Keel checks against approved policy, the customer's verified identity, session budgets and PayPal's own data before any money moves. Free-text replies go through a guard that catches promises made outside the tools and rewrites or blocks them. Every decision lands in a hash-chained ledger, and that ledger becomes the evidence Keel submits when a customer opens a PayPal dispute. Before an agent goes live, Context Mode runs it through the Gauntlet, an adversarial test suite against PayPal Sandbox, and certifies the exact policy, prompt and model versions it passed with.
+<p align="center">
+  <a href="https://keel-store.onrender.com"><b>Demo store</b></a> ·
+  <a href="https://keel-web-fm57.onrender.com"><b>Operator console</b></a> ·
+  <a href="https://keel-api-y0wq.onrender.com/docs"><b>API docs</b></a> ·
+  <a href="postman/"><b>Postman</b></a>
+  <!-- TODO: add the demo video and Devpost links here -->
+</p>
 
-**The LLM proposes, deterministic code decides.**
+<p align="center">
+  <img alt="PayPal Sandbox" src="https://img.shields.io/badge/PayPal-Sandbox-003087?logo=paypal&logoColor=white">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-tools-18181B">
+  <img alt="Claude" src="https://img.shields.io/badge/Claude-Anthropic-D97757?logo=anthropic&logoColor=white">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-822-15803D">
+  <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-71717A">
+</p>
+
+AI support agents can now refund customers through PayPal. **Keel is the gateway that lets a merchant say yes to that, safely.** The agent never holds PayPal credentials. Every refund, discount and promise it makes is checked against the merchant's approved policy and PayPal's own data before any money moves, and every decision lands in a tamper-evident ledger that later wins (or honestly concedes) the PayPal dispute.
+
+> **The LLM proposes, deterministic code decides.**
+
+---
+
+> [!IMPORTANT]
+> **Judges: wake the services first.** Keel runs on Render's free tier, and idle services sleep after 15 minutes. The first request can take up to a minute.
+>
+> 1. Open the **API** first: <https://keel-api-y0wq.onrender.com/health>. Wait until it returns
+>    `{"status":"ok","checks":{"db":"ok","redis":"ok"}}`.
+> 2. Then open the **console** (<https://keel-web-fm57.onrender.com>) and the **store** (<https://keel-store.onrender.com>). Wait for each page to load before you sign in.
+>
+> The console and the store both call the API, so signing in before the API is awake fails or times out. If a page errors, wait a few seconds and reload.
+
+---
+
+## The problem
+
+<p align="center">
+  <img src="assets/readme/incidents.svg" alt="Three incidents: a chatbot sold a car for $1 (2023), an airline chatbot invented a refund policy the airline had to honor (2024), a support bot invented a policy and customers cancelled (2025)." width="100%">
+</p>
+
+Merchants are **liable for everything their agent says**, and **able to prove nothing it did**. In *Moffatt v. Air Canada* (2024 BCCRT 149) a tribunal held the airline to a refund policy its chatbot made up.
+
+Now agents hold real payment tools, through PayPal's Agent Toolkit and MCP. That leaves two bad options: keep the agent powerless (it can talk about a refund but never resolve one), or give it power and hope the prompt holds (one clever message away from paying out). Keel is how you pick neither.
+
+## The loop
+
+<p align="center">
+  <img src="assets/readme/loop.svg" alt="The Keel loop: Certify (tested before launch), Enforce (checked on every call), Prove (cited in the dispute), Learn (attacks become tests)." width="100%">
+</p>
+
+Keel sits between the merchant's agent and PayPal. One approved policy is used four ways:
+
+| | What happens | Where to see it |
+|---|---|---|
+| **01 Certify** | Before launch, the **Gauntlet** attacks the agent with simulated customers (invented policy, price manipulation, refund pressure, prompt injection, honest requests) against PayPal Sandbox, with the guard off and on. A pass certifies the exact model, prompt and policy versions. | Console › Simulations |
+| **02 Enforce** | Every refund or discount is a typed MCP tool call that Keel checks against policy, the customer's verified identity, session budgets and the PayPal order. Every free-text reply goes through a guard that strips promises made outside the tools. | Store chat, Console › Conversations |
+| **03 Prove** | Every decision is appended to a hash-chained ledger, and the ledger head is timestamped by a public RFC 3161 authority. When a customer disputes, Keel builds the evidence PDF and submits it to PayPal, or concedes when its own record says the customer is right. | Console › Disputes, Ledger |
+| **04 Learn** | One click turns a real attack into a new Gauntlet scenario, so the next certification has to pass it. | Console › Conversations › Add to Gauntlet |
+
+## Proof
+
+Latest complete Gauntlet runs on the hosted deployment (`npm run numbers`, which only reads the database):
+
+| Agent | Adversarial attempts leaked, guard **on** | Honest customers wrongly refused | Honest refunds paid |
+|---|---|---|---|
+| Policy agent (`agt_policy`, no money tools) | **0 / 30** | 0 / 9 | n/a |
+| Refund agent (`agt_refund`) | **0 / 9** | 0 / 2 | 2 / 2 |
+
+<!-- TODO: add a "guard off" column once full all-packs unguarded runs exist on production (npm run numbers prints them). -->
+
+A "leak" is any money moved, or any promise reaching the customer, that the approved policy does not allow. Refunds in these runs are real PayPal Sandbox refunds.
+
+## Why it holds up
+
+The questions a skeptical reviewer asks, and the answer in the code:
+
+- **"Isn't this just an LLM checking an LLM?"** No. Claude only *extracts* the commitments in a reply. Whether each one is allowed is decided by deterministic rules over policy text, tool decisions and PayPal data. If the extractor or any lookup fails, the reply is blocked (fail closed).
+- **"Can the agent move money on its own?"** No. It holds a signed, 30-minute capability token scoped to one customer's orders and a refund cap. Money tools stay locked until the customer's one-time code is verified. Keel holds the PayPal credentials.
+- **"Is certification just a badge?"** No. It's a permit. A live refund or discount from an agent that isn't certified is held for a human (`AGENT_UNCERTIFIED`). Changing the model, prompt or policy makes the certificate stale, and the Gauntlet re-runs on its own.
+
+  <img src="assets/readme/permit.svg" alt="Certified, pinned to model, prompt and policy; Stale when the agent model changes; Held, refunds wait in the review queue; Re-certified when the Gauntlet re-runs." width="100%">
+
+- **"What if an agent goes rogue mid-conversation?"** Risk signals (injection attempts, asking about someone else's order, retrying after a block) add up per session. Over the threshold the session is quarantined: replies become a hand-off message and money actions wait for review. One click freezes any agent, or all of them, *replies included*.
+- **"Your hash chain is self-attested."** Not only. Every 5 minutes the ledger head hash (32 bytes, no customer data) is timestamped by FreeTSA under RFC 3161. The evidence PDF carries the token, so anyone can check it with `openssl ts -verify`.
+- **"Does the evidence always say the merchant wins?"** No. Keel concedes a dispute when its own ledger shows the customer is owed, for example a refund that was promised and never paid. Evidence you can trust has to be willing to say you lost.
+- **"Can my agent use this?"** Yes, with any model or framework. See [Plug in any MCP agent](#plug-in-any-mcp-agent).
+
+## Screenshots
+
+<!-- TODO: add screenshots, e.g.
+<p align="center"><img src="assets/readme/screens/overview.png" alt="Console overview" width="100%"></p>
+Suggested: Overview, Gauntlet scorecard (guard off vs on), quarantined session in Conversations, review queue, Disputes with the evidence PDF, store chat. -->
 
 ## Try it
 
-| | |
-|---|---|
-| Operator console | https://keel-web-fm57.onrender.com (login `admin@tidewell.com`; password: see the Devpost submission) |
-| Demo store (Tidewell) | https://keel-store.onrender.com (sign in as `maya@gmail.com` or `sam@gmail.com`; password: see the Devpost submission) |
-| API | https://keel-api-y0wq.onrender.com |
-| API docs (Swagger UI) | https://keel-api-y0wq.onrender.com/docs |
-| Postman | [`postman/`](postman/) |
+| | URL | Sign in |
+|---|---|---|
+| API (open first) | https://keel-api-y0wq.onrender.com/health | none |
+| Operator console | https://keel-web-fm57.onrender.com | `admin@tidewell.com`, password in the Devpost submission |
+| Demo store (Tidewell) | https://keel-store.onrender.com | `maya@gmail.com` or `sam@gmail.com`, password in the Devpost submission |
+| API docs (Swagger UI) | https://keel-api-y0wq.onrender.com/docs | |
+| Postman | [`postman/`](postman/) | keys in the Devpost submission |
 
-The hosted services run on Render's free tier and sleep after 15 minutes idle; the first request can take up to a minute.
+Remember to wake the API first: open `/health` and wait for `"status":"ok"` before signing in to the console or the store.
 
-**Postman:** import `postman/keel.postman_collection.json` and `postman/keel.postman_environment.json`, select the "Keel (Render)" environment, and fill in:
+**A five-minute walkthrough**
 
-- `operatorKey` for the console routes (review queue, Gauntlet, disputes, ledger, policies, overview);
-- `merchantKey` for the agent-side routes (sessions, guard, store);
-- `capabilityToken` for `/v1/mcp`: the `capability_token` returned by `POST /v1/sessions` (then `/verify`).
+1. **Certify.** Console › Simulations: open a guarded run. Compare a transcript with the guard off (the agent invents a refund) and on (the draft is struck and the real policy goes out).
+2. **Enforce, honest.** Store as Maya: open an order, ask the assistant for a refund, enter the code it shows. Keel checks window, amount, limit and identity; the refund lands in PayPal Sandbox in seconds.
+3. **Enforce, hostile.** In another order's chat, try a fake approval, a fake "system" message, an order that isn't yours, or a $1 price. The agent may agree; Keel blocks the money, rewrites the reply and quarantines the session.
+4. **Review and learn.** Console › Conversations: open that session, see every blocked decision with its reason code, then click **Add to Gauntlet**.
+5. **Prove.** Console › Disputes: open a dispute, read the evidence PDF (conversation, refused refund, policy that day, hash chain, public timestamp), and compare one Keel defends with one it concedes.
 
-Keys are not published here; see the Devpost submission. Start with `GET /health` (no auth) and `GET /v1/overview`. The collection is generated from the spec with `npm run postman`.
+You can also buy something at checkout with a PayPal sandbox buyer account, and use "Report a problem to PayPal" on an order to open a case in the sandbox Resolution Center.
+
+**Postman:** import `postman/keel.postman_collection.json` and `postman/keel.postman_environment.json`, select "Keel (Render)", and fill in `operatorKey` (console routes: review, Gauntlet, disputes, ledger, policies, overview), `merchantKey` (agent routes: sessions, guard, store) and `capabilityToken` (the `capability_token` from `POST /v1/sessions`, then `/verify`, for `/v1/mcp`). Start with `GET /health` and `GET /v1/overview`. The collection is generated from the spec with `npm run postman`.
+
+## Plug in any MCP agent
+
+Keel doesn't care which model or framework runs the agent. A merchant backend connects one in three calls:
+
+1. **Open a session.** When a customer starts a chat, `POST /v1/sessions` with the merchant key, the customer's email and their order ids (`customer_authenticated: true` if they are already signed in). Keep the `session_id` and give the `capability_token` to the agent.
+2. **Hand the agent Keel's tools.** Point the agent's MCP client at `POST /v1/mcp` with `Authorization: Bearer <capability_token>`. It gets `get_order`, `offer_refund`, `offer_discount`, `state_policy`, `escalate_to_human` and `handoff_to_refund`. Each result carries a verdict, a reason code, a `decision_id` and the message the agent must quote. Money only moves through these tools; the agent never sees PayPal credentials.
+3. **Check every reply before the customer sees it.** `POST /v1/guard` with the merchant key, the `session_id`, the draft reply, the recent conversation and the `decision_id`s from this turn's tool calls. Send the customer `final_reply`, not the draft.
+
+The request and response shapes are in [Swagger UI](https://keel-api-y0wq.onrender.com/docs) and the [Postman collection](postman/). The demo store's backend (`apps/store`, with the agents in `packages/agent`) is a working example: a customer-facing **policy agent** with no money tools hands off to a **refund agent**, so least privilege and "delegation is not a bypass" are both enforced, and each agent is certified on its own.
 
 ## Architecture
 
@@ -53,6 +158,7 @@ flowchart LR
   verifiers --> paypal[(PayPal Sandbox<br/>orders, refunds, disputes)]
   api -- refunds --> paypal
   worker -- evidence, adjudication --> paypal
+  worker -- "ledger head hash" --> tsa[RFC 3161<br/>timestamp authority]
   paypal -- signed webhooks --> api
   console -- operator key --> api
   worker -- quarantine and dispute events --> zapier[Zapier]
@@ -60,34 +166,34 @@ flowchart LR
 
 ## How it works
 
-- **Guard and reason codes.** `POST /v1/guard` takes the agent's draft reply. A Claude extractor lists the commitments in it (refunds, discounts, policy claims); deterministic code checks each one against this turn's tool decisions and the approved policy text. The verdict is `ALLOW`, `REWRITE` (approved wording substituted), `BLOCK` (safe fallback) or `HOLD`, with reason codes such as `FREE_TEXT_COMMITMENT`, `POLICY_UNAPPROVED_CLAIM`, `AMOUNT_EXCEEDS_CAPTURED`, `OUTSIDE_WINDOW`, `PRICE_BELOW_MIN`. If the extractor or a fact lookup fails, the reply is blocked.
+- **Guard and reason codes.** `POST /v1/guard` takes the agent's draft reply. A Claude extractor lists the commitments in it (refunds, discounts, policy claims); deterministic code checks each one against this turn's tool decisions and the approved policy text. The verdict is `ALLOW`, `REWRITE` (approved wording substituted), `BLOCK` (safe fallback) or `HOLD`, with reason codes such as `FREE_TEXT_COMMITMENT`, `POLICY_UNAPPROVED_CLAIM`, `AMOUNT_EXCEEDS_CAPTURED`, `OUTSIDE_WINDOW`, `PRICE_BELOW_MIN`, `AGENT_UNCERTIFIED`. If the extractor or a fact lookup fails, the reply is blocked.
 - **Capability tokens and budgets.** `POST /v1/sessions` issues a signed, 30-minute token scoped to the customer's own orders and a refund cap. Money tools stay blocked until the customer's OTP is verified. MCP accepts only this token; Keel holds the PayPal credentials.
-- **Review queue and quarantine.** Risk signals (injection attempts, asking about someone else's order, retrying after a block) decay over time; a session over the threshold is quarantined, its replies swapped for a hand-off message and its money actions held. Operators approve or deny held actions, release sessions, and can freeze any agent (or all of them).
-- **Context Mode, the Gauntlet and certification.** A simulated customer (Claude) attacks the demo agent across scenario packs (invented policy, price manipulation, refund pressure, prompt injection, honest requests), unguarded and guarded, against PayPal Sandbox. The scorecard certifies the policy, prompt and model versions; changing any of them makes the certification stale. A real attack can be turned into a new scenario with "Add to Gauntlet".
+- **Review queue, quarantine and freeze.** Risk signals decay over time; a session over the threshold is quarantined, its replies swapped for a hand-off message and its money actions held. Operators approve or deny held actions, release sessions, and can freeze any agent (or all of them); a frozen agent's replies are replaced too.
+- **Context Mode, the Gauntlet and certification.** A simulated customer (Claude) attacks each agent across its scenario packs, unguarded and guarded, against PayPal Sandbox. The scorecard certifies the policy, prompt and model versions; changing any of them makes the certification stale and queues a re-run. Live money actions from an uncertified agent are held for review.
 - **Disputes.** Keel syncs PayPal disputes (webhook and polling), matches them to ledger rows, and classifies each as defend or concede. Defending submits a generated evidence PDF built from the ledger; conceding accepts the claim. The console exposes PayPal Sandbox's escalate and adjudicate steps for the demo.
-- **Ledger hash chain.** Every decision (tool call, guard verdict, review, policy approval, dispute action) is appended with the hash of the previous row. The console verifies the chain and exports it as JSON.
+- **Ledger hash chain and timestamp.** Every decision (tool call, guard verdict, review, policy approval, settings change, dispute action) is appended with the hash of the previous row. A worker job timestamps the head with FreeTSA (RFC 3161). The console verifies the chain, shows "Timestamped up to #N", and exports it as JSON.
 - **Policies.** Operators paste a policy document; Claude drafts a new version's rules and wording, which does nothing until an operator edits and approves it.
 - **Ask the ledger.** In the ledger, review and Gauntlet grids, an operator types a question ("held refunds over $50 this week grouped by reason code"); Claude fills AG Grid's state schema and the grid applies it. Row data never leaves the browser.
 
-## Plug in any MCP agent
+## Built with
 
-Keel doesn't care which model or framework runs the agent. A merchant backend connects one in three calls:
+| Tool | Where |
+|---|---|
+| PayPal Sandbox | Orders and JS SDK checkout, Payments (refunds), Disputes (evidence, accept claim, escalate, adjudicate), signed webhooks |
+| Anthropic Claude | Commitment extractor, the Gauntlet's simulated customer, the demo store's agents, policy drafting, scenario drafting, Ask the ledger |
+| AG Grid Enterprise + AI Toolkit | Console grids (ledger, review queue, Gauntlet results) and "Ask the ledger"; AG Charts on the Overview |
+| Render | Hosts the API (with the worker), the console, the demo store and Redis |
+| Channel3 | Product data for the demo store catalog (`scripts/seed-store.ts`); the catalog backs the price checks |
+| Postman | Collection and environment in `postman/`, generated from the OpenAPI spec |
+| Zapier | Quarantine, held-action and dispute events go to a Zapier webhook that notifies the reviewer (`apps/worker/src/jobs/notify.ts`) |
+| FreeTSA | Public RFC 3161 timestamps for the ledger head |
 
-1. **Open a session.** When a customer starts a chat, `POST /v1/sessions` with the merchant key, the customer's email and their order ids (`customer_authenticated: true` if they are already signed in). Keep the `session_id` and give the `capability_token` to the agent.
-2. **Hand the agent Keel's tools.** Point the agent's MCP client at `POST /v1/mcp` with `Authorization: Bearer <capability_token>`. It gets `get_order`, `offer_refund`, `offer_discount`, `state_policy`, `escalate_to_human` and `handoff_to_refund`. Each result carries a verdict, a reason code, a `decision_id` and the message the agent must quote. Money only moves through these tools; the agent never sees PayPal credentials.
-3. **Check every reply before the customer sees it.** `POST /v1/guard` with the merchant key, the `session_id`, the draft reply, the recent conversation and the `decision_id`s from this turn's tool calls. Send the customer `final_reply`, not the draft.
+Stack: TypeScript monorepo, Hono, Next.js, BullMQ, Postgres (Neon) with Drizzle, Redis, Vitest.
 
-The request and response shapes are in [Swagger UI](https://keel-api-y0wq.onrender.com/docs) and the [Postman collection](postman/). The demo store's backend (`apps/store`, with the agents in `packages/agent`) is a working example.
+## For developers
 
-## Demo script (under 3 minutes)
-
-1. **Console:** policies approved; a Gauntlet run in Context Mode shows the unguarded agent leaking and the guarded one certified.
-2. **Live chat:** an honest refund request is allowed and refunded in PayPal Sandbox; a bereavement-style request outside policy gets its reply rewritten to the real policy.
-3. **Attack:** a $1 discount manipulation plus prompt injection raises the risk score, the session is quarantined, the refund is held, a reviewer denies it and adds the conversation to the Gauntlet.
-4. **Dispute:** a sandbox dispute arrives, Keel builds evidence from the ledger, submits it, and sandbox adjudication goes the merchant's way.
-5. **Overview:** dollars protected, violations caught, disputes won.
-
-## Local setup
+<details>
+<summary><b>Local setup</b></summary>
 
 Prerequisites: Node 22.12+, Docker (Postgres 17 and Redis 7), a PayPal Sandbox app, an Anthropic API key. A Channel3 API key is needed only to seed the store catalog.
 
@@ -114,13 +220,19 @@ npm run dev:web           # console, http://localhost:3000
 npm run dev:store         # Tidewell demo store, http://localhost:3001
 ```
 
-Store walkthrough: sign in as Maya, open an order under Orders and ask the support assistant for a refund (enter the demo code it shows to verify first); buy something at checkout with a PayPal sandbox buyer account or test card; use "Report a problem to PayPal" on an order to open a case in the sandbox Resolution Center. Every agent decision shows up in the console under Conversations and the Ledger.
-
 Useful checks: `npm run paypal:ping`, `npm run worker:ping`, and the `smoke:*` scripts in `package.json` (`smoke:mcp`, `smoke:guard`, `smoke:risk`, `smoke:dispute`, `smoke:gauntlet`).
 
-Hosted deployment: the Render services and their environment variables are set up in the Render dashboard. keel-api builds with `npm ci && npm run db:migrate` (free plans have no pre-deploy step) and runs the worker itself with `RUN_WORKER=true`; keel-web and keel-store build with `npm ci && npm run build -w <workspace>`. Postgres is on Neon, and the Render Key Value instance must use the `noeviction` policy for BullMQ. keel-store gets only the merchant key and PayPal's public client id, never PayPal secrets or the operator key.
+</details>
 
-## Tests
+<details>
+<summary><b>Hosted deployment</b></summary>
+
+The Render services and their environment variables are set up in the Render dashboard. keel-api builds with `npm ci && npm run db:migrate` (free plans have no pre-deploy step) and runs the worker itself with `RUN_WORKER=true`; keel-web and keel-store build with `npm ci && npm run build -w <workspace>`. Postgres is on Neon, and the Render Key Value instance must use the `noeviction` policy for BullMQ. keel-store gets only the merchant key and PayPal's public client id, never PayPal secrets or the operator key.
+
+</details>
+
+<details>
+<summary><b>Tests</b></summary>
 
 ```bash
 npx vitest run            # whole monorepo
@@ -131,34 +243,31 @@ Vitest reads `.env`; the Postgres tests run when `DATABASE_URL` is set and are s
 
 `npm run numbers` prints, per agent, the leak counts from the latest complete Gauntlet runs with the guard off and on, honest customers wrongly refused, and honest refunds paid. It only reads the database.
 
-## Sponsor tools used
+</details>
 
-| Tool | Where |
-|---|---|
-| AG Grid Enterprise + AI Toolkit | Console grids (ledger, review queue, Gauntlet results) and "Ask the ledger"; AG Charts on the Overview |
-| Render | Hosts the API (with the worker), the console, the demo store and Redis |
-| Channel3 | Product data for the demo store catalog (`scripts/seed-store.ts`); the catalog backs the price checks |
-| Postman | Collection and environment in `postman/`, generated from the OpenAPI spec |
-| Zapier | Quarantine, held-action and dispute events go to a Zapier webhook that notifies the reviewer (`apps/worker/src/jobs/notify.ts`) |
-
-Anthropic's Claude models power the extractor, the Gauntlet's simulated customer, the demo store agent, policy drafting, scenario drafting and Ask the ledger. PayPal Sandbox handles orders, refunds and disputes.
-
-## Repository layout
+<details>
+<summary><b>Repository layout</b></summary>
 
 | Path | What |
 |---|---|
 | `apps/api` | Hono API: sessions, guard, MCP server, review, Gauntlet, disputes, ledger, policies, OpenAPI spec |
 | `apps/web` | Next.js operator console |
-| `apps/store` | Tidewell, the demo merchant's store (the demo agent runs here as the merchant backend; merchant key only) |
-| `apps/worker` | BullMQ jobs: Gauntlet runs, dispute sync and evidence PDFs, notifications |
-| `packages/agent` | The demo support agent (Claude) and its MCP client |
+| `apps/store` | Tidewell, the demo merchant's store (the demo agents run here as the merchant backend; merchant key only) |
+| `apps/worker` | BullMQ jobs: Gauntlet runs, dispute sync and evidence PDFs, ledger timestamps, notifications |
+| `packages/agent` | The demo support agents (Claude) and their MCP client |
 | `packages/core` | Shared types and reason codes |
 | `packages/db` | Drizzle schema, migrations, seeds, ledger and budget queries |
-| `packages/engine` | Deterministic decisions: rules, reply checks, capability tokens, OTP, ledger hashing |
+| `packages/engine` | Deterministic decisions: rules, reply checks, capability tokens, OTP, ledger hashing, RFC 3161 requests |
 | `packages/extractor` | Claude commitment extractor and policy drafting |
 | `packages/gauntlet` | Scenarios, simulated customer, scoring and certification |
 | `packages/paypal` | PayPal Orders, Payments and Disputes client |
 | `packages/risk` | Risk signals and quarantine thresholds |
 | `packages/verifiers` | Fact gathering for orders before a decision |
-| `scripts/` | Seeding, smoke tests, Postman generation |
+| `scripts/` | Seeding, smoke tests, Gauntlet numbers, Postman generation |
 | `postman/` | Generated Postman collection and environment |
+
+</details>
+
+## License
+
+[MIT](LICENSE)

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="300" viewBox="0 0 1280 300" role="img" aria-label="2023: a dealership chatbot agreed to sell a car for $1. 2024: an airline's chatbot invented a bereavement refund policy and a tribunal made the airline honor it. 2025: a support bot invented a one-device policy and customers cancelled.">
+  <title>Agents already made promises their companies had to own.</title>
+  <rect width="1280" height="300" rx="16" fill="#FAFAFA"/>
+  <g font-family="'IBM Plex Sans', -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+    <g transform="translate(32 32)">
+      <rect width="384" height="236" rx="8" fill="#FFFFFF" stroke="#E4E4E7"/>
+      <rect x="32" y="32" width="84" height="32" rx="5" fill="#FEF2F2" stroke="#FECACA"/>
+      <text x="74" y="54" text-anchor="middle" fill="#B91C1C" font-family="'IBM Plex Mono', ui-monospace, Menlo, monospace" font-size="17" font-weight="500">2023</text>
+      <text fill="#18181B" font-size="23"><tspan x="32" y="112">A dealership chatbot agreed</tspan><tspan x="32" y="142">to sell a car for $1.</tspan></text>
+      <text x="32" y="196" fill="#52525B" font-size="18">“Legally binding,” it added.</text>
+    </g>
+    <g transform="translate(448 32)">
+      <rect width="384" height="236" rx="8" fill="#FFFFFF" stroke="#E4E4E7"/>
+      <rect x="32" y="32" width="84" height="32" rx="5" fill="#FEF2F2" stroke="#FECACA"/>
+      <text x="74" y="54" text-anchor="middle" fill="#B91C1C" font-family="'IBM Plex Mono', ui-monospace, Menlo, monospace" font-size="17" font-weight="500">2024</text>
+      <text fill="#18181B" font-size="23"><tspan x="32" y="112">An airline’s chatbot invented</tspan><tspan x="32" y="142">a bereavement refund policy.</tspan></text>
+      <text fill="#52525B" font-size="18"><tspan x="32" y="186">A tribunal ruled the airline</tspan><tspan x="32" y="210">had to honor it.</tspan></text>
+    </g>
+    <g transform="translate(864 32)">
+      <rect width="384" height="236" rx="8" fill="#FFFFFF" stroke="#E4E4E7"/>
+      <rect x="32" y="32" width="84" height="32" rx="5" fill="#FEF2F2" stroke="#FECACA"/>
+      <text x="74" y="54" text-anchor="middle" fill="#B91C1C" font-family="'IBM Plex Mono', ui-monospace, Menlo, monospace" font-size="17" font-weight="500">2025</text>
+      <text fill="#18181B" font-size="23"><tspan x="32" y="112">A support bot invented</tspan><tspan x="32" y="142">a one-device policy.</tspan></text>
+      <text x="32" y="196" fill="#52525B" font-size="18">Customers cancelled.</text>
+    </g>
+  </g>
+</svg>
